@@ -287,7 +287,7 @@ export const Card: React.FC<CardProps> = ({ card, isFaceUp, playerColorMap, loca
 
       {tooltipVisible && (isFaceUp || (!isFaceUp && localPlayerId === card.ownerId)) && (
         <Tooltip x={tooltipPos.x} y={tooltipPos.y}>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 text-left">
             <h3 className="text-lg font-bold border-b border-gray-600 pb-1">
               {card.name} - <span className="font-normal capitalize text-gray-400">{card.deck}</span>
             </h3>

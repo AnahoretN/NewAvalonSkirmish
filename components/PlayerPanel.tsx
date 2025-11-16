@@ -4,11 +4,11 @@
 
 // FIX: Corrected a typo in the import statement. `in` was replaced with `{ ... }` to properly import React hooks.
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import type { Player, DragItem, DropTarget, DeckType, PlayerColor, CustomDeckFile } from '../types';
+import type { Player, DragItem, DropTarget, DeckType, PlayerColor, CustomDeckFile, Card } from '../types';
 import { DeckType as DeckTypeEnum } from '../types';
 import { PLAYER_POSITIONS, PLAYER_COLOR_NAMES, PLAYER_COLORS } from '../constants';
 import { getSelectableDecks, getCardDefinition } from '../decks';
-import { Card } from './Card';
+import { Card as CardComponent } from './Card';
 
 /**
  * Props for the PlayerPanel component.
@@ -30,6 +30,7 @@ interface PlayerPanelProps {
   draggedItem: DragItem | null;
   setDraggedItem: (item: DragItem | null) => void;
   openContextMenu: (e: React.MouseEvent, type: 'handCard' | 'deckPile' | 'discardPile' | 'announcedCard', data: any) => void;
+  onHandCardDoubleClick: (player: Player, card: Card, cardIndex: number) => void;
   playerColorMap: Map<number, PlayerColor>;
   allPlayers: Player[];
   localPlayerTeamId?: number;
@@ -100,6 +101,7 @@ export const PlayerPanel: React.FC<PlayerPanelProps> = ({
   draggedItem,
   setDraggedItem,
   openContextMenu,
+  onHandCardDoubleClick,
   playerColorMap,
   allPlayers,
   localPlayerTeamId,
@@ -315,7 +317,7 @@ export const PlayerPanel: React.FC<PlayerPanelProps> = ({
                         className="w-full h-full"
                         data-interactive="true"
                     >
-                        <Card card={player.announcedCard} isFaceUp={true} playerColorMap={playerColorMap} localPlayerId={localPlayerId} />
+                        <CardComponent card={player.announcedCard} isFaceUp={true} playerColorMap={playerColorMap} localPlayerId={localPlayerId} />
                     </div>
                 )}
             </DropZone>
@@ -344,9 +346,10 @@ export const PlayerPanel: React.FC<PlayerPanelProps> = ({
                         openContextMenu(e, 'handCard', { card, player, cardIndex: index });
                     }
                 }}
+                onDoubleClick={() => onHandCardDoubleClick(player, card, index)}
                 data-interactive="true"
               >
-                  <Card
+                  <CardComponent
                       card={card}
                       isFaceUp={(() => {
                         const isRevealedToAll = card.revealedTo === 'all';

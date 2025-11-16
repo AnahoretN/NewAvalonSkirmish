@@ -22,6 +22,7 @@ interface GameBoardProps {
   highlight: { type: 'row' | 'col' | 'cell', row?: number, col?: number} | null;
   playerColorMap: Map<number, PlayerColor>;
   localPlayerId: number | null;
+  onCardDoubleClick: (card: CardType, boardCoords: { row: number; col: number }) => void;
 }
 
 /**
@@ -43,7 +44,8 @@ const GridCell: React.FC<{
   setPlayMode: GameBoardProps['setPlayMode'];
   playerColorMap: Map<number, PlayerColor>;
   localPlayerId: number | null;
-}> = ({ row, col, cell, isGameStarted, handleDrop, draggedItem, setDraggedItem, openContextMenu, playMode, setPlayMode, playerColorMap, localPlayerId }) => {
+  onCardDoubleClick: (card: CardType, boardCoords: { row: number; col: number }) => void;
+}> = ({ row, col, cell, isGameStarted, handleDrop, draggedItem, setDraggedItem, openContextMenu, playMode, setPlayMode, playerColorMap, localPlayerId, onCardDoubleClick }) => {
   const [isOver, setIsOver] = React.useState(false);
 
   /**
@@ -118,6 +120,7 @@ const GridCell: React.FC<{
           })}
           onDragEnd={() => setDraggedItem(null)}
           onContextMenu={(e) => openContextMenu(e, 'boardItem', { card: cell.card, boardCoords: { row, col }})}
+          onDoubleClick={() => onCardDoubleClick(cell.card!, { row, col })}
           className={`w-full h-full ${isGameStarted ? 'cursor-grab' : 'cursor-default'}`}
           data-interactive="true"
         >
@@ -158,7 +161,7 @@ const gridSizeClasses: { [key in GridSize]: string } = {
  * @param {GameBoardProps} props The properties for the component.
  * @returns {React.ReactElement} The rendered game board.
  */
-export const GameBoard: React.FC<GameBoardProps> = ({ board, isGameStarted, activeGridSize, handleDrop, draggedItem, setDraggedItem, openContextMenu, playMode, setPlayMode, highlight, playerColorMap, localPlayerId }) => {
+export const GameBoard: React.FC<GameBoardProps> = ({ board, isGameStarted, activeGridSize, handleDrop, draggedItem, setDraggedItem, openContextMenu, playMode, setPlayMode, highlight, playerColorMap, localPlayerId, onCardDoubleClick }) => {
   const totalSize = board.length;
   // Calculate the offset to center the active grid within the total board area.
   const offset = Math.floor((totalSize - activeGridSize) / 2);
@@ -243,6 +246,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({ board, isGameStarted, acti
                 setPlayMode={setPlayMode}
                 playerColorMap={playerColorMap}
                 localPlayerId={localPlayerId}
+                onCardDoubleClick={onCardDoubleClick}
               />
             )
           })

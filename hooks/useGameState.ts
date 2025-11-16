@@ -628,6 +628,23 @@ export const useGameState = () => {
   }, [updateState]);
   
   /**
+   * Flips a face-up card on the board to be face-down.
+   * @param {{ row: number; col: number }} boardCoords - The card's position.
+   */
+  const flipBoardCardFaceDown = useCallback((boardCoords: { row: number; col: number }) => {
+    updateState(currentState => {
+        if (!currentState.isGameStarted) return currentState;
+        const newState: GameState = JSON.parse(JSON.stringify(currentState));
+        const card = newState.board[boardCoords.row][boardCoords.col].card;
+        if (card) {
+            card.isFaceDown = true;
+        }
+        newState.board = recalculateBoardStatuses(newState);
+        return newState;
+    });
+  }, [updateState]);
+  
+  /**
    * Sets the reveal status of a card in a player's hand.
    * @param {number} playerId - The ID of the player owning the card.
    * @param {number} cardIndex - The index of the card in the hand.
@@ -951,6 +968,13 @@ export const useGameState = () => {
     updateState(currentState => {
       if (!currentState.isGameStarted) return currentState;
 
+      // Prevent tokens and counters from being moved to invalid locations.
+      const isToken = item.card.deck === DeckType.Tokens;
+      const isCounter = item.card.deck === 'counter';
+      if ((isToken || isCounter) && (targetInfo.target === 'hand' || targetInfo.target === 'deck')) {
+          return currentState; // Abort move, return original state.
+      }
+
       // Prevent dropping on an occupied board cell.
       if (targetInfo.target === 'board' && targetInfo.boardCoords) {
           const { row, col } = targetInfo.boardCoords;
@@ -975,10 +999,7 @@ export const useGameState = () => {
           }
       }
       
-      // NOTE: Using deep copy to ensure no direct state mutation. For larger states, a library like Immer would be more performant.
       const newState: GameState = JSON.parse(JSON.stringify(currentState));
-      const isToken = item.card.deck === DeckType.Tokens;
-      const isCounter = item.card.deck === 'counter';
       let boardWasModified = false;
       const allPlayers = newState.players;
       
@@ -1003,11 +1024,22 @@ export const useGameState = () => {
           sourcePlayer.hand.splice(item.cardIndex, 1);
       } else if (item.source === 'board' && item.boardCoords) {
           newState.board[item.boardCoords.row][item.boardCoords.col].card = null;
-          // Preserve non-board-specific statuses
+          // Preserve non-board-specific statuses when moving from board
           cardToMove.statuses = (cardToMove.statuses || []).filter(
               s => s.type !== 'Support' && s.type !== 'Threat' && s.type !== 'LastPlayed'
           );
-          cardToMove.isFaceDown = false; // Card is face up when returned to hand/deck
+
+          // If this card is going to hand, reset its face-down status for the next play.
+          if (targetInfo.target === 'hand') {
+              const hasRevealedStatus = cardToMove.statuses?.some(s => s.type === 'Revealed');
+              if (!hasRevealedStatus) {
+                  // If not revealed, it should be played face-down next time.
+                  cardToMove.isFaceDown = true;
+              } else {
+                  // If it IS revealed, it should be played face-up.
+                  cardToMove.isFaceDown = false;
+              }
+          }
           boardWasModified = true;
       } else if (item.source === 'discard' && sourcePlayer && item.cardIndex !== undefined) {
           sourcePlayer.discard.splice(item.cardIndex, 1);
@@ -1017,22 +1049,13 @@ export const useGameState = () => {
           sourcePlayer.announcedCard = null;
       }
       
-      // Augment card with ownerName if it has an ownerId
       if (cardToMove.ownerId !== undefined) {
           const owner = allPlayers.find(p => p.id === cardToMove.ownerId);
           cardToMove.ownerName = owner?.name;
       }
 
-      // Prevent tokens/counters from going to invalid locations.
-      if (isToken || isCounter) {
-          if (targetInfo.target === 'hand' || targetInfo.target === 'deck') {
-              return newState; // Abort move.
-          }
-      }
-      
-      // Counters are removed if they go to discard, but tokens are not.
-      if (isCounter && targetInfo.target === 'discard') {
-          // The item is effectively removed from the game. No need to add it to discard.
+      // Tokens and Counters are removed from the game if they go to discard.
+      if ((isToken || isCounter) && targetInfo.target === 'discard') {
           if (boardWasModified) {
               newState.board = recalculateBoardStatuses(newState);
           }
@@ -1046,18 +1069,15 @@ export const useGameState = () => {
 
       if (targetInfo.target === 'board' && targetInfo.boardCoords) {
           const { row, col } = targetInfo.boardCoords;
-           // Default to face down when dragging from hand, ONLY if isFaceDown isn't already explicitly set (e.g., by 'Play Face Up').
-          if (item.source === 'hand' && item.card.deck !== DeckType.Tokens && item.card.deck !== 'counter') {
-            if (cardToMove.isFaceDown === undefined) {
+           // Default to face down when dragging from hand for the first time
+           if (item.source === 'hand' && cardToMove.isFaceDown === undefined) {
                 cardToMove.isFaceDown = true;
-            }
-          }
+           }
           newState.board[row][col].card = cardToMove;
           boardWasModified = true;
 
           // --- "Last Played" Marker Logic ---
           if (localPlayerId !== null) {
-              // Determine the player whose resources are being used. This player's star will be updated.
               let sourceOwnerId: number | undefined;
               if (item.source === 'hand' || item.source === 'deck' || item.source === 'discard' || item.source === 'announced') {
                   sourceOwnerId = item.playerId;
@@ -1080,7 +1100,6 @@ export const useGameState = () => {
                       }
                   }
                   
-                  // Add the new 'LastPlayed' marker to the card being played.
                   if (!cardToMove.statuses) cardToMove.statuses = [];
                   cardToMove.statuses.unshift({ type: 'LastPlayed', addedByPlayerId: sourceOwnerId });
               }
@@ -1088,23 +1107,25 @@ export const useGameState = () => {
       } else {
           let targetPlayer = targetInfo.playerId ? newState.players.find(p => p.id === targetInfo.playerId) : null;
           if (targetPlayer) {
-              if (targetInfo.target === 'hand') targetPlayer.hand.push(cardToMove);
-              else if (targetInfo.target === 'deck') {
+              if (targetInfo.target === 'hand') {
+                targetPlayer.hand.push(cardToMove);
+              } else if (targetInfo.target === 'deck') {
                    if (targetInfo.deckPosition === 'bottom') {
                        targetPlayer.deck.unshift(cardToMove); // Add to the beginning (bottom)
                    } else {
                        targetPlayer.deck.push(cardToMove); // Add to the end (top)
                    }
-              }
-              else if (targetInfo.target === 'discard') targetPlayer.discard.push(cardToMove);
-              else if (targetInfo.target === 'announced') {
+              } else if (targetInfo.target === 'discard') {
+                // Cards entering the discard pile are always face-up.
+                cardToMove.isFaceDown = false;
+                targetPlayer.discard.push(cardToMove);
+              } else if (targetInfo.target === 'announced') {
                   cardToMove.isFaceDown = false;
                   targetPlayer.announcedCard = cardToMove;
               }
           }
       }
       
-      // Recalculate statuses if the board was changed.
       if (boardWasModified) {
           newState.board = recalculateBoardStatuses(newState);
       }
@@ -1168,6 +1189,7 @@ export const useGameState = () => {
     addAnnouncedCardStatus,
     removeAnnouncedCardStatus,
     flipBoardCard,
+    flipBoardCardFaceDown,
     revealHandCard,
     revealBoardCard,
     requestCardReveal,

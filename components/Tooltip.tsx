@@ -49,7 +49,7 @@ export const Tooltip: React.FC<TooltipProps> = ({ x, y, children }) => {
   return (
     <div
       ref={tooltipRef}
-      className="fixed bg-gray-900 border border-gray-700 rounded-md shadow-lg z-[110] p-3 text-white text-base pointer-events-none max-w-xs transition-opacity duration-100"
+      className="fixed bg-gray-900 border border-gray-700 rounded-md shadow-lg z-[110] p-3 text-white text-base pointer-events-none max-w-xs transition-opacity duration-100 text-left"
       style={{ top: position.top, left: position.left, opacity: 1 }}
     >
       {children}

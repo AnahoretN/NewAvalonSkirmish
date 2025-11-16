@@ -170,6 +170,7 @@ export default function App() {
     addAnnouncedCardStatus,
     removeAnnouncedCardStatus,
     flipBoardCard,
+    flipBoardCardFaceDown,
     revealHandCard,
     revealBoardCard,
     requestCardReveal,
@@ -298,6 +299,58 @@ export default function App() {
     setContextMenuProps({ x: e.clientX, y: e.clientY, type, data });
   };
   
+    /**
+     * Double-click handler for cards on the board.
+     * - Opens the detail view if the card is visible to the player.
+     * - Sends a reveal request if the card is face-down and belongs to an opponent.
+     */
+    const handleDoubleClickBoardCard = (card: Card, boardCoords: { row: number, col: number }) => {
+        const owner = card.ownerId ? gameState.players.find(p => p.id === card.ownerId) : undefined;
+        const isOwner = card.ownerId === localPlayerId;
+        const isRevealedByRequest = card.statuses?.some(s => s.type === 'Revealed' && s.addedByPlayerId === localPlayerId);
+        const isVisibleForMe = !card.isFaceDown || card.revealedTo === 'all' || (Array.isArray(card.revealedTo) && card.revealedTo.includes(localPlayerId!)) || isRevealedByRequest;
+
+        if (isVisibleForMe || isOwner) {
+            setViewingCard({ card, player: owner });
+        } else if (localPlayerId !== null) { // Not owner, not visible
+            requestCardReveal({ source: 'board', ownerId: card.ownerId!, boardCoords }, localPlayerId);
+        }
+    };
+
+    /**
+     * Double-click handler for cards in a player's hand.
+     * - For local player: Enters "play face down" mode.
+     * - For opponent: Opens detail view if visible, otherwise sends a reveal request.
+     */
+    const handleDoubleClickHandCard = (player: Player, card: Card, cardIndex: number) => {
+        if (player.id === localPlayerId) {
+            closeAllModals();
+            const sourceItem: DragItem = { card, source: 'hand', playerId: player.id, cardIndex };
+            setPlayMode({ card, sourceItem, faceDown: true });
+        } else if (localPlayerId !== null) {
+            const isRevealedToAll = card.revealedTo === 'all';
+            const isRevealedToMe = Array.isArray(card.revealedTo) && card.revealedTo.includes(localPlayerId);
+            const isRevealedByRequest = card.statuses?.some(s => s.type === 'Revealed' && s.addedByPlayerId === localPlayerId);
+            const isVisible = isRevealedToAll || isRevealedToMe || isRevealedByRequest || !!player.isDummy || !!player.isDisconnected;
+
+            if (isVisible) {
+                setViewingCard({ card, player });
+            } else {
+                requestCardReveal({ source: 'hand', ownerId: player.id, cardIndex }, localPlayerId);
+            }
+        }
+    };
+
+
+    /**
+     * Double-click handler for cards in the discard or deck view. Moves the card to the owner's hand.
+     */
+    const handleDoubleClickPileCard = (player: Player, card: Card, cardIndex: number, source: 'deck' | 'discard') => {
+        const sourceItem: DragItem = { card, source, playerId: player.id, cardIndex };
+        moveItem(sourceItem, { target: 'hand', playerId: player.id });
+    };
+
+
   /**
    * Handlers to open deck/discard modals, ensuring only one is open at a time.
    */
@@ -340,8 +393,12 @@ export default function App() {
         const isRevealedByRequest = card.statuses?.some(s => s.type === 'Revealed' && (s.addedByPlayerId === localPlayerId));
         const isVisible = !card.isFaceDown || card.revealedTo === 'all' || (Array.isArray(card.revealedTo) && card.revealedTo.includes(localPlayerId)) || isRevealedByRequest;
 
+        // --- Core Actions ---
         if (isVisible || (isOwner && card.isFaceDown)) {
             items.push({ label: 'View', isBold: true, onClick: () => setViewingCard({ card, player: owner }) });
+        }
+        if (isBoardItem && canControl && !card.isFaceDown) {
+            items.push({ label: 'Flip Face Down', onClick: () => flipBoardCardFaceDown(data.boardCoords) });
         }
 
         const sourceItem: DragItem = isBoardItem
@@ -351,7 +408,7 @@ export default function App() {
         const ownerId = card.ownerId;
         const isSpecialItem = card?.deck === DeckType.Tokens || card?.deck === 'counter';
         
-        // --- Reveal/Flip actions (Board only) ---
+        // --- Reveal Actions (Board only) ---
         if (isBoardItem) {
             if (canControl && card.isFaceDown) {
                 items.push({ label: 'Flip Face Up', isBold: true, onClick: () => flipBoardCard(data.boardCoords) });
@@ -369,7 +426,7 @@ export default function App() {
 
         // --- Movement actions (Owner or Dummy card only) ---
         if (canControl && isVisible) {
-            items.push({ label: 'To Hand', onClick: () => moveItem(sourceItem, { target: 'hand', playerId: ownerId }) });
+            items.push({ label: 'To Hand', disabled: isSpecialItem, onClick: () => moveItem(sourceItem, { target: 'hand', playerId: ownerId }) });
             if (ownerId) {
                 items.push({ label: 'To Discard', onClick: () => moveItem(sourceItem, { target: 'discard', playerId: ownerId }) });
                 items.push({ label: 'To Deck Top', disabled: isSpecialItem, onClick: () => moveItem(sourceItem, { target: 'deck', playerId: ownerId, deckPosition: 'top'}) });
@@ -495,7 +552,7 @@ export default function App() {
 
             // Movement Actions
             if (type === 'discardCard') {
-                items.push({ label: 'To Hand', onClick: () => moveItem(sourceItem, { target: 'hand', playerId: ownerId }) });
+                items.push({ label: 'To Hand', disabled: isSpecialItem, onClick: () => moveItem(sourceItem, { target: 'hand', playerId: ownerId }) });
             } else if (type === 'handCard') {
                 items.push({ label: 'To Discard', onClick: () => moveItem(sourceItem, { target: 'discard', playerId: ownerId }) });
             }
@@ -505,7 +562,7 @@ export default function App() {
                  items.push({ label: 'To Deck Bottom', disabled: isSpecialItem, onClick: () => moveItem(sourceItem, { target: 'deck', playerId: ownerId, deckPosition: 'bottom'}) });
             }
              if (type === 'deckCard') {
-                 items.push({ label: 'To Hand', onClick: () => moveItem(sourceItem, { target: 'hand', playerId: player.id }) });
+                 items.push({ label: 'To Hand', disabled: isSpecialItem, onClick: () => moveItem(sourceItem, { target: 'hand', playerId: player.id }) });
                  items.push({ label: 'To Discard', onClick: () => moveItem(sourceItem, { target: 'discard', playerId: player.id }) });
              }
         } 
@@ -537,7 +594,7 @@ export default function App() {
     });
     
     return <ContextMenu x={x} y={y} items={items} onClose={closeContextMenu} />;
-  }, [gameState, localPlayerId, moveItem, triggerHighlight, addBoardCardStatus, removeBoardCardStatus, addAnnouncedCardStatus, removeAnnouncedCardStatus, drawCard, shufflePlayerDeck, flipBoardCard, revealHandCard, revealBoardCard, requestCardReveal, removeRevealedStatus]);
+  }, [gameState, localPlayerId, moveItem, triggerHighlight, addBoardCardStatus, removeBoardCardStatus, addAnnouncedCardStatus, removeAnnouncedCardStatus, drawCard, shufflePlayerDeck, flipBoardCard, flipBoardCardFaceDown, revealHandCard, revealBoardCard, requestCardReveal, removeRevealedStatus]);
 
   // Effect to handle global clicks for closing the context menu.
   useEffect(() => {
@@ -677,6 +734,7 @@ export default function App() {
           highlight={highlight}
           playerColorMap={playerColorMap}
           localPlayerId={localPlayerId}
+          onCardDoubleClick={handleDoubleClickBoardCard}
         />
       </main>
       
@@ -708,6 +766,7 @@ export default function App() {
           draggedItem={draggedItem}
           setDraggedItem={setDraggedItem}
           openContextMenu={openContextMenu}
+          onHandCardDoubleClick={handleDoubleClickHandCard}
           playerColorMap={playerColorMap}
           allPlayers={gameState.players}
           localPlayerTeamId={localPlayer?.teamId}
@@ -761,6 +820,7 @@ export default function App() {
               cards={currentCards}
               setDraggedItem={setDraggedItem}
               onCardContextMenu={(e, cardIndex) => openContextMenu(e, 'discardCard', { card: currentCards[cardIndex], player: viewingDiscard.player, cardIndex })}
+              onCardDoubleClick={(cardIndex) => handleDoubleClickPileCard(viewingDiscard.player, currentCards[cardIndex], cardIndex, 'discard')}
               canInteract={(localPlayerId !== null && gameState.isGameStarted && (viewingDiscard.player.id === localPlayerId || !!viewingDiscard.player.isDummy))}
               playerColorMap={playerColorMap}
               localPlayerId={localPlayerId}
@@ -781,6 +841,7 @@ export default function App() {
               cards={currentCards}
               setDraggedItem={setDraggedItem}
               onCardContextMenu={(e, cardIndex) => openContextMenu(e, 'deckCard', { card: currentCards[cardIndex], player: viewingDeck, cardIndex })}
+              onCardDoubleClick={(cardIndex) => handleDoubleClickPileCard(viewingDeck, currentCards[cardIndex], cardIndex, 'deck')}
               canInteract={localPlayerId !== null && gameState.isGameStarted && (viewingDeck.id === localPlayerId || !!viewingDeck.isDummy)}
               isDeckView={true}
               playerColorMap={playerColorMap}
