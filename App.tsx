@@ -645,7 +645,7 @@ export default function App() {
             <button onClick={handleCreateGame} className={buttonClass}>
               Start Game
             </button>
-            <button onClick={handleOpenJoinModal} className={buttonClass.replace('bg-indigo-600 hover:bg-indigo-700', 'bg-gray-700 hover:bg-gray-600')}>
+            <button onClick={handleOpenJoinModal} className={buttonClass}>
               Join Game
             </button>
              <button onClick={() => setDeckBuilderOpen(true)} className={buttonClass}>

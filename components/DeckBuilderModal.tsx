@@ -5,9 +5,11 @@ import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import type { CustomDeckFile, CustomDeckCard, Player, Card } from '../types';
 import { DeckType } from '../types';
 import { getAllCards, getSelectableDecks, getCardDefinition, commandCardIds, deckFiles } from '../decks';
-import type { CardDefinition } from '../Decks/cards';
+// FIX: Corrected import path for CardDefinition type. It is exported from decks.ts.
+import type { CardDefinition } from '../decks';
 import { Card as CardComponent } from './Card';
 import { Tooltip } from './Tooltip';
+import { formatAbilityText } from '../utils/textFormatters';
 
 interface DeckBuilderModalProps {
   isOpen: boolean;
@@ -107,46 +109,6 @@ const validateDeckData = (data: any): { isValid: true, deckFile: CustomDeckFile 
     }
 
     return { isValid: true, deckFile: data as CustomDeckFile };
-};
-
-/**
- * Parses a single line of ability text for keywords.
- * @param {string} line - A single line of text.
- * @returns {React.ReactNodeArray} An array of React nodes with formatted text.
- */
-const formatLine = (line: string) => {
-    const keywords = {
-        bold: ['Support', 'Threat', 'Act', 'Pas', 'Trg'],
-        italic: ['Exploit', 'Aim', 'Stun', 'Shield'],
-    };
-    const parts = line.split(/(\s+|[.,:⇒()])/);
-    return parts.map((part, index) => {
-        if (!part) return null;
-        const cleanedPart = part.replace(/[.,:()]/g, '');
-        if (keywords.bold.includes(cleanedPart)) {
-            return <strong key={index} className="text-white">{part}</strong>;
-        }
-        if (keywords.italic.includes(cleanedPart)) {
-            return <em key={index} className="text-gray-300 not-italic font-semibold">{part}</em>;
-        }
-        return part;
-    });
-};
-
-
-/**
- * Parses and formats a card's ability text, supporting keywords and newlines.
- * @param {string} ability - The raw ability string.
- * @returns {React.ReactNode} A React node with formatted text.
- */
-const formatAbilityText = (ability: string) => {
-    if (!ability) return '';
-    return ability.split('\n').map((line, i) => (
-        <React.Fragment key={i}>
-            {i > 0 && <br />}
-            {formatLine(line)}
-        </React.Fragment>
-    ));
 };
 
 /**

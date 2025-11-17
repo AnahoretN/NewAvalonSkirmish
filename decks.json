@@ -1,35 +1,220 @@
-
 {
   "cardDatabase": {
-    "ipDeptAgent": { "name": "IP Dept Agent", "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763251487/samples/cloudinary-icon.png", "fallbackImage": "/images/cards/SYN_IP_DEPT_AGENT.png", "power": 1, "ability": "Place up to 1 stun counter on an adjacent card. \nThreat ⇒ Place 1 additional stun counter.", "flavorText": "Justice is not blind; it is a high-resolution optical sensor." },
-    "tacticalAgent": { "name": "Tactical Agent", "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763251487/samples/cloudinary-icon.png", "fallbackImage": "/images/cards/SYN_TACTICAL_AGENT.png", "power": 3, "ability": "Act: SС battlefield: Destroy SС if it has aim or an threat.", "flavorText": "Efficiency is the sincerest form of intimidation." },
-    "patrolAgent": { "name": "Patrol Agent", "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763251487/samples/cloudinary-icon.png", "fallbackImage": "/images/cards/SYN_PATROL_AGENT.png", "power": 2, "ability": "T: When this card gives points, you may move it to any free cell.", "flavorText": "They say the city never sleeps. We make sure it doesn't even blink." },
-    "riotAgent": { "name": "Riot Agent", "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763251487/samples/cloudinary-icon.png", "fallbackImage": "/images/cards/SYN_RIOT_AGENT.png", "power": 4, "ability": "Push an adjacent card 1 cell. Мay take its place. \nSupport ⇒ Place 1 counter counter on that card.", "flavorText": "Gatherings of more than two people are prohibited!" },
-    "threatAnalyst": { "name": "Threat Analyst", "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763251487/samples/cloudinary-icon.png", "fallbackImage": "/images/cards/SYN_THREAT_ANALYST.png", "power": 2, "ability": "Р: Cards with your exploit counter do not give points to opponents. \nSupport ⇒ Exploit. Threat ⇒ Exploit.", "flavorText": "Gatherings of more than two people are prohibited!" },
-    "recklessProvocateur": { "name": "Reckless Provocateur", "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763251487/samples/cloudinary-icon.png", "fallbackImage": "/images/cards/HOO_RECKLESS_PROVOCATEUR.png", "power": 2, "ability": "Push an adjacent card 1 cell. Мay take its place. If it is a Threat. ⇒ Provocation.", "flavorText": "'Come a little closer,' he whispered. 'I\\'ve got a surprise for you.'" },
-    "dataLiberator": { "name": "Data Liberator", "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763251487/samples/cloudinary-icon.png", "fallbackImage": "/images/cards/HOO_DATA_LIBERATOR.png", "power": 3, "ability": "P: Cards with your exploit counters give you points.\nSupport ⇒ Exploit.", "flavorText": "Information doesn't want to be free. It needs to be." },
-    "cautiousAvenger": { "name": "Cautious Avenger", "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763251487/samples/cloudinary-icon.png", "fallbackImage": "/images/cards/HOO_CAUTIOUS_AVENGER.png", "power": 2, "ability": "Destroy the selected card with an aim counter.\nSupport ⇒ Aim.", "flavorText": "Patience is a weapon. Vengeance is an art." },
-    "vigilantSpotter": { "name": "Vigilant Spotter", "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763251487/samples/cloudinary-icon.png", "fallbackImage": "/images/cards/HOO_VIGILANT_SPOTTER.png", "power": 1, "ability": "Each opponent reveals 1 card to you. \nT: Support ⇒ When an opponent plays the revealed cards, get 1 point." },
-    "inventiveMaker": { "name": "Inventive Maker", "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763251487/samples/cloudinary-icon.png", "fallbackImage": "/images/cards/HOO_INVENTIVE_MAKER.png", "power": 1, "ability": "Place the Recon Drone card in a free adjacent cell." },
-    "faber": { "name": "Faber", "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763251487/samples/cloudinary-icon.png", "fallbackImage": "/images/cards/OPT_FABER.png", "power": 1, "ability": "Place the Walking Turret card in a free adjacent cell.", "flavorText": "In the gilded halls of the Optimates, even the tools of war are works of art." },
-    "censor": { "name": "Censor", "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763251487/samples/cloudinary-icon.png", "fallbackImage": "/images/cards/OPT_CENSOR.png", "power": 2, "ability": "Threat ⇒ Exploit.\nSwap any exploit counters for stun counters." },
-    "princeps": { "name": "Princeps", "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763251487/samples/cloudinary-icon.png", "fallbackImage": "/images/cards/OPT_PRINCEPS.png", "power": 3, "ability": "Destroy the selected card with threat.\nSupport ⇒ Shield 1.", "flavorText": "Order is not requested. It is imposed." },
-    "immunis": { "name": "Immunis", "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763251487/samples/cloudinary-icon.png", "fallbackImage": "/images/cards/OPT_IMMUNIS.png", "power": 2, "ability": "Return an Optimate card from the discard pile to your hand." },
-    "centurion": { "name": "Centurion", "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763251487/samples/cloudinary-icon.png", "fallbackImage": "/images/cards/OPT_CENTURION.png", "power": 2, "ability": "Return a command card from the discard pile to your hand." },
-    "codeKeeper": { "name": "Code Keeper", "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763251487/samples/cloudinary-icon.png", "fallbackImage": "/images/cards/FUS_CODE_KEEPER.png", "power": 2, "ability": "Cards with your Exploit counter provide support to your cards and cannot pose a threat to them.", "flavorText": "The Signal is truth. All else is noise." },
-    "devoutSynthetic": { "name": "Devout Synthetic", "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763251487/samples/cloudinary-icon.png", "fallbackImage": "/images/cards/FUS_DEVOUT_SYNTHETIC.png", "power": 3, "ability": "Push an adjacent card 1 cell. May take its place.\nSupport ⇒ Destroy.", "flavorText": "Flesh is a bug. The Signal is the patch." },
-    "unwaveringIntegrator": { "name": "Unwavering Integrator", "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763251487/samples/cloudinary-icon.png", "fallbackImage": "/images/cards/FUS_UNWAVERING_INTEGRATOR.png", "power": 1, "ability": "Support ⇒ Exploit.\nGain 1 point for each of your Exploit tokens." },
-    "signalProphet": { "name": "Signal Prophet", "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763251487/samples/cloudinary-icon.png", "fallbackImage": "/images/cards/FUS_SIGNAL_PROPHET.png", "power": 2, "ability": "Move a card with your Exploit counter to a free cell in the row.\nSupport ⇒ Stun." },
-    "zealousMissionary": { "name": "Zealous Missionary", "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763251487/samples/cloudinary-icon.png", "fallbackImage": "/images/cards/FUS_ZEALOUS_MISSIONARY.png", "power": 2, "ability": "Exploit on each card with Threat.\nSupport ⇒ Exploit." },
-    "overwatch": { "name": "Overwatch", "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763251487/samples/cloudinary-icon.png", "fallbackImage": "/images/cards/CMD_OVERWATCH.png", "power": 0, "ability": "Aim. Each opponent reveals 1 card to you. If a player reveals an command card, you may draw 1 card." },
-    "repositioning": { "name": "Tactical Maneuver", "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763251487/samples/cloudinary-icon.png", "fallbackImage": "/images/cards/CMD_REPOSITIONING.png", "power": 0, "ability": "Move your card to a free cell in the row. If the card moved to support, then take 2 cards." },
-    "mobilization": { "name": "Mobilization", "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763251487/samples/cloudinary-icon.png", "fallbackImage": "/images/cards/CMD_MOBILIZATION.png", "power": 0, "ability": "Gain points in any diagonal, +2 for each of your support in it." },
-    "inspiration": { "name": "Inspiration", "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763251487/samples/cloudinary-icon.png", "fallbackImage": "/images/cards/CMD_INSPIRATION.png", "power": 0, "ability": "Remove any opponent's counters from your card. This card uses its ability." },
-    "dataInterception": { "name": "Data Interception", "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763251487/samples/cloudinary-icon.png", "fallbackImage": "/images/cards/CMD_DATA_INTERCEPTION.png", "power": 0, "ability": "Exploit. Reveal 1 card from any opponent for each exploit counter you have on the battlefield. If at least one command card is revealed in this way, draw 2 cards." }
+    "ipDeptAgent": {
+      "name": "IP Dept Agent",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253319/SYN_IP_DEPT_AGENT_mhwphu.png",
+      "fallbackImage": "/images/cards/SYN_IP_DEPT_AGENT.png",
+      "power": 2,
+      "ability": "Act: Place 1 stun on any card your cards threaten. Repeat this ability for each revealed card your opponent has in play.",
+      "flavorText": "- \"You've violated copyright. Open the door. We have a search warrant.\""
+    },
+    "tacticalAgent": {
+      "name": "Tactical Agent",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253342/SYN_TACTICAL_AGENT_xbb7i0.png",
+      "fallbackImage": "/images/cards/SYN_TACTICAL_AGENT.png",
+      "power": 3,
+      "ability": "Act: Destroy a card on the battlefield if it has a aim or threat.",
+      "flavorText": "- \"Nobody move! SynchroTech Security Service!\""
+    },
+    "patrolAgent": {
+      "name": "Patrol Agent",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253325/SYN_PATROL_AGENT_ioetlu.png",
+      "fallbackImage": "/images/cards/SYN_PATROL_AGENT.png",
+      "power": 2,
+      "ability": "Trg: When this card gives points, you may move it to any free cell.",
+      "flavorText": "They say the city never sleeps. We make sure it doesn't even blink."
+    },
+    "riotAgent": {
+      "name": "Riot Agent",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253337/SYN_RIOT_AGENT_jurf4t.png",
+      "fallbackImage": "/images/cards/SYN_RIOT_AGENT.png",
+      "power": 3,
+      "ability": "Support ⇒ Act: Place 1 stun on adjacent card. \nAct: Push an adjacent card 1 cell. Мay take its place.",
+      "flavorText": "- \"Gatherings of more than two people are prohibited!\""
+    },
+    "threatAnalyst": {
+      "name": "Threat Analyst",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253338/SYN_THREAT_ANALYST_sqnpgw.png",
+      "fallbackImage": "/images/cards/SYN_THREAT_ANALYST.png",
+      "power": 2,
+      "ability": "Support ⇒ Exploit. \nAct: Reveal a card in your opponents' hands for each card your opponents play with your exploit.",
+      "flavorText": "Gatherings of more than two people are prohibited!"
+    },
+    "recklessProvocateur": {
+      "name": "Reckless Provocateur",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253315/HOO_RECKLESS_PROVOCATEUR_hi7a9z.png",
+      "fallbackImage": "/images/cards/HOO_RECKLESS_PROVOCATEUR.png",
+      "power": 3,
+      "ability": "Int: From hand swap with another of your cards. \n1 stun on an adjacent card with a threat.",
+      "flavorText": "- \"Patience is a weapon. Vengeance is an art.\""
+    },
+    "dataLiberator": {
+      "name": "Data Liberator",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253317/HOO_DATA_LIBERATOR_lbtqa2.png",
+      "fallbackImage": "/images/cards/HOO_DATA_LIBERATOR.png",
+      "power": 2,
+      "ability": "Pas: Cards with your exploit counters give you points.\nSupport ⇒ Exploit.",
+      "flavorText": "- \"Information doesn't want to be free. It needs to be.\""
+    },
+    "cautiousAvenger": {
+      "name": "Cautious Avenger",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253309/HOO_CAUTIOUS_AVENGER_x4g4g3.png",
+      "fallbackImage": "/images/cards/HOO_CAUTIOUS_AVENGER.png",
+      "power": 2,
+      "ability": "Act: Destroy a card on the battlefield if it has a aim and no support. \nSupport ⇒ Aim.",
+      "flavorText": "- \"Patience is a weapon. Vengeance is an art.\""
+    },
+    "vigilantSpotter": {
+      "name": "Vigilant Spotter",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253311/HOO_VIGILANT_SPOTTER_eiephm.png",
+      "fallbackImage": "/images/cards/HOO_VIGILANT_SPOTTER.png",
+      "power": 1,
+      "ability": "Trg: When a revealed card ETB, aim at it and gain 1 point. \nSupport ⇒ Act: Reveal 2 cards in your opponents' hands.",
+      "flavorText": "- \"Patience is a weapon. Vengeance is an art.\""
+    },
+    "inventiveMaker": {
+      "name": "Inventive Maker",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253313/HOO_INVENTIVE_MAKER_uzrbg1.png",
+      "fallbackImage": "/images/cards/HOO_INVENTIVE_MAKER.png",
+      "power": 1,
+      "ability": "Act: Place the Recon Drone token in a free adjacent cell.",
+      "flavorText": "- \"Patience is a weapon. Vengeance is an art.\""
+    },
+    "faber": {
+      "name": "Faber",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253324/OPT_FABER_d7uxew.png",
+      "fallbackImage": "/images/cards/OPT_FABER.png",
+      "power": 1,
+      "ability": "Act: Place the Walking Turret card in a free adjacent cell.",
+      "flavorText": "In the gilded halls of the Optimates, even the tools of war are works of art."
+    },
+    "censor": {
+      "name": "Censor",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253321/OPT_CENSOR_wtxtc2.png",
+      "fallbackImage": "/images/cards/OPT_CENSOR.png",
+      "power": 2,
+      "ability": "Act: Exploit for any card with a threat.\nSwap any exploit for stun or aim.",
+      "flavorText": "In the gilded halls of the Optimates, even the tools of war are works of art."
+    },
+    "princeps": {
+      "name": "Princeps",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253332/OPT_PRINCEPS_w3o5lq.png",
+      "fallbackImage": "/images/cards/OPT_PRINCEPS.png",
+      "power": 3,
+      "ability": "Act: Destroy a card in a row if it has a target or threat. \nSupport ⇒ Shield 1.",
+      "flavorText": "Order is not requested. It is imposed."
+    },
+    "immunis": {
+      "name": "Immunis",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253327/OPT_IMMUNIS_bjlncl.png",
+      "fallbackImage": "/images/cards/OPT_IMMUNIS.png",
+      "power": 2,
+      "ability": "Act: Return Optimat from the discard pile to the adjacent cell. Activate his ability and he gets 2 stuns.",
+      "flavorText": "In the gilded halls of the Optimates, even the tools of war are works of art."
+    },
+    "centurion": {
+      "name": "Centurion",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253330/OPT_CENTURION_aaushl.png",
+      "fallbackImage": "/images/cards/OPT_CENTURION.png",
+      "power": 2,
+      "ability": "Trg: When you play a command, get 1 point for each card you have in the same row as that card.",
+      "flavorText": "In the gilded halls of the Optimates, even the tools of war are works of art."
+    },
+    "codeKeeper": {
+      "name": "Code Keeper",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253298/FUS_CODE_KEEPER_qotsym.png",
+      "fallbackImage": "/images/cards/FUS_CODE_KEEPER.png",
+      "power": 3,
+      "ability": "Act: Exploit each opponent's cards with a threat in the same row as that card.",
+      "flavorText": "The Signal is truth. All else is noise."
+    },
+    "devoutSynthetic": {
+      "name": "Devout Synthetic",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253305/FUS_DEVOUT_SYNTHETIC_bavg9k.png",
+      "fallbackImage": "/images/cards/FUS_DEVOUT_SYNTHETIC.png",
+      "power": 4,
+      "ability": "Act: Push an adjacent card 1 cell. May take its place.\nSupport ⇒ Destroy.",
+      "flavorText": "Flesh is a bug. The Signal is the patch."
+    },
+    "unwaveringIntegrator": {
+      "name": "Unwavering Integrator",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253303/FUS_UNWAVERING_INTEGRATOR_emret1.png",
+      "fallbackImage": "/images/cards/FUS_UNWAVERING_INTEGRATOR.png",
+      "power": 2,
+      "ability": "Support ⇒ Exploit.\nAct: Gain 1 point for each of your exploit counter.",
+      "flavorText": "The Signal is truth. All else is noise."
+    },
+    "signalProphet": {
+      "name": "Signal Prophet",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253299/FUS_SIGNAL_PROPHET_nzd7w3.png",
+      "fallbackImage": "/images/cards/FUS_SIGNAL_PROPHET.png",
+      "power": 3,
+      "ability": "Act: Exploit on every card you have with a support in the same row as that card.\nSupport ⇒ Exploit.",
+      "flavorText": "The Signal is truth. All else is noise."
+    },
+    "zealousMissionary": {
+      "name": "Zealous Missionary",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253301/FUS_ZEALOUS_MISSIONARY_mfv9xl.png",
+      "fallbackImage": "/images/cards/FUS_ZEALOUS_MISSIONARY.png",
+      "power": 2,
+      "ability": "Pas: Cards with your exploit counter provide support to your cards and cannot pose a threat to them.",
+      "flavorText": "The Signal is truth. All else is noise."
+    },
+    "overwatch": {
+      "name": "Overwatch",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253291/CMD_OVERWATCH_hrba9x.png",
+      "fallbackImage": "/images/cards/CMD_OVERWATCH.png",
+      "power": 0,
+      "ability": "Aim. Reveal one card from any opponent for each aim token you own. \nTake X cards, where X is the highest power of the revealed cards."
+    },
+    "repositioning": {
+      "name": "Tactical Maneuver",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253296/CMD_REPOSITIONING_m7k4kf.png",
+      "fallbackImage": "/images/cards/CMD_REPOSITIONING.png",
+      "power": 0,
+      "ability": "Move your card to a free cell in the row. \nIf the card moved to support, then take 2 cards."
+    },
+    "mobilization": {
+      "name": "Mobilization",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253294/CMD_MOBILIZATION_lkelbw.png",
+      "fallbackImage": "/images/cards/CMD_MOBILIZATION.png",
+      "power": 0,
+      "ability": "Gain points in any diagonal. \nFor each support in the diagonal, get 1 point and draw 1 card."
+    },
+    "inspiration": {
+      "name": "Inspiration",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763260942/CMD_INSPIRATION_nxifhu.png",
+      "fallbackImage": "/images/cards/CMD_INSPIRATION.png",
+      "power": 0,
+      "ability": "Remove any opponent's counters from your card. This card uses its ability. \nIf you removed at least 2 counters, take 2 cards."
+    },
+    "dataInterception": {
+      "name": "Data Interception",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253290/CMD_DATA_INTERCEPTION_ks4lcv.png",
+      "fallbackImage": "/images/cards/CMD_DATA_INTERCEPTION.png",
+      "power": 0,
+      "ability": "Exploit. Reveal one card from any opponent for each exploit token you own. \nIf at least one command card is revealed, draw 2 cards."
+    }
   },
   "tokenDatabase": {
-    "reconDrone": { "name": "Recon Drone", "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763251487/samples/cloudinary-icon.png", "fallbackImage": "/images/cards/TKN_RECON_DRONE.png", "power": 1, "ability": "P: When a command is played, you may move this card to any free cell.", "color": "bg-gray-400" },
-    "walkingTurret": { "name": "Walking Turret", "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763251487/samples/cloudinary-icon.png", "fallbackImage": "/images/cards/TKN_WALKING_TURRET.png", "power": 2, "ability": "Discard 2 ⇒ Shield 1.", "color": "bg-red-300" }
+    "reconDrone": {
+      "name": "Recon Drone",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253333/TKN_RECON_DRONE_esfknf.png",
+      "fallbackImage": "/images/cards/TKN_RECON_DRONE.png",
+      "power": 1,
+      "ability": "Trg: When a command is played, you may move this card to any free cell.",
+      "flavorText": "SynchroTech has created lightweight drones to patrol the streets, but the Hoods have other plans for them.",
+      "color": "bg-gray-400"
+    },
+    "walkingTurret": {
+      "name": "Walking Turret",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253307/TKN_WALKING_TURRET_uq6owm.png",
+      "fallbackImage": "/images/cards/TKN_WALKING_TURRET.png",
+      "power": 2,
+      "ability": "Act: Discard 2 ⇒ Shield 1.",
+      "flavorText": "This military monster clearly has no place on the city streets.",
+      "color": "bg-gray-400"
+    }
   },
   "deckFiles": [
     {
@@ -37,16 +222,46 @@
       "name": "SynchroTech",
       "isSelectable": true,
       "cards": [
-        { "cardId": "ipDeptAgent", "quantity": 2 },
-        { "cardId": "tacticalAgent", "quantity": 2 },
-        { "cardId": "patrolAgent", "quantity": 2 },
-        { "cardId": "riotAgent", "quantity": 2 },
-        { "cardId": "threatAnalyst", "quantity": 2 },
-        { "cardId": "overwatch", "quantity": 1 },
-        { "cardId": "repositioning", "quantity": 1 },
-        { "cardId": "mobilization", "quantity": 1 },
-        { "cardId": "inspiration", "quantity": 1 },
-        { "cardId": "dataInterception", "quantity": 1 }
+        {
+          "cardId": "ipDeptAgent",
+          "quantity": 2
+        },
+        {
+          "cardId": "tacticalAgent",
+          "quantity": 2
+        },
+        {
+          "cardId": "patrolAgent",
+          "quantity": 2
+        },
+        {
+          "cardId": "riotAgent",
+          "quantity": 2
+        },
+        {
+          "cardId": "threatAnalyst",
+          "quantity": 2
+        },
+        {
+          "cardId": "overwatch",
+          "quantity": 1
+        },
+        {
+          "cardId": "repositioning",
+          "quantity": 1
+        },
+        {
+          "cardId": "mobilization",
+          "quantity": 1
+        },
+        {
+          "cardId": "inspiration",
+          "quantity": 1
+        },
+        {
+          "cardId": "dataInterception",
+          "quantity": 1
+        }
       ]
     },
     {
@@ -54,16 +269,46 @@
       "name": "Hoods",
       "isSelectable": true,
       "cards": [
-        { "cardId": "recklessProvocateur", "quantity": 2 },
-        { "cardId": "dataLiberator", "quantity": 2 },
-        { "cardId": "cautiousAvenger", "quantity": 2 },
-        { "cardId": "vigilantSpotter", "quantity": 2 },
-        { "cardId": "inventiveMaker", "quantity": 2 },
-        { "cardId": "overwatch", "quantity": 1 },
-        { "cardId": "repositioning", "quantity": 1 },
-        { "cardId": "mobilization", "quantity": 1 },
-        { "cardId": "inspiration", "quantity": 1 },
-        { "cardId": "dataInterception", "quantity": 1 }
+        {
+          "cardId": "recklessProvocateur",
+          "quantity": 2
+        },
+        {
+          "cardId": "dataLiberator",
+          "quantity": 2
+        },
+        {
+          "cardId": "cautiousAvenger",
+          "quantity": 2
+        },
+        {
+          "cardId": "vigilantSpotter",
+          "quantity": 2
+        },
+        {
+          "cardId": "inventiveMaker",
+          "quantity": 2
+        },
+        {
+          "cardId": "overwatch",
+          "quantity": 1
+        },
+        {
+          "cardId": "repositioning",
+          "quantity": 1
+        },
+        {
+          "cardId": "mobilization",
+          "quantity": 1
+        },
+        {
+          "cardId": "inspiration",
+          "quantity": 1
+        },
+        {
+          "cardId": "dataInterception",
+          "quantity": 1
+        }
       ]
     },
     {
@@ -71,16 +316,46 @@
       "name": "Optimates",
       "isSelectable": true,
       "cards": [
-        { "cardId": "faber", "quantity": 2 },
-        { "cardId": "censor", "quantity": 2 },
-        { "cardId": "princeps", "quantity": 2 },
-        { "cardId": "immunis", "quantity": 2 },
-        { "cardId": "centurion", "quantity": 2 },
-        { "cardId": "overwatch", "quantity": 1 },
-        { "cardId": "repositioning", "quantity": 1 },
-        { "cardId": "mobilization", "quantity": 1 },
-        { "cardId": "inspiration", "quantity": 1 },
-        { "cardId": "dataInterception", "quantity": 1 }
+        {
+          "cardId": "faber",
+          "quantity": 2
+        },
+        {
+          "cardId": "censor",
+          "quantity": 2
+        },
+        {
+          "cardId": "princeps",
+          "quantity": 2
+        },
+        {
+          "cardId": "immunis",
+          "quantity": 2
+        },
+        {
+          "cardId": "centurion",
+          "quantity": 2
+        },
+        {
+          "cardId": "overwatch",
+          "quantity": 1
+        },
+        {
+          "cardId": "repositioning",
+          "quantity": 1
+        },
+        {
+          "cardId": "mobilization",
+          "quantity": 1
+        },
+        {
+          "cardId": "inspiration",
+          "quantity": 1
+        },
+        {
+          "cardId": "dataInterception",
+          "quantity": 1
+        }
       ]
     },
     {
@@ -88,16 +363,46 @@
       "name": "Fusion",
       "isSelectable": true,
       "cards": [
-        { "cardId": "codeKeeper", "quantity": 2 },
-        { "cardId": "devoutSynthetic", "quantity": 2 },
-        { "cardId": "unwaveringIntegrator", "quantity": 2 },
-        { "cardId": "signalProphet", "quantity": 2 },
-        { "cardId": "zealousMissionary", "quantity": 2 },
-        { "cardId": "overwatch", "quantity": 1 },
-        { "cardId": "repositioning", "quantity": 1 },
-        { "cardId": "mobilization", "quantity": 1 },
-        { "cardId": "inspiration", "quantity": 1 },
-        { "cardId": "dataInterception", "quantity": 1 }
+        {
+          "cardId": "codeKeeper",
+          "quantity": 2
+        },
+        {
+          "cardId": "devoutSynthetic",
+          "quantity": 2
+        },
+        {
+          "cardId": "unwaveringIntegrator",
+          "quantity": 2
+        },
+        {
+          "cardId": "signalProphet",
+          "quantity": 2
+        },
+        {
+          "cardId": "zealousMissionary",
+          "quantity": 2
+        },
+        {
+          "cardId": "overwatch",
+          "quantity": 1
+        },
+        {
+          "cardId": "repositioning",
+          "quantity": 1
+        },
+        {
+          "cardId": "mobilization",
+          "quantity": 1
+        },
+        {
+          "cardId": "inspiration",
+          "quantity": 1
+        },
+        {
+          "cardId": "dataInterception",
+          "quantity": 1
+        }
       ]
     }
   ]

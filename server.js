@@ -664,3 +664,33 @@ server.listen(PORT, () => {
     console.log(`Server started on http://localhost:${PORT}`);
     console.log('WebSocket is available on the same port (ws://).');
 });
+
+// --- Server Admin CLI ---
+console.log('Server admin CLI is active. Type "clear" and press Enter to reset all games.');
+
+process.stdin.on('data', (data) => {
+    const command = data.toString().trim().toLowerCase();
+
+    if (command === 'clear') {
+        console.log('Received "clear" command. Resetting all game sessions...');
+
+        // 1. Notify and disconnect all clients
+        wss.clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify({ type: 'ERROR', message: 'The server administrator has reset all active games. Please create or join a new game.' }));
+                client.terminate(); // Forcefully close the connection
+            }
+        });
+
+        // 2. Clear all in-memory game data
+        gameStates.clear();
+        clientGameMap.clear();
+        gameLogs.clear();
+
+        // 3. Clear any pending termination timers
+        gameTerminationTimers.forEach(timerId => clearTimeout(timerId));
+        gameTerminationTimers.clear();
+
+        console.log('All game sessions cleared. The server is ready for new games.');
+    }
+});
