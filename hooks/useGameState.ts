@@ -18,6 +18,7 @@ const GRID_MAX_SIZE = 7;
  * @returns {string} The WebSocket server URL.
  */
 const getWebSocketURL = () => {
+<<<<<<< HEAD
   // 1. Check for a user-defined custom URL.
   const customUrl = localStorage.getItem('custom_ws_url');
   if (customUrl && customUrl.trim() !== '') {
@@ -37,6 +38,29 @@ const getWebSocketURL = () => {
   }
   // For production (including when hosted on ngrok), it connects to the same host it's served from.
   return `${protocol}://${hostname}`;
+=======
+    // 🛑 ВРЕМЕННОЕ РЕШЕНИЕ ДЛЯ NGROK
+    // ВАЖНО: Вы должны постоянно ОБНОВЛЯТЬ этот адрес, если ngrok перезапускается.
+    // Протокол ДОЛЖЕН БЫТЬ 'wss' (WebSocket Secure), потому что ngrok дает HTTPS.
+    
+    return 'wss://platinocyanic-unsceptically-belia.ngrok-free.dev'; 
+    
+    
+    // --- ИСХОДНЫЙ (ЗАКОММЕНТИРОВАННЫЙ) КОД НИЖЕ ДЛЯ СПРАВКИ ---
+    
+    /*
+    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const hostname = window.location.hostname || 'localhost';
+    
+    if (window.location.port && window.location.port !== '80' && window.location.port !== '443' && window.location.hostname === 'localhost') {
+        // Старый код, который вы хотели использовать только для localhost
+        return 'wss://platinocyanic-unsceptically-belia.ngrok-free.dev';
+        // return `${protocol}://${hostname}:8080`;
+    }
+    // Старый код, который подключается к GitHub Pages, где нет сервера:
+    // return `${protocol}://${hostname}`;
+    */
+>>>>>>> bbb291fd7a214dcb210bad38eb1a48a43df061e9
 };
 
 
