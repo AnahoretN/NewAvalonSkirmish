@@ -1,3 +1,4 @@
+
 /**
  * @file Renders a modal for creating and editing custom decks.
  */
@@ -8,8 +9,7 @@ import { getAllCards, getSelectableDecks, getCardDefinition, commandCardIds, dec
 // FIX: Corrected import path for CardDefinition type. It is exported from decks.ts.
 import type { CardDefinition } from '../decks';
 import { Card as CardComponent } from './Card';
-import { Tooltip } from './Tooltip';
-import { formatAbilityText } from '../utils/textFormatters';
+import { Tooltip, CardTooltipContent } from './Tooltip';
 
 interface DeckBuilderModalProps {
   isOpen: boolean;
@@ -431,15 +431,7 @@ export const DeckBuilderModal: React.FC<DeckBuilderModalProps> = ({ isOpen, onCl
       </div>
       {tooltip && (
         <Tooltip x={tooltip.x} y={tooltip.y}>
-            <div className="flex flex-col gap-2 text-left">
-                <h3 className="text-lg font-bold border-b border-gray-600 pb-1">
-                {tooltip.cardDef.name}
-                </h3>
-                <div className="bg-gray-800 p-2 rounded">
-                    <p><strong className="text-indigo-400">Power:</strong> <strong>{tooltip.cardDef.power}</strong></p>
-                    <p className="mt-1"><strong className="text-indigo-400">Ability:</strong> <span className="text-gray-300">{formatAbilityText(tooltip.cardDef.ability)}</span></p>
-                </div>
-            </div>
+            <CardTooltipContent card={{...tooltip.cardDef, id: 'tooltip', deck: DeckType.Command}} />
         </Tooltip>
       )}
       {contextMenu && <ContextMenu {...contextMenu} />}

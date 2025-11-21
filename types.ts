@@ -53,6 +53,7 @@ export interface Card {
   imageUrl: string; // The primary Cloudinary URL.
   fallbackImage: string; // The local fallback image path.
   power: number;
+  powerModifier?: number; // Adjustment to the base power.
   ability: string;
   flavorText?: string;
   color?: string; // Used for counters or simple tokens to define their display color.
@@ -61,6 +62,7 @@ export interface Card {
   statuses?: CardStatus[]; // Status effects applied to the card on the board.
   isFaceDown?: boolean; // True if the card is played face-down on the board.
   revealedTo?: 'all' | number[]; // Defines who can see this card when it's in hand or face-down.
+  types?: string[]; // The types associated with the card (e.g. ["Unit", "SynchroTech"], ["Command"]).
 }
 
 /**
@@ -119,6 +121,16 @@ export interface RevealRequest {
     cardIdentifiers: CardIdentifier[];
 }
 
+/**
+ * Data structure for sharing board highlights between players.
+ */
+export interface HighlightData {
+    type: 'row' | 'col' | 'cell';
+    row?: number;
+    col?: number;
+    playerId: number;
+    timestamp: number; // Ensures unique events for consecutive clicks
+}
 
 /**
  * Represents the complete state of the game at any given moment.
@@ -146,6 +158,8 @@ export interface DragItem {
   playerId?: number; // The ID of the player who owns the source location (hand, deck, etc.).
   boardCoords?: { row: number; col: number }; // Original coordinates if dragged from the board.
   cardIndex?: number; // Original index if dragged from an array (hand, discard, deck).
+  statusType?: string; // For counters: the type of status (e.g., 'Aim', 'Power+')
+  count?: number; // For counters: how many are being dragged/applied
 }
 
 /**

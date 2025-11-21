@@ -12,6 +12,7 @@ interface CardDetailModalProps {
   onClose: () => void;
   statusDescriptions: Record<string, string>;
   allPlayers: Player[];
+  imageRefreshVersion?: number;
 }
 
 /**
@@ -19,16 +20,27 @@ interface CardDetailModalProps {
  * @param {CardDetailModalProps} props The properties for the component.
  * @returns {React.ReactElement} The rendered modal.
  */
-export const CardDetailModal: React.FC<CardDetailModalProps> = ({ card, ownerPlayer, onClose, statusDescriptions, allPlayers }) => {
+export const CardDetailModal: React.FC<CardDetailModalProps> = ({ card, ownerPlayer, onClose, statusDescriptions, allPlayers, imageRefreshVersion }) => {
   const [currentImageSrc, setCurrentImageSrc] = useState(card.imageUrl);
 
   useEffect(() => {
-    setCurrentImageSrc(card.imageUrl);
-  }, [card.imageUrl]);
+    let src = card.imageUrl;
+    if (imageRefreshVersion && src) {
+        const separator = src.includes('?') ? '&' : '?';
+        src = `${src}${separator}v=${imageRefreshVersion}`;
+    }
+    setCurrentImageSrc(src);
+  }, [card.imageUrl, imageRefreshVersion]);
 
   const handleImageError = () => {
-    if (currentImageSrc !== card.fallbackImage) {
-      setCurrentImageSrc(card.fallbackImage);
+    let fallback = card.fallbackImage;
+    if (imageRefreshVersion && fallback) {
+        const separator = fallback.includes('?') ? '&' : '?';
+        fallback = `${fallback}${separator}v=${imageRefreshVersion}`;
+    }
+
+    if (currentImageSrc !== fallback) {
+      setCurrentImageSrc(fallback);
     }
   };
     
@@ -42,8 +54,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({ card, ownerPla
     return `Team ${ownerPlayer.teamId}`;
   }, [ownerPlayer]);
 
-  // FIX: Explicitly typed the `statusGroups` variable to ensure its type is inferred correctly
-  // by `Object.entries`, resolving the "Property 'length' does not exist on type 'unknown'" error.
+  // Aggregate statuses by type
   const statusGroups: Record<string, number[]> = (card.statuses ?? []).reduce(
     (acc, status) => {
       if (!acc[status.type]) {
@@ -71,7 +82,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({ card, ownerPla
             {/* Title & Deck */}
             <div>
                 <h2 className="text-4xl font-bold">{card.name}</h2>
-                <p className="text-lg text-gray-400 capitalize">{card.deck} Card</p>
+                <p className="text-lg text-gray-400 capitalize">{card.types?.join(", ") || `${card.deck} Card`}</p>
             </div>
             
             {/* Core Stats */}
@@ -93,22 +104,35 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({ card, ownerPla
                 <div className="bg-gray-900 p-4 rounded-lg">
                     <h3 className="text-indigo-400 text-lg font-bold mb-2">Statuses</h3>
                     <ul className="space-y-2 text-sm">
-                        {Object.entries(statusGroups).map(([type, owners]) => (
-                             <li key={type}>
-                                <strong className="text-gray-200">{type} (x{owners.length})</strong>
-                                <p className="text-gray-400 text-xs pl-2">{statusDescriptions[type] || 'No description available.'}</p>
-                            </li>
-                        ))}
+                        {Object.entries(statusGroups).map(([type, owners]) => {
+                             // Calculate counts per player
+                             const playerCounts = owners.reduce((acc, playerId) => {
+                                 acc[playerId] = (acc[playerId] || 0) + 1;
+                                 return acc;
+                             }, {} as Record<number, number>);
+
+                             const breakdown = Object.entries(playerCounts).map(([pid, count]) => {
+                                 const pName = allPlayers.find(p => p.id === Number(pid))?.name || `Player ${pid}`;
+                                 return `${pName} (x${count})`;
+                             }).join(', ');
+
+                             return (
+                                 <li key={type}>
+                                    <strong className="text-gray-200">{type}</strong> <span className="text-gray-400 text-xs ml-1">- {breakdown}</span>
+                                    <p className="text-gray-400 text-xs pl-2 mt-0.5">{statusDescriptions[type] || 'No description available.'}</p>
+                                </li>
+                            );
+                        })}
                     </ul>
                 </div>
             )}
             
             {/* Flavor Text */}
             {card.flavorText && (
-                <details className="bg-gray-900 p-4 rounded-lg">
-                    <summary className="cursor-pointer text-indigo-400 font-semibold">Flavor Text</summary>
-                    <p className="italic text-gray-400 mt-2">{card.flavorText?.split('\n').map((line, i) => <React.Fragment key={i}>{i > 0 && <br />}{line}</React.Fragment>)}</p>
-                </details>
+                <div className="bg-gray-900 p-4 rounded-lg">
+                    <h3 className="text-indigo-400 font-bold mb-1">Flavor Text</h3>
+                    <p className="italic text-gray-400">{card.flavorText?.split('\n').map((line, i) => <React.Fragment key={i}>{i > 0 && <br />}{line}</React.Fragment>)}</p>
+                </div>
             )}
 
             <button onClick={onClose} className="mt-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded self-end">

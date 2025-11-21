@@ -3,8 +3,9 @@
  */
 
 import React from 'react';
-import type { Board, GridSize, DragItem, DropTarget, Card as CardType, Player, PlayerColor } from '../types';
+import type { Board, GridSize, DragItem, DropTarget, Card as CardType, Player, PlayerColor, HighlightData } from '../types';
 import { Card } from './Card';
+import { PLAYER_COLORS } from '../constants';
 
 /**
  * Props for the GameBoard component.
@@ -16,13 +17,17 @@ interface GameBoardProps {
   handleDrop: (item: DragItem, target: DropTarget) => void;
   draggedItem: DragItem | null;
   setDraggedItem: (item: DragItem | null) => void;
-  openContextMenu: (e: React.MouseEvent, type: 'boardItem', data: any) => void;
+  openContextMenu: (e: React.MouseEvent, type: 'boardItem' | 'emptyBoardCell', data: any) => void;
   playMode: { card: CardType; sourceItem: DragItem; faceDown?: boolean } | null;
   setPlayMode: (mode: null) => void;
-  highlight: { type: 'row' | 'col' | 'cell', row?: number, col?: number} | null;
+  highlight: HighlightData | null;
   playerColorMap: Map<number, PlayerColor>;
   localPlayerId: number | null;
   onCardDoubleClick: (card: CardType, boardCoords: { row: number; col: number }) => void;
+  onEmptyCellDoubleClick: (boardCoords: { row: number, col: number }) => void;
+  imageRefreshVersion?: number;
+  cursorStack: { type: string; count: number } | null;
+  setCursorStack: (stack: null) => void;
 }
 
 /**
@@ -45,7 +50,11 @@ const GridCell: React.FC<{
   playerColorMap: Map<number, PlayerColor>;
   localPlayerId: number | null;
   onCardDoubleClick: (card: CardType, boardCoords: { row: number; col: number }) => void;
-}> = ({ row, col, cell, isGameStarted, handleDrop, draggedItem, setDraggedItem, openContextMenu, playMode, setPlayMode, playerColorMap, localPlayerId, onCardDoubleClick }) => {
+  onEmptyCellDoubleClick: (boardCoords: { row: number, col: number }) => void;
+  imageRefreshVersion?: number;
+  cursorStack: GameBoardProps['cursorStack'];
+  setCursorStack: GameBoardProps['setCursorStack'];
+}> = ({ row, col, cell, isGameStarted, handleDrop, draggedItem, setDraggedItem, openContextMenu, playMode, setPlayMode, playerColorMap, localPlayerId, onCardDoubleClick, onEmptyCellDoubleClick, imageRefreshVersion, cursorStack, setCursorStack }) => {
   const [isOver, setIsOver] = React.useState(false);
 
   /**
@@ -61,7 +70,7 @@ const GridCell: React.FC<{
   };
   
   /**
-   * Handles click events on the cell, specifically for "Play Mode".
+   * Handles click events on the cell, specifically for "Play Mode" or "Cursor Stack Mode".
    */
   const handleClick = () => {
     if (playMode) {
@@ -73,6 +82,15 @@ const GridCell: React.FC<{
       itemToDrop.card.isFaceDown = !!playMode.faceDown;
       handleDrop(itemToDrop, { target: 'board', boardCoords: { row, col } });
       setPlayMode(null);
+    } else if (cursorStack && cell.card) {
+        // Handle applying the cursor stack
+        handleDrop({
+            card: { id: `stack`, deck: 'counter', name: '', imageUrl: '', fallbackImage: '', power: 0, ability: '' }, // Dummy
+            source: 'counter_panel',
+            statusType: cursorStack.type,
+            count: cursorStack.count
+        }, { target: 'board', boardCoords: { row, col }});
+        setCursorStack(null);
     }
   };
 
@@ -82,7 +100,9 @@ const GridCell: React.FC<{
    */
   const onDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    if (!cell.card) {
+    // Can drop if empty OR if we are dragging a counter onto a card
+    const isCounter = draggedItem?.source === 'counter_panel';
+    if (!cell.card || (cell.card && isCounter)) {
         setIsOver(true);
     }
   };
@@ -95,12 +115,15 @@ const GridCell: React.FC<{
   };
 
   const isInPlayMode = !!playMode;
+  const isStackMode = !!cursorStack;
   const isOccupied = !!cell.card;
   const baseClasses = "w-full h-full rounded-lg transition-colors duration-200 flex items-center justify-center";
-  const canDrop = !!draggedItem && !isOccupied;
+  
+  const canDrop = !!draggedItem && (!isOccupied || (isOccupied && draggedItem.source === 'counter_panel'));
   const canPlay = isInPlayMode && !isOccupied;
+  const canStack = isStackMode && isOccupied;
 
-  const cellClasses = `bg-board-cell-active ${isOver && canDrop ? 'bg-indigo-400 opacity-80' : ''} ${canPlay ? 'cursor-pointer ring-2 ring-green-400' : ''} ${isInPlayMode && isOccupied ? 'cursor-not-allowed' : ''}`;
+  const cellClasses = `bg-board-cell-active ${isOver && canDrop ? 'bg-indigo-400 opacity-80' : ''} ${canPlay ? 'cursor-pointer ring-2 ring-green-400' : ''} ${canStack ? 'cursor-pointer ring-2 ring-yellow-400' : ''} ${isInPlayMode && isOccupied ? 'cursor-not-allowed' : ''}`;
 
   return (
     <div
@@ -108,7 +131,18 @@ const GridCell: React.FC<{
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onClick={handleClick}
+      onContextMenu={(e) => {
+          if (!cell.card) {
+              openContextMenu(e, 'emptyBoardCell', { boardCoords: { row, col }});
+          }
+      }}
+      onDoubleClick={() => {
+        if (!cell.card) {
+            onEmptyCellDoubleClick({ row, col });
+        }
+      }}
       className={`${baseClasses} ${cellClasses}`}
+      data-interactive={!cell.card}
     >
       {cell.card && (
         <div
@@ -120,7 +154,15 @@ const GridCell: React.FC<{
           })}
           onDragEnd={() => setDraggedItem(null)}
           onContextMenu={(e) => openContextMenu(e, 'boardItem', { card: cell.card, boardCoords: { row, col }})}
-          onDoubleClick={() => onCardDoubleClick(cell.card!, { row, col })}
+          onDoubleClick={(e) => {
+              e.stopPropagation();
+              // Prevent double click view if we are in stack mode
+              if (!cursorStack) {
+                  onCardDoubleClick(cell.card!, { row, col });
+              } else {
+                  handleClick(); // Trigger the stack application
+              }
+          }}
           className={`w-full h-full ${isGameStarted ? 'cursor-grab' : 'cursor-default'}`}
           data-interactive="true"
         >
@@ -138,6 +180,7 @@ const GridCell: React.FC<{
               })()}
               playerColorMap={playerColorMap}
               localPlayerId={localPlayerId}
+              imageRefreshVersion={imageRefreshVersion}
             />
         </div>
       )}
@@ -161,7 +204,7 @@ const gridSizeClasses: { [key in GridSize]: string } = {
  * @param {GameBoardProps} props The properties for the component.
  * @returns {React.ReactElement} The rendered game board.
  */
-export const GameBoard: React.FC<GameBoardProps> = ({ board, isGameStarted, activeGridSize, handleDrop, draggedItem, setDraggedItem, openContextMenu, playMode, setPlayMode, highlight, playerColorMap, localPlayerId, onCardDoubleClick }) => {
+export const GameBoard: React.FC<GameBoardProps> = ({ board, isGameStarted, activeGridSize, handleDrop, draggedItem, setDraggedItem, openContextMenu, playMode, setPlayMode, highlight, playerColorMap, localPlayerId, onCardDoubleClick, onEmptyCellDoubleClick, imageRefreshVersion, cursorStack, setCursorStack }) => {
   const totalSize = board.length;
   // Calculate the offset to center the active grid within the total board area.
   const offset = Math.floor((totalSize - activeGridSize) / 2);
@@ -177,8 +220,14 @@ export const GameBoard: React.FC<GameBoardProps> = ({ board, isGameStarted, acti
   const HighlightContent = () => {
     if (!highlight) return null;
 
-    const { type, row, col } = highlight;
-    const baseClasses = "outline outline-[5px] outline-yellow-400 rounded-lg";
+    const { type, row, col, playerId } = highlight;
+    
+    // Determine the outline color based on the initiating player ID
+    const playerColor = playerColorMap.get(playerId);
+    // Default to yellow if player not found, otherwise use the player's outline class
+    const outlineClass = playerColor ? PLAYER_COLORS[playerColor].outline : 'outline-yellow-400';
+
+    const baseClasses = `outline outline-[8px] ${outlineClass} rounded-lg`;
 
     // Highlight a row
     if (type === 'row' && row !== undefined && row >= offset && row < offset + activeGridSize) {
@@ -224,7 +273,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({ board, isGameStarted, acti
   };
 
   return (
-    <div className={`relative p-2 bg-board-bg rounded-xl shadow-2xl h-full aspect-square transition-all duration-300 ${playMode ? 'ring-4 ring-green-500 shadow-green-500/50' : ''}`}>
+    <div className={`relative p-2 bg-board-bg rounded-xl shadow-2xl h-full aspect-square transition-all duration-300 ${playMode ? 'ring-4 ring-green-500 shadow-green-500/50' : ''} ${cursorStack ? 'ring-4 ring-yellow-500 shadow-yellow-500/50' : ''}`}>
       {/* Main content grid */}
       <div className={`grid ${gridSizeClasses[activeGridSize]} gap-0.5 h-full w-full`}>
         {activeBoard.map((rowItems, rowIndex) =>
@@ -247,6 +296,10 @@ export const GameBoard: React.FC<GameBoardProps> = ({ board, isGameStarted, acti
                 playerColorMap={playerColorMap}
                 localPlayerId={localPlayerId}
                 onCardDoubleClick={onCardDoubleClick}
+                onEmptyCellDoubleClick={onEmptyCellDoubleClick}
+                imageRefreshVersion={imageRefreshVersion}
+                cursorStack={cursorStack}
+                setCursorStack={setCursorStack}
               />
             )
           })

@@ -2,22 +2,25 @@
  * @file This is the root component of the application, orchestrating the entire UI and game state.
  */
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useLayoutEffect } from 'react';
 import { GameBoard } from './components/GameBoard';
 import { PlayerPanel } from './components/PlayerPanel';
 import { Header } from './components/Header';
 import { JoinGameModal } from './components/JoinGameModal';
 import { DiscardModal } from './components/DiscardModal';
 import { TokensModal } from './components/TokensModal';
+import { CountersModal } from './components/CountersModal';
 import { TeamAssignmentModal } from './components/TeamAssignmentModal';
 import { ReadyCheckModal } from './components/ReadyCheckModal';
 import { CardDetailModal } from './components/CardDetailModal';
 import { RevealRequestModal } from './components/RevealRequestModal';
 import { DeckBuilderModal } from './components/DeckBuilderModal';
 import { SettingsModal } from './components/SettingsModal';
+import { RulesModal } from './components/RulesModal';
 import { useGameState } from './hooks/useGameState';
-import type { Player, Card, DragItem, DropTarget, PlayerColor, CardStatus, CustomDeckFile } from './types';
+import type { Player, Card, DragItem, DropTarget, PlayerColor, CardStatus, CustomDeckFile, HighlightData } from './types';
 import { DeckType, GameMode } from './types';
+import { STATUS_ICONS, STATUS_DESCRIPTIONS } from './constants';
 
 /**
  * Defines the different types of items that can appear in a context menu.
@@ -45,17 +48,6 @@ interface ContextMenuProps {
   items: ContextMenuItem[];
   onClose: () => void;
 }
-
-const STATUS_DESCRIPTIONS: Record<string, string> = {
-    'Support': 'Provides support to adjacent friendly cards, often enabling bonus effects.',
-    'Threat': 'Is threatened by adjacent enemy cards, which can also enable bonus effects for the opponent.',
-    'Aim': 'Marks a card as a target for abilities. Often used for destruction or high-impact effects.',
-    'Exploit': 'Represents a data breach or vulnerability. Can be used to score points or trigger negative effects.',
-    'Stun': 'The card cannot perform actions (like moving or using abilities) on its next turn.',
-    'Shield': 'Absorbs a certain amount of damage or one negative effect before being removed.',
-    'Revealed': 'This card has been revealed to one or more specific players upon request.',
-    'LastPlayed': 'Indicates the last card played by a player.',
-};
 
 /**
  * A generic context menu component that displays a list of actions at a specific screen position.
@@ -128,7 +120,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }) => {
 type ContextMenuParams = {
   x: number;
   y: number;
-  type: 'boardItem' | 'handCard' | 'discardCard' | 'deckPile' | 'discardPile' | 'token_panel_item' | 'deckCard' | 'announcedCard';
+  type: 'boardItem' | 'handCard' | 'discardCard' | 'deckPile' | 'discardPile' | 'token_panel_item' | 'deckCard' | 'announcedCard' | 'emptyBoardCell';
   data: any; // Context-specific data (e.g., card, player, coordinates).
 }
 
@@ -168,8 +160,10 @@ export default function App() {
     shufflePlayerDeck,
     addBoardCardStatus,
     removeBoardCardStatus,
+    modifyBoardCardPower,
     addAnnouncedCardStatus,
     removeAnnouncedCardStatus,
+    modifyAnnouncedCardPower,
     flipBoardCard,
     flipBoardCardFaceDown,
     revealHandCard,
@@ -181,6 +175,8 @@ export default function App() {
     resetGame,
     toggleActiveTurnPlayer,
     forceReconnect,
+    triggerHighlight,
+    latestHighlight,
   } = useGameState();
 
   // State for managing UI modals.
@@ -188,11 +184,18 @@ export default function App() {
   const [isDeckBuilderOpen, setDeckBuilderOpen] = useState(false);
   const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
   const [isTokensModalOpen, setTokensModalOpen] = useState(false);
+  const [isCountersModalOpen, setCountersModalOpen] = useState(false);
+  const [isRulesModalOpen, setRulesModalOpen] = useState(false);
   const [tokensModalAnchor, setTokensModalAnchor] = useState<{ top: number; left: number } | null>(null);
+  const [countersModalAnchor, setCountersModalAnchor] = useState<{ top: number; left: number } | null>(null);
   const [isTeamAssignOpen, setTeamAssignOpen] = useState(false);
   const [viewingDiscard, setViewingDiscard] = useState<{ player: Player } | null>(null);
   const [viewingDeck, setViewingDeck] = useState<Player | null>(null);
   const [viewingCard, setViewingCard] = useState<{ card: Card; player?: Player } | null>(null);
+  const [isListMode, setIsListMode] = useState(true);
+  
+  // State for forcing image refreshes
+  const [imageRefreshVersion, setImageRefreshVersion] = useState<number>(Date.now());
 
   // State for the context menu.
   const [contextMenuProps, setContextMenuProps] = useState<ContextMenuParams | null>(null);
@@ -200,18 +203,24 @@ export default function App() {
   // State for "Play Mode", where clicking a board cell plays the selected card.
   const [playMode, setPlayMode] = useState<{ card: Card; sourceItem: DragItem; faceDown?: boolean } | null>(null);
   
+  // State for "Cursor Stack", where clicking the board applies counters.
+  const [cursorStack, setCursorStack] = useState<{ type: string; count: number } | null>(null);
+  const cursorFollowerRef = useRef<HTMLDivElement>(null);
+  const lastClickPos = useRef<{x: number, y: number} | null>(null);
+  
   // State for highlighting a row or column on the board.
-  const [highlight, setHighlight] = useState<{ type: 'row' | 'col' | 'cell', row?: number, col?: number} | null>(null);
+  const [highlight, setHighlight] = useState<HighlightData | null>(null);
+  
+  // References and state for List Mode dynamic layout
+  const leftPanelRef = useRef<HTMLDivElement>(null);
+  const boardContainerRef = useRef<HTMLDivElement>(null);
+  const [leftPanelWidth, setLeftPanelWidth] = useState<number | undefined>(undefined);
 
   const activePlayerCount = useMemo(() => gameState.players.filter(p => !p.isDummy && !p.isDisconnected).length, [gameState.players]);
   const isSpectator = localPlayerId === null && gameState.gameId !== null;
   const realPlayerCount = useMemo(() => gameState.players.filter(p => !p.isDummy).length, [gameState.players]);
   const isHost = localPlayerId === 1;
 
-  // Determine if the game interface should be shown. This is true if the client
-  // is aware of a game (has a gameId) and is a participant, either as a player
-  // whose ID is in the player list, or as a spectator. This is more robust
-  // than just checking if players exist, as it's tied to this client's identity.
   const localPlayer = useMemo(() => gameState.players.find(p => p.id === localPlayerId), [gameState.players, localPlayerId]);
   const isGameActive = gameState.gameId && (localPlayer || isSpectator);
 
@@ -221,14 +230,133 @@ export default function App() {
     return map;
   }, [gameState.players]);
 
+  useEffect(() => {
+      const checkListMode = () => {
+          const savedMode = localStorage.getItem('ui_list_mode');
+          // Default to true if not set, otherwise parse 'true'/'false' string
+          setIsListMode(savedMode === null ? true : savedMode === 'true');
+      };
+      checkListMode();
+      
+      window.addEventListener('storage', checkListMode);
+      return () => window.removeEventListener('storage', checkListMode);
+  }, []);
+
+  // List Mode Layout Calculation
+  useLayoutEffect(() => {
+      if (!isListMode) {
+          setLeftPanelWidth(undefined);
+          return;
+      }
+
+      const calculateWidth = () => {
+          if (boardContainerRef.current) {
+              const windowWidth = window.innerWidth;
+              const boardRect = boardContainerRef.current.getBoundingClientRect();
+              
+              // Safety check: if board hasn't sized yet, don't calculate
+              if (boardRect.width === 0) return;
+
+              // Calculate precise width to ensure 10px gap
+              // Board is centered, so space to left is (Window - Board) / 2
+              const centeredLeftSpace = (windowWidth - boardRect.width) / 2;
+              const gap = 10;
+              const targetWidth = centeredLeftSpace - gap;
+              
+              setLeftPanelWidth(Math.max(0, targetWidth));
+          }
+      };
+
+      const observer = new ResizeObserver(calculateWidth);
+      if (boardContainerRef.current) observer.observe(boardContainerRef.current);
+      window.addEventListener('resize', calculateWidth);
+
+      // Initial check
+      calculateWidth();
+      
+      // Force a recalculation after a short delay to handle any layout shifts/animations
+      const timer = setTimeout(calculateWidth, 100);
+
+      return () => {
+          observer.disconnect();
+          window.removeEventListener('resize', calculateWidth);
+          clearTimeout(timer);
+      };
+  }, [isListMode, localPlayerId, gameState.activeGridSize, localPlayer, gameState.isGameStarted, gameState.players.length]);
+
+
+  // Ensure cursor follower position is initialized immediately upon stack creation
+  useLayoutEffect(() => {
+      if (cursorStack && cursorFollowerRef.current && lastClickPos.current) {
+          cursorFollowerRef.current.style.left = `${lastClickPos.current.x + 1}px`;
+          cursorFollowerRef.current.style.top = `${lastClickPos.current.y + 1}px`;
+      }
+  }, [cursorStack]);
+
+  // Mouse tracking for cursor stack
+  useEffect(() => {
+      const handleMouseMove = (e: MouseEvent) => {
+          if (cursorFollowerRef.current && cursorStack) {
+              cursorFollowerRef.current.style.left = `${e.clientX + 1}px`;
+              cursorFollowerRef.current.style.top = `${e.clientY + 1}px`;
+          }
+      };
+
+      if (cursorStack) {
+          window.addEventListener('mousemove', handleMouseMove);
+      }
+
+      return () => {
+          window.removeEventListener('mousemove', handleMouseMove);
+      };
+  }, [cursorStack]);
+
+  // Clear cursor stack on right click or escape
+  useEffect(() => {
+      const handleKeyDown = (e: KeyboardEvent) => {
+          if (e.key === 'Escape') {
+              setCursorStack(null);
+              setPlayMode(null);
+          }
+      };
+      
+      const handleRightClick = (e: MouseEvent) => {
+          if (cursorStack || playMode) {
+              e.preventDefault();
+              setCursorStack(null);
+              setPlayMode(null);
+          }
+      };
+
+      window.addEventListener('keydown', handleKeyDown);
+      window.addEventListener('contextmenu', handleRightClick);
+      
+      return () => {
+          window.removeEventListener('keydown', handleKeyDown);
+          window.removeEventListener('contextmenu', handleRightClick);
+      }
+  }, [cursorStack, playMode]);
+
+  // Effect to handle incoming highlights from the server
+  useEffect(() => {
+      if (latestHighlight) {
+          setHighlight(latestHighlight);
+          const timer = setTimeout(() => setHighlight(null), 1000);
+          return () => clearTimeout(timer);
+      }
+  }, [latestHighlight]);
+
+
   /**
    * Closes all currently open modals.
    */
   const closeAllModals = () => {
       setTokensModalOpen(false);
+      setCountersModalOpen(false);
       setViewingDiscard(null);
       setViewingDeck(null);
       setViewingCard(null);
+      setRulesModalOpen(false);
   };
   
   const handleStartGameSequence = () => {
@@ -246,60 +374,49 @@ export default function App() {
       startReadyCheck();
   };
 
-  /**
-   * Handles the action of joining a game.
-   * @param {string} gameId - The ID of the game to join.
-   */
   const handleJoinGame = (gameId: string) => {
     joinGame(gameId);
     setJoinModalOpen(false);
   };
 
-  /**
-   * Handles the action of creating a new game.
-   */
   const handleCreateGame = () => {
     createGame();
     setLocalPlayerId(1);
   };
   
-  /**
-   * Opens the "Join Game" modal and requests the latest list of active games.
-   */
   const handleOpenJoinModal = () => {
     requestGamesList();
     setJoinModalOpen(true);
   };
 
-  /**
-   * Handles saving the server settings and triggering a reconnection.
-   * @param {string} url The new WebSocket server URL.
-   */
   const handleSaveSettings = (url: string) => {
     localStorage.setItem('custom_ws_url', url.trim());
+    
+    // Also re-check list mode
+    const savedMode = localStorage.getItem('ui_list_mode');
+    setIsListMode(savedMode === null ? true : savedMode === 'true');
+    
     setSettingsModalOpen(false);
     forceReconnect();
   };
+  
+  const handleSyncAndRefresh = () => {
+      setImageRefreshVersion(Date.now());
+      syncGame();
+  };
 
-  /**
-   * Triggers a temporary highlight effect on a board row or column.
-   * @param {{ type: 'row' | 'col' | 'cell', row?: number, col?: number}} coords The coordinates to highlight.
-   */
-  const triggerHighlight = (coords: { type: 'row' | 'col' | 'cell', row?: number, col?: number}) => {
-      setHighlight(coords);
-      setTimeout(() => setHighlight(null), 1000);
+  const handleTriggerHighlight = (coords: { type: 'row' | 'col' | 'cell', row?: number, col?: number}) => {
+      if (localPlayerId === null) return;
+      triggerHighlight({
+          ...coords,
+          playerId: localPlayerId
+      });
   };
 
   const closeContextMenu = () => {
     setContextMenuProps(null);
   };
   
-  /**
-   * Opens the context menu with specific items based on the context.
-   * @param {React.MouseEvent} e - The mouse event.
-   * @param {ContextMenuParams['type']} type - The type of item being right-clicked.
-   * @param {any} data - The data associated with the item.
-   */
   const openContextMenu = (
     e: React.MouseEvent,
     type: ContextMenuParams['type'],
@@ -308,57 +425,38 @@ export default function App() {
     e.preventDefault();
     e.stopPropagation();
 
-    // Context menu is only for active players, and only after the game has started.
     if (localPlayerId === null || !gameState.isGameStarted) return;
     setContextMenuProps({ x: e.clientX, y: e.clientY, type, data });
   };
   
-    /**
-     * Double-click handler for cards on the board.
-     * - Flips the player's own face-down card face-up.
-     * - Opens the detail view if the card is visible to the player.
-     * - Sends a reveal request if the card is face-down and belongs to an opponent.
-     */
     const handleDoubleClickBoardCard = (card: Card, boardCoords: { row: number, col: number }) => {
         const isOwner = card.ownerId === localPlayerId;
 
-        // New logic: If it's your own face-down card, flip it up.
         if (isOwner && card.isFaceDown) {
             flipBoardCard(boardCoords);
-            return; // Action complete
+            return;
         }
 
-        // --- Existing logic for all other cases ---
         const owner = card.ownerId ? gameState.players.find(p => p.id === card.ownerId) : undefined;
         const isRevealedByRequest = card.statuses?.some(s => s.type === 'Revealed' && s.addedByPlayerId === localPlayerId);
-        // A card is visible if it's not face down, or has been revealed in some way.
         const isVisibleForMe = !card.isFaceDown || card.revealedTo === 'all' || (Array.isArray(card.revealedTo) && card.revealedTo.includes(localPlayerId!)) || isRevealedByRequest;
 
-        // If it's visible to you, or if you're the owner (and it's face up, handled by the first `if`), view details.
         if (isVisibleForMe || isOwner) {
             setViewingCard({ card, player: owner });
-        } else if (localPlayerId !== null) { // Not owner, not visible
+        } else if (localPlayerId !== null) {
             requestCardReveal({ source: 'board', ownerId: card.ownerId!, boardCoords }, localPlayerId);
         }
     };
     
-    /**
-     * Double-click handler for empty board cells to trigger a highlight.
-     */
     const handleDoubleClickEmptyCell = (boardCoords: { row: number, col: number }) => {
-        triggerHighlight({ type: 'cell', row: boardCoords.row, col: boardCoords.col });
+        handleTriggerHighlight({ type: 'cell', row: boardCoords.row, col: boardCoords.col });
     };
 
-    /**
-     * Double-click handler for cards in a player's hand.
-     * - For local player: Enters "play face down" mode.
-     * - For opponent: Opens detail view if visible, otherwise sends a reveal request.
-     */
     const handleDoubleClickHandCard = (player: Player, card: Card, cardIndex: number) => {
         if (player.id === localPlayerId) {
             closeAllModals();
             const sourceItem: DragItem = { card, source: 'hand', playerId: player.id, cardIndex };
-            setPlayMode({ card, sourceItem, faceDown: true });
+            setPlayMode({ card, sourceItem, faceDown: false });
         } else if (localPlayerId !== null) {
             const isRevealedToAll = card.revealedTo === 'all';
             const isRevealedToMe = Array.isArray(card.revealedTo) && card.revealedTo.includes(localPlayerId);
@@ -373,19 +471,11 @@ export default function App() {
         }
     };
 
-
-    /**
-     * Double-click handler for cards in the discard or deck view. Moves the card to the owner's hand.
-     */
     const handleDoubleClickPileCard = (player: Player, card: Card, cardIndex: number, source: 'deck' | 'discard') => {
         const sourceItem: DragItem = { card, source, playerId: player.id, cardIndex };
         moveItem(sourceItem, { target: 'hand', playerId: player.id });
     };
 
-
-  /**
-   * Handlers to open deck/discard modals, ensuring only one is open at a time.
-   */
   const handleViewDeck = (player: Player) => {
     setViewingDiscard(null);
     setViewingDeck(player);
@@ -395,22 +485,21 @@ export default function App() {
     setViewingDiscard({ player });
   };
   
-  /**
-   * Memoized rendering of the context menu.
-   * This builds the menu items dynamically based on the context provided
-   * when `openContextMenu` was called.
-   */
   const renderedContextMenu = useMemo(() => {
     if (!contextMenuProps || localPlayerId === null) return null;
 
     const { type, data, x, y } = contextMenuProps;
     let items: ContextMenuItem[] = [];
     
-    // Logic to build menu for a card on the board.
-    if (type === 'boardItem' || type === 'announcedCard') {
+    if (type === 'emptyBoardCell') {
+        items.push({ label: 'Highlight Cell', onClick: () => handleTriggerHighlight({ type: 'cell', row: data.boardCoords.row, col: data.boardCoords.col }) });
+        items.push({ label: 'Highlight Column', onClick: () => handleTriggerHighlight({ type: 'col', col: data.boardCoords.col }) });
+        items.push({ label: 'Highlight Row', onClick: () => handleTriggerHighlight({ type: 'row', row: data.boardCoords.row }) });
+
+    } else if (type === 'boardItem' || type === 'announcedCard') {
         const isBoardItem = type === 'boardItem';
         const card = isBoardItem ? gameState.board[data.boardCoords.row][data.boardCoords.col].card : data.card;
-        const player = isBoardItem ? null : data.player; // Player whose panel this is on
+        const player = isBoardItem ? null : data.player;
         
         if (!card) {
             setContextMenuProps(null);
@@ -425,7 +514,6 @@ export default function App() {
         const isRevealedByRequest = card.statuses?.some(s => s.type === 'Revealed' && (s.addedByPlayerId === localPlayerId));
         const isVisible = !card.isFaceDown || card.revealedTo === 'all' || (Array.isArray(card.revealedTo) && card.revealedTo.includes(localPlayerId)) || isRevealedByRequest;
 
-        // --- Core Actions ---
         if (isVisible || (isOwner && card.isFaceDown)) {
             items.push({ label: 'View', isBold: true, onClick: () => setViewingCard({ card, player: owner }) });
         }
@@ -444,7 +532,6 @@ export default function App() {
         const ownerId = card.ownerId;
         const isSpecialItem = card?.deck === DeckType.Tokens || card?.deck === 'counter';
         
-        // --- Reveal Actions (Board only) ---
         if (isBoardItem) {
             if (canControl && card.isFaceDown) {
                 items.push({ label: 'Reveal to All', onClick: () => revealBoardCard(data.boardCoords, 'all') });
@@ -459,7 +546,6 @@ export default function App() {
         
         if (items.length > 0) items.push({ isDivider: true });
 
-        // --- Movement actions (Owner or Dummy card only) ---
         if (canControl && isVisible) {
             items.push({ label: 'To Hand', disabled: isSpecialItem, onClick: () => moveItem(sourceItem, { target: 'hand', playerId: ownerId }) });
             if (ownerId) {
@@ -470,61 +556,53 @@ export default function App() {
             }
         }
         
-        // --- Board actions ---
         if (isBoardItem) {
             items.push({ isDivider: true });
-            items.push({ label: 'Highlight Cell', onClick: () => triggerHighlight({ type: 'cell', row: data.boardCoords.row, col: data.boardCoords.col }) });
-            items.push({ label: 'Highlight Column', onClick: () => triggerHighlight({ type: 'col', col: data.boardCoords.col }) });
-            items.push({ label: 'Highlight Row', onClick: () => triggerHighlight({ type: 'row', row: data.boardCoords.row }) });
+            items.push({ label: 'Highlight Cell', onClick: () => handleTriggerHighlight({ type: 'cell', row: data.boardCoords.row, col: data.boardCoords.col }) });
+            items.push({ label: 'Highlight Column', onClick: () => handleTriggerHighlight({ type: 'col', col: data.boardCoords.col }) });
+            items.push({ label: 'Highlight Row', onClick: () => handleTriggerHighlight({ type: 'row', row: data.boardCoords.row }) });
         }
 
-        // --- Status controls (Visible cards only) ---
         if (isVisible) {
-            const normalStatusItems: ContextMenuItem[] = [];
-            const specialStatusItems: ContextMenuItem[] = [];
-            const normalStatuses = ['Aim', 'Exploit', 'Stun', 'Shield'];
-            const specialStatuses = ['Support', 'Threat'];
+            const allStatusTypes = ['Aim', 'Exploit', 'Stun', 'Shield', 'Support', 'Threat'];
+            const visibleStatusItems: ContextMenuItem[] = [];
 
-            normalStatuses.forEach(status => {
+            allStatusTypes.forEach(status => {
                 const currentCount = card.statuses?.filter((s: CardStatus) => s.type === status).length || 0;
-                normalStatusItems.push({
-                    type: 'statusControl',
-                    label: status,
-                    onAdd: () => isBoardItem ? addBoardCardStatus(data.boardCoords, status, localPlayerId) : addAnnouncedCardStatus(player.id, status, localPlayerId),
-                    onRemove: () => isBoardItem ? removeBoardCardStatus(data.boardCoords, status) : removeAnnouncedCardStatus(player.id, status),
-                    removeDisabled: currentCount === 0
-                });
+                
+                if (currentCount > 0) {
+                    visibleStatusItems.push({
+                        type: 'statusControl',
+                        label: status,
+                        onAdd: () => isBoardItem ? addBoardCardStatus(data.boardCoords, status, localPlayerId) : addAnnouncedCardStatus(player.id, status, localPlayerId),
+                        onRemove: () => isBoardItem ? removeBoardCardStatus(data.boardCoords, status) : removeAnnouncedCardStatus(player.id, status),
+                        removeDisabled: false
+                    });
+                }
             });
 
-            specialStatuses.forEach(status => {
-                const hasStatusFromMe = card.statuses?.some(s => s.type === status && s.addedByPlayerId === localPlayerId);
-                const hasAnyStatus = card.statuses?.some(s => s.type === status);
-                specialStatusItems.push({
-                    type: 'statusControl',
-                    label: status,
-                    onAdd: () => {
-                        if (hasStatusFromMe) return; // Prevent adding if one from this player already exists
-                        isBoardItem ? addBoardCardStatus(data.boardCoords, status, localPlayerId) : addAnnouncedCardStatus(player.id, status, localPlayerId);
-                    },
-                    onRemove: () => isBoardItem ? removeBoardCardStatus(data.boardCoords, status) : removeAnnouncedCardStatus(player.id, status),
-                    removeDisabled: !hasAnyStatus
-                });
-            });
-
-            if (normalStatusItems.length > 0 || specialStatusItems.length > 0) {
+            if (visibleStatusItems.length > 0) {
                  if (items.length > 0 && !('isDivider' in items[items.length - 1])) items.push({ isDivider: true });
-                items.push(...normalStatusItems, ...specialStatusItems);
+                items.push(...visibleStatusItems);
             }
+
+             if (items.length > 0 && !('isDivider' in items[items.length - 1])) items.push({ isDivider: true });
+             items.push({
+                type: 'statusControl',
+                label: 'Power',
+                onAdd: () => isBoardItem ? modifyBoardCardPower(data.boardCoords, 1) : modifyAnnouncedCardPower(player.id, 1),
+                onRemove: () => isBoardItem ? modifyBoardCardPower(data.boardCoords, -1) : modifyAnnouncedCardPower(player.id, -1),
+                removeDisabled: false
+             });
         }
         
-    // Logic for token panel items (fixed crash and added new options)
     } else if (type === 'token_panel_item') {
         const { card } = data;
         const sourceItem: DragItem = { card, source: 'token_panel' };
 
         items.push({ label: 'View', isBold: true, onClick: () => setViewingCard({ card }) });
         items.push({ isDivider: true });
-        items.push({ label: 'Play Face Up', onClick: () => {
+        items.push({ label: 'Play Face Up', isBold: true, onClick: () => {
             closeAllModals();
             setPlayMode({ card, sourceItem, faceDown: false });
         }});
@@ -533,7 +611,6 @@ export default function App() {
             setPlayMode({ card, sourceItem, faceDown: true });
         }});
 
-    // Logic to build menu for cards in hand, discard, deck.
     } else if (['handCard', 'discardCard', 'deckCard'].includes(type)) {
         const { card, boardCoords, player, cardIndex } = data;
         const canControl = player.id === localPlayerId || !!player.isDummy;
@@ -543,7 +620,7 @@ export default function App() {
         const isRevealedByRequest = card.statuses?.some(s => s.type === 'Revealed' && s.addedByPlayerId === localPlayerId);
         
         const isVisible = (() => {
-            if (type !== 'handCard') return true; // discard, deck always visible in their modals
+            if (type !== 'handCard') return true;
             return player.id === localPlayerId || isTeammate || !!player.isDummy || !!player.isDisconnected || isRevealedToMe || isRevealedByRequest;
         })();
         
@@ -561,32 +638,29 @@ export default function App() {
             items.push({ label: 'View', isBold: true, onClick: () => setViewingCard({ card, player: owner }) });
         }
 
-        // --- Control Actions (Local Player or Dummy) ---
         if (canControl) {
-            // Play Actions
             if (type === 'handCard') {
                 items.push({ label: 'Play', isBold: true, onClick: () => {
                     closeAllModals();
+                    setPlayMode({ card, sourceItem, faceDown: false });
+                }});
+                 items.push({ label: 'Play Face Down', onClick: () => {
+                    closeAllModals();
                     setPlayMode({ card, sourceItem, faceDown: true });
                 }});
-                 items.push({ label: 'Play Face Up', onClick: () => {
+            } else if (isVisible && ['discardCard', 'deckCard'].includes(type)) {
+                 items.push({ label: 'Play Face Up', isBold: true, onClick: () => {
                     closeAllModals();
                     setPlayMode({ card, sourceItem, faceDown: false });
                 }});
-            } else if (isVisible && ['discardCard', 'deckCard'].includes(type)) {
-                items.push({ label: 'Play Face Down', isBold: true, onClick: () => {
+                items.push({ label: 'Play Face Down', onClick: () => {
                     closeAllModals();
                     setPlayMode({ card, sourceItem, faceDown: true });
-                }});
-                 items.push({ label: 'Play Face Up', onClick: () => {
-                    closeAllModals();
-                    setPlayMode({ card, sourceItem });
                 }});
             }
             
             if (items.length > 0) items.push({ isDivider: true });
             
-            // Reveal Actions (for hand cards)
             if (type === 'handCard') {
                  if (card.statuses?.some(s => s.type === 'Revealed')) {
                     items.push({ label: 'Remove Revealed', onClick: () => removeRevealedStatus({ source: 'hand', playerId: player.id, cardIndex }) });
@@ -596,7 +670,6 @@ export default function App() {
 
             if (items.length > 0 && !('isDivider' in items[items.length - 1])) items.push({ isDivider: true });
 
-            // Movement Actions
             if (type === 'discardCard') {
                 items.push({ label: 'To Hand', disabled: isSpecialItem, onClick: () => moveItem(sourceItem, { target: 'hand', playerId: ownerId }) });
             } else if (type === 'handCard') {
@@ -612,12 +685,10 @@ export default function App() {
                  items.push({ label: 'To Discard', onClick: () => moveItem(sourceItem, { target: 'discard', playerId: player.id }) });
              }
         } 
-        // --- Non-Owner Actions ---
         else if (type === 'handCard' && !isVisible) {
              items.push({ label: 'Request Reveal', onClick: () => requestCardReveal({ source: 'hand', ownerId: player.id, cardIndex }, localPlayerId) });
         }
 
-    // Logic to build menu for deck/discard piles.
     } else if (type === 'deckPile') {
         const { player } = data;
         const canControl = player.id === localPlayerId || !!player.isDummy;
@@ -631,22 +702,19 @@ export default function App() {
         items.push({ label: 'View', onClick: () => handleViewDiscard(player) });
     }
     
-    // Clean up trailing/leading/multiple dividers.
     items = items.filter((item, index) => {
         if (!('isDivider' in item)) return true;
-        if (index === 0 || index === items.length - 1) return false; // No leading/trailing
-        if ('isDivider' in items[index-1]) return false; // No multiple dividers
+        if (index === 0 || index === items.length - 1) return false;
+        if ('isDivider' in items[index-1]) return false;
         return true;
     });
     
     return <ContextMenu x={x} y={y} items={items} onClose={closeContextMenu} />;
-  }, [gameState, localPlayerId, moveItem, triggerHighlight, addBoardCardStatus, removeBoardCardStatus, addAnnouncedCardStatus, removeAnnouncedCardStatus, drawCard, shufflePlayerDeck, flipBoardCard, flipBoardCardFaceDown, revealHandCard, revealBoardCard, requestCardReveal, removeRevealedStatus]);
+  }, [gameState, localPlayerId, moveItem, handleTriggerHighlight, addBoardCardStatus, removeBoardCardStatus, modifyBoardCardPower, addAnnouncedCardStatus, removeAnnouncedCardStatus, modifyAnnouncedCardPower, drawCard, shufflePlayerDeck, flipBoardCard, flipBoardCardFaceDown, revealHandCard, revealBoardCard, requestCardReveal, removeRevealedStatus]);
 
-  // Effect to handle global clicks for closing the context menu.
   useEffect(() => {
     window.addEventListener('click', closeContextMenu);
     
-    // Prevents the context menu from closing when right-clicking on an interactive element.
     const handleContextMenu = (e: MouseEvent) => {
         if (!(e.target as HTMLElement).closest('[data-interactive]')) {
              closeContextMenu();
@@ -660,7 +728,6 @@ export default function App() {
     };
   }, []);
 
-  // Effect to close context menu when a drag starts.
   useEffect(() => {
     if (draggedItem) {
       closeContextMenu();
@@ -672,13 +739,38 @@ export default function App() {
       setTokensModalOpen(false);
       setTokensModalAnchor(null);
     } else {
+        setCountersModalOpen(false);
+        setCountersModalAnchor(null);
       const rect = event.currentTarget.getBoundingClientRect();
-      setTokensModalAnchor({ top: rect.bottom, left: rect.left });
+      setTokensModalAnchor({ top: rect.top, left: rect.left });
       setTokensModalOpen(true);
     }
   };
 
-  // Render the initial landing page if not in a game.
+  const handleOpenCountersModal = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (isCountersModalOpen) {
+        setCountersModalOpen(false);
+        setCountersModalAnchor(null);
+    } else {
+        setTokensModalOpen(false);
+        setTokensModalAnchor(null);
+        const rect = event.currentTarget.getBoundingClientRect();
+        setCountersModalAnchor({ top: rect.top, left: rect.left });
+        setCountersModalOpen(true);
+    }
+  };
+
+  const handleCounterClick = (type: string, e: React.MouseEvent) => {
+      lastClickPos.current = { x: e.clientX, y: e.clientY };
+      
+      setCursorStack(prev => {
+          if (prev && prev.type === type) {
+              return { type, count: prev.count + 1 };
+          }
+          return { type, count: 1 };
+      });
+  };
+
   if (!isGameActive) {
     const buttonClass = "bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg text-lg w-full transition-colors disabled:bg-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed";
     const socialLinkClass = "text-gray-400 hover:text-white transition-colors";
@@ -715,8 +807,8 @@ export default function App() {
              <button disabled className={buttonClass}>
               Puzzles
             </button>
-             <button disabled className={buttonClass}>
-              Rules
+             <button onClick={() => setRulesModalOpen(true)} className={buttonClass}>
+              Rules & Tutorial
             </button>
           </div>
            <div className="mt-16 flex items-center space-x-8">
@@ -746,6 +838,10 @@ export default function App() {
             onClose={() => setSettingsModalOpen(false)}
             onSave={handleSaveSettings}
           />
+          <RulesModal 
+            isOpen={isRulesModalOpen}
+            onClose={() => setRulesModalOpen(false)}
+          />
           {viewingCard && (
             <CardDetailModal
               card={viewingCard.card}
@@ -753,6 +849,7 @@ export default function App() {
               onClose={() => setViewingCard(null)}
               statusDescriptions={STATUS_DESCRIPTIONS}
               allPlayers={gameState.players}
+              imageRefreshVersion={imageRefreshVersion}
             />
           )}
         </div>
@@ -760,9 +857,8 @@ export default function App() {
     );
   }
 
-  // Render the main game interface.
   return (
-    <div className="relative w-screen h-screen overflow-hidden">
+    <div className={`relative w-screen h-screen overflow-hidden ${cursorStack ? 'cursor-none' : ''}`}>
       <Header
         gameId={gameState.gameId}
         isGameStarted={gameState.isGameStarted}
@@ -776,68 +872,212 @@ export default function App() {
         connectionStatus={connectionStatus}
         onExitGame={exitGame}
         onOpenTokensModal={handleOpenTokensModal}
+        onOpenCountersModal={handleOpenCountersModal}
         gameMode={gameState.gameMode}
         onGameModeChange={setGameMode}
         isPrivate={gameState.isPrivate}
         onPrivacyChange={setGamePrivacy}
         isHost={isHost}
-        onSyncGame={syncGame}
+        onSyncGame={handleSyncAndRefresh}
       />
-      <main className="pt-14 h-screen w-full flex items-center justify-center p-4">
-        <GameBoard
-          board={gameState.board}
-          isGameStarted={gameState.isGameStarted}
-          activeGridSize={gameState.activeGridSize}
-          handleDrop={handleDrop}
-          draggedItem={draggedItem}
-          setDraggedItem={setDraggedItem}
-          openContextMenu={openContextMenu}
-          playMode={playMode}
-          setPlayMode={setPlayMode}
-          highlight={highlight}
-          playerColorMap={playerColorMap}
-          localPlayerId={localPlayerId}
-          onCardDoubleClick={handleDoubleClickBoardCard}
-          onEmptyCellDoubleClick={handleDoubleClickEmptyCell}
-        />
-      </main>
       
+      {/* Main Content Layout - Switching based on listMode */}
+      {isListMode ? (
+        <div className="relative h-full w-full pt-14 overflow-hidden bg-gray-900">
+            {/* Left Column: Local Player - Absolute Left */}
+            {localPlayer && (
+                <div 
+                    ref={leftPanelRef}
+                    className="absolute left-0 top-14 bottom-[2px] z-30 bg-panel-bg shadow-xl flex flex-col border-r border-gray-700 w-fit min-w-0 pl-[2px] py-[2px] pr-0 transition-all duration-100 overflow-hidden"
+                    style={{ width: leftPanelWidth }}
+                >
+                     <PlayerPanel
+                        key={localPlayer.id}
+                        player={localPlayer}
+                        isLocalPlayer={true}
+                        localPlayerId={localPlayerId}
+                        isSpectator={isSpectator}
+                        isGameStarted={gameState.isGameStarted}
+                        position={localPlayer.id}
+                        onNameChange={(name) => updatePlayerName(localPlayer.id, name)}
+                        onColorChange={(color) => changePlayerColor(localPlayer.id, color)}
+                        onScoreChange={(delta) => updatePlayerScore(localPlayer.id, delta)}
+                        onDeckChange={(deckType) => changePlayerDeck(localPlayer.id, deckType)}
+                        onLoadCustomDeck={(deckFile) => loadCustomDeck(localPlayer.id, deckFile)}
+                        onDrawCard={() => drawCard(localPlayer.id)}
+                        handleDrop={handleDrop}
+                        draggedItem={draggedItem}
+                        setDraggedItem={setDraggedItem}
+                        openContextMenu={openContextMenu}
+                        onHandCardDoubleClick={handleDoubleClickHandCard}
+                        playerColorMap={playerColorMap}
+                        allPlayers={gameState.players}
+                        localPlayerTeamId={localPlayer?.teamId}
+                        activeTurnPlayerId={gameState.activeTurnPlayerId}
+                        onToggleActiveTurn={toggleActiveTurnPlayer}
+                        imageRefreshVersion={imageRefreshVersion}
+                        layoutMode="list-local"
+                     />
+                </div>
+            )}
+
+            {/* Center Column: Game Board - Absolute Centered */}
+            <div 
+                className="absolute top-14 bottom-0 z-10 flex items-center justify-center pointer-events-none w-full left-0"
+            >
+                 <div 
+                    ref={boardContainerRef}
+                    className="pointer-events-auto h-full aspect-square flex items-center justify-center py-[2px]"
+                 >
+                     <GameBoard
+                        board={gameState.board}
+                        isGameStarted={gameState.isGameStarted}
+                        activeGridSize={gameState.activeGridSize}
+                        handleDrop={handleDrop}
+                        draggedItem={draggedItem}
+                        setDraggedItem={setDraggedItem}
+                        openContextMenu={openContextMenu}
+                        playMode={playMode}
+                        setPlayMode={setPlayMode}
+                        highlight={highlight}
+                        playerColorMap={playerColorMap}
+                        localPlayerId={localPlayerId}
+                        onCardDoubleClick={handleDoubleClickBoardCard}
+                        onEmptyCellDoubleClick={handleDoubleClickEmptyCell}
+                        imageRefreshVersion={imageRefreshVersion}
+                        cursorStack={cursorStack}
+                        setCursorStack={setCursorStack}
+                     />
+                 </div>
+            </div>
+
+            {/* Right Column: Opponents - Absolute Right */}
+            <div className="absolute right-0 top-14 bottom-0 z-30 w-[32rem] bg-panel-bg shadow-xl flex flex-col pt-[3px] pb-[3px] border-l border-gray-700 gap-[3px]">
+                 {gameState.players
+                    .filter(p => p.id !== localPlayerId)
+                    .map(player => (
+                        <div key={player.id} className="w-full flex-1 min-h-0">
+                            <PlayerPanel
+                                player={player}
+                                isLocalPlayer={false}
+                                localPlayerId={localPlayerId}
+                                isSpectator={isSpectator}
+                                isGameStarted={gameState.isGameStarted}
+                                position={player.id}
+                                onNameChange={(name) => updatePlayerName(player.id, name)}
+                                onColorChange={(color) => changePlayerColor(player.id, color)}
+                                onScoreChange={(delta) => updatePlayerScore(player.id, delta)}
+                                onDeckChange={(deckType) => changePlayerDeck(player.id, deckType)}
+                                onLoadCustomDeck={(deckFile) => loadCustomDeck(player.id, deckFile)}
+                                onDrawCard={() => drawCard(player.id)}
+                                handleDrop={handleDrop}
+                                draggedItem={draggedItem}
+                                setDraggedItem={setDraggedItem}
+                                openContextMenu={openContextMenu}
+                                onHandCardDoubleClick={handleDoubleClickHandCard}
+                                playerColorMap={playerColorMap}
+                                allPlayers={gameState.players}
+                                localPlayerTeamId={localPlayer?.teamId}
+                                activeTurnPlayerId={gameState.activeTurnPlayerId}
+                                onToggleActiveTurn={toggleActiveTurnPlayer}
+                                imageRefreshVersion={imageRefreshVersion}
+                                layoutMode="list-remote"
+                            />
+                        </div>
+                    ))
+                 }
+            </div>
+        </div>
+      ) : (
+        /* Standard Mode Layout */
+        <main className="pt-14 h-screen w-full flex items-center justify-center py-[2px] px-[2px]">
+            <GameBoard
+            board={gameState.board}
+            isGameStarted={gameState.isGameStarted}
+            activeGridSize={gameState.activeGridSize}
+            handleDrop={handleDrop}
+            draggedItem={draggedItem}
+            setDraggedItem={setDraggedItem}
+            openContextMenu={openContextMenu}
+            playMode={playMode}
+            setPlayMode={setPlayMode}
+            highlight={highlight}
+            playerColorMap={playerColorMap}
+            localPlayerId={localPlayerId}
+            onCardDoubleClick={handleDoubleClickBoardCard}
+            onEmptyCellDoubleClick={handleDoubleClickEmptyCell}
+            imageRefreshVersion={imageRefreshVersion}
+            cursorStack={cursorStack}
+            setCursorStack={setCursorStack}
+            />
+            
+             {/* Player panels (Absolute Positioning) */}
+            {gameState.players.map((player) => (
+                <PlayerPanel
+                key={player.id}
+                player={player}
+                isLocalPlayer={player.id === localPlayerId}
+                localPlayerId={localPlayerId}
+                isSpectator={isSpectator}
+                isGameStarted={gameState.isGameStarted}
+                position={player.id}
+                onNameChange={(name) => updatePlayerName(player.id, name)}
+                onColorChange={(color) => changePlayerColor(player.id, color)}
+                onScoreChange={(delta) => updatePlayerScore(player.id, delta)}
+                onDeckChange={(deckType) => changePlayerDeck(player.id, deckType)}
+                onLoadCustomDeck={(deckFile) => loadCustomDeck(player.id, deckFile)}
+                onDrawCard={() => drawCard(player.id)}
+                handleDrop={handleDrop}
+                draggedItem={draggedItem}
+                setDraggedItem={setDraggedItem}
+                openContextMenu={openContextMenu}
+                onHandCardDoubleClick={handleDoubleClickHandCard}
+                playerColorMap={playerColorMap}
+                allPlayers={gameState.players}
+                localPlayerTeamId={localPlayer?.teamId}
+                activeTurnPlayerId={gameState.activeTurnPlayerId}
+                onToggleActiveTurn={toggleActiveTurnPlayer}
+                imageRefreshVersion={imageRefreshVersion}
+                layoutMode="standard"
+                />
+            ))}
+        </main>
+      )}
+      
+      {/* Cursor Stack Follower */}
+      {cursorStack && (
+          <div 
+            ref={cursorFollowerRef}
+            className="fixed pointer-events-none z-[1000] flex items-center justify-center"
+          >
+              <div className="relative w-12 h-12 rounded-full bg-gray-500 border-[3px] border-white flex items-center justify-center shadow-xl">
+                   {(() => {
+                       let iconUrl = STATUS_ICONS[cursorStack.type];
+                       if (iconUrl && imageRefreshVersion) iconUrl = `${iconUrl}?v=${imageRefreshVersion}`;
+                       const isPower = cursorStack.type.startsWith('Power');
+                       
+                       return iconUrl ? (
+                           <img src={iconUrl} alt={cursorStack.type} className="w-full h-full object-contain p-1" />
+                       ) : (
+                           <span className={`font-bold text-white ${isPower ? 'text-sm' : 'text-lg'}`} style={{ textShadow: '0 0 2px black' }}>
+                                {isPower ? (cursorStack.type === 'Power+' ? '+P' : '-P') : cursorStack.type.charAt(0)}
+                           </span>
+                       );
+                   })()}
+                   <div className="absolute -top-2 -right-2 bg-red-600 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center border border-white">
+                       {cursorStack.count}
+                   </div>
+              </div>
+          </div>
+      )}
+
       {/* Spectator Mode overlay */}
-      {isSpectator && (
+      {isSpectator && !isListMode && (
         <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black bg-opacity-70 p-4 rounded-lg z-50">
           <p className="text-xl font-bold text-center">Spectator Mode</p>
           <p className="text-center text-gray-300">You are watching the game.</p>
         </div>
       )}
-
-      {/* Player panels */}
-      {gameState.players.map((player) => (
-        <PlayerPanel
-          key={player.id}
-          player={player}
-          isLocalPlayer={player.id === localPlayerId}
-          localPlayerId={localPlayerId}
-          isSpectator={isSpectator}
-          isGameStarted={gameState.isGameStarted}
-          position={player.id}
-          onNameChange={(name) => updatePlayerName(player.id, name)}
-          onColorChange={(color) => changePlayerColor(player.id, color)}
-          onScoreChange={(delta) => updatePlayerScore(player.id, delta)}
-          onDeckChange={(deckType) => changePlayerDeck(player.id, deckType)}
-          onLoadCustomDeck={(deckFile) => loadCustomDeck(player.id, deckFile)}
-          onDrawCard={() => drawCard(player.id)}
-          handleDrop={handleDrop}
-          draggedItem={draggedItem}
-          setDraggedItem={setDraggedItem}
-          openContextMenu={openContextMenu}
-          onHandCardDoubleClick={handleDoubleClickHandCard}
-          playerColorMap={playerColorMap}
-          allPlayers={gameState.players}
-          localPlayerTeamId={localPlayer?.teamId}
-          activeTurnPlayerId={gameState.activeTurnPlayerId}
-          onToggleActiveTurn={toggleActiveTurnPlayer}
-        />
-      ))}
 
       {/* Reveal Request Modal */}
       {(() => {
@@ -890,6 +1130,7 @@ export default function App() {
               canInteract={(localPlayerId !== null && gameState.isGameStarted && (viewingDiscard.player.id === localPlayerId || !!viewingDiscard.player.isDummy))}
               playerColorMap={playerColorMap}
               localPlayerId={localPlayerId}
+              imageRefreshVersion={imageRefreshVersion}
             />
           );
       })()}
@@ -912,6 +1153,7 @@ export default function App() {
               isDeckView={true}
               playerColorMap={playerColorMap}
               localPlayerId={localPlayerId}
+              imageRefreshVersion={imageRefreshVersion}
             />
           );
       })()}
@@ -924,6 +1166,19 @@ export default function App() {
         openContextMenu={openContextMenu}
         canInteract={localPlayerId !== null && gameState.isGameStarted}
         anchorEl={tokensModalAnchor}
+        imageRefreshVersion={imageRefreshVersion}
+        draggedItem={draggedItem}
+      />
+
+      <CountersModal
+        isOpen={isCountersModalOpen}
+        onClose={() => setCountersModalOpen(false)}
+        setDraggedItem={setDraggedItem}
+        canInteract={localPlayerId !== null && gameState.isGameStarted}
+        anchorEl={countersModalAnchor}
+        imageRefreshVersion={imageRefreshVersion}
+        onCounterClick={handleCounterClick}
+        cursorStack={cursorStack}
       />
 
       {viewingCard && (
@@ -933,6 +1188,7 @@ export default function App() {
           onClose={() => setViewingCard(null)}
           statusDescriptions={STATUS_DESCRIPTIONS}
           allPlayers={gameState.players}
+          imageRefreshVersion={imageRefreshVersion}
         />
       )}
 

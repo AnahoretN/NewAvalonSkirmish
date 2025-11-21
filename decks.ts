@@ -93,16 +93,26 @@ function buildDecksData(): DecksData {
     }
 
     // Add the special "Tokens" deck, which is built from the token database.
-    builtDecks[DeckType.Tokens] = Array.from(tokenDatabase.values()).map(tokenDef => ({
-         id: `TKN_${tokenDef.name.toUpperCase().replace(/\s/g, '_')}`,
-         deck: DeckType.Tokens,
-         name: tokenDef.name,
-         imageUrl: tokenDef.imageUrl,
-         fallbackImage: tokenDef.fallbackImage,
-         power: tokenDef.power,
-         ability: tokenDef.ability,
-         color: tokenDef.color,
-    }));
+    // Explicitly ensures that all tokens have the 'Device' type added to their list.
+    builtDecks[DeckType.Tokens] = Array.from(tokenDatabase.values()).map(tokenDef => {
+         const types = tokenDef.types ? [...tokenDef.types] : ['Unit'];
+         if (!types.includes('Device')) {
+             types.push('Device');
+         }
+         
+         return {
+             id: `TKN_${tokenDef.name.toUpperCase().replace(/\s/g, '_')}`,
+             deck: DeckType.Tokens,
+             name: tokenDef.name,
+             imageUrl: tokenDef.imageUrl,
+             fallbackImage: tokenDef.fallbackImage,
+             power: tokenDef.power,
+             ability: tokenDef.ability,
+             color: tokenDef.color,
+             types: types,
+             flavorText: tokenDef.flavorText,
+         };
+    });
 
 
     return builtDecks;

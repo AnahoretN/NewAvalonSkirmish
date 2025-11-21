@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { GameState, Player, Board, GridSize, Card, DragItem, DropTarget, PlayerColor, GameMode, RevealRequest, CardIdentifier, CustomDeckFile } from '../types';
+import type { GameState, Player, Board, GridSize, Card, DragItem, DropTarget, PlayerColor, GameMode, RevealRequest, CardIdentifier, CustomDeckFile, HighlightData } from '../types';
 import { DeckType, GameMode as GameModeEnum } from '../types';
 import { shuffleDeck, PLAYER_COLOR_NAMES } from '../constants';
 import { decksData, getCardDefinition, commandCardIds, deckFiles } from '../decks'; // Import static deck data
@@ -18,7 +18,6 @@ const GRID_MAX_SIZE = 7;
  * @returns {string} The WebSocket server URL.
  */
 const getWebSocketURL = () => {
-<<<<<<< HEAD
   // 1. Check for a user-defined custom URL.
   const customUrl = localStorage.getItem('custom_ws_url');
   if (customUrl && customUrl.trim() !== '') {
@@ -38,29 +37,6 @@ const getWebSocketURL = () => {
   }
   // For production (including when hosted on ngrok), it connects to the same host it's served from.
   return `${protocol}://${hostname}`;
-=======
-    // 🛑 ВРЕМЕННОЕ РЕШЕНИЕ ДЛЯ NGROK
-    // ВАЖНО: Вы должны постоянно ОБНОВЛЯТЬ этот адрес, если ngrok перезапускается.
-    // Протокол ДОЛЖЕН БЫТЬ 'wss' (WebSocket Secure), потому что ngrok дает HTTPS.
-    
-    return 'wss://platinocyanic-unsceptically-belia.ngrok-free.dev'; 
-    
-    
-    // --- ИСХОДНЫЙ (ЗАКОММЕНТИРОВАННЫЙ) КОД НИЖЕ ДЛЯ СПРАВКИ ---
-    
-    /*
-    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const hostname = window.location.hostname || 'localhost';
-    
-    if (window.location.port && window.location.port !== '80' && window.location.port !== '443' && window.location.hostname === 'localhost') {
-        // Старый код, который вы хотели использовать только для localhost
-        return 'wss://platinocyanic-unsceptically-belia.ngrok-free.dev';
-        // return `${protocol}://${hostname}:8080`;
-    }
-    // Старый код, который подключается к GitHub Pages, где нет сервера:
-    // return `${protocol}://${hostname}`;
-    */
->>>>>>> bbb291fd7a214dcb210bad38eb1a48a43df061e9
 };
 
 
@@ -134,6 +110,7 @@ const recalculateBoardStatuses = (gameState: GameState): Board => {
                         const neighborTeamId = playerTeamMap.get(neighborOwnerId);
 
                         // A neighbor is friendly if they are the same player, or if they are on the same team (and teams exist).
+                        // If teams are undefined, ownerTeamId !== undefined checks ensure we fall back to simple ID comparison.
                         const isFriendly = ownerId === neighborOwnerId || (ownerTeamId !== undefined && ownerTeamId === neighborTeamId);
 
                         if (isFriendly) {
@@ -265,6 +242,7 @@ export const useGameState = () => {
   const [draggedItem, setDraggedItem] = useState<DragItem | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('Connecting');
   const [gamesList, setGamesList] = useState<{gameId: string, playerCount: number}[]>([]);
+  const [latestHighlight, setLatestHighlight] = useState<HighlightData | null>(null);
   const ws = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
   const joiningGameIdRef = useRef<string | null>(null);
@@ -354,6 +332,9 @@ export const useGameState = () => {
             localStorage.removeItem('reconnection_data');
             setGameState(createInitialState());
             setLocalPlayerId(null);
+        } else if (data.type === 'HIGHLIGHT_TRIGGERED') {
+            // Received a highlight event from the server
+            setLatestHighlight(data.highlightData);
         } else {
             const receivedState: GameState = data;
             setGameState(receivedState);
@@ -621,6 +602,19 @@ export const useGameState = () => {
     });
   }, [updateState]);
 
+    const modifyBoardCardPower = useCallback((boardCoords: { row: number; col: number }, delta: number) => {
+    updateState(currentState => {
+        if (!currentState.isGameStarted) return currentState;
+        const newState: GameState = JSON.parse(JSON.stringify(currentState));
+        const card = newState.board[boardCoords.row][boardCoords.col].card;
+        if (card) {
+            if (card.powerModifier === undefined) card.powerModifier = 0;
+            card.powerModifier += delta;
+        }
+        return newState;
+    });
+  }, [updateState]);
+
   const addAnnouncedCardStatus = useCallback((playerId: number, status: string, addedByPlayerId: number) => {
     updateState(currentState => {
         if (!currentState.isGameStarted) return currentState;
@@ -650,6 +644,19 @@ export const useGameState = () => {
             if (lastIndex > -1) {
                 player.announcedCard.statuses.splice(lastIndex, 1);
             }
+        }
+        return newState;
+    });
+  }, [updateState]);
+
+    const modifyAnnouncedCardPower = useCallback((playerId: number, delta: number) => {
+    updateState(currentState => {
+        if (!currentState.isGameStarted) return currentState;
+        const newState: GameState = JSON.parse(JSON.stringify(currentState));
+        const player = newState.players.find(p => p.id === playerId);
+        if (player && player.announcedCard) {
+             if (player.announcedCard.powerModifier === undefined) player.announcedCard.powerModifier = 0;
+            player.announcedCard.powerModifier += delta;
         }
         return newState;
     });
@@ -815,13 +822,9 @@ export const useGameState = () => {
 
                     if (cardToUpdate) {
                         if (!cardToUpdate.statuses) cardToUpdate.statuses = [];
-                        // For the requester
+                        // For the requester - ONLY add this token for the specific request
                         if (!cardToUpdate.statuses.some(s => s.type === 'Revealed' && s.addedByPlayerId === fromPlayerId)) {
                             cardToUpdate.statuses.push({ type: 'Revealed', addedByPlayerId: fromPlayerId });
-                        }
-                        // For the owner, so they also see the 'R' status
-                        if (!cardToUpdate.statuses.some(s => s.type === 'Revealed' && s.addedByPlayerId === toPlayerId)) {
-                            cardToUpdate.statuses.push({ type: 'Revealed', addedByPlayerId: toPlayerId });
                         }
                     }
                 }
@@ -846,8 +849,12 @@ export const useGameState = () => {
                 }
             }
             
-            if (cardToUpdate?.statuses) {
-                cardToUpdate.statuses = cardToUpdate.statuses.filter(s => s.type !== 'Revealed');
+            if (cardToUpdate) {
+                if (cardToUpdate.statuses) {
+                    cardToUpdate.statuses = cardToUpdate.statuses.filter(s => s.type !== 'Revealed');
+                }
+                // Reset 'revealedTo' property to ensure the card is hidden again for non-owners
+                delete cardToUpdate.revealedTo;
             }
 
             return newState;
@@ -934,9 +941,9 @@ export const useGameState = () => {
             const cardDef = getCardDefinition(cardId);
             if (!cardDef) continue;
 
-            const isCommand = commandCardIds.has(cardId);
-            const deckType = isCommand ? DeckType.Command : DeckType.Custom;
-            const prefix = isCommand ? 'CMD' : 'CUS';
+            const isCommandCard = commandCardIds.has(cardId);
+            const deckType = isCommandCard ? DeckType.Command : DeckType.Custom;
+            const prefix = isCommandCard ? 'CMD' : 'CUS';
 
             for (let i = 0; i < quantity; i++) {
                 const instanceNum = (cardInstanceCounter.get(cardId) || 0) + 1;
@@ -1063,107 +1070,169 @@ export const useGameState = () => {
             if (cardToMove.statuses) {
                 cardToMove.statuses = cardToMove.statuses.filter(status => status.type === 'Revealed');
             }
-            // Reset face-down status. When played again, it will use default rules (e.g., face-down from hand).
-            delete cardToMove.isFaceDown;
+            // Reset face-down status. When played again, user chooses mode.
+            cardToMove.isFaceDown = false;
+            // Reset power modifier
+            delete cardToMove.powerModifier;
+        } else if (target.target === 'board') {
+            // If source is counter_panel, we are applying status/power, not moving a card.
+            if (item.source === 'counter_panel' && target.boardCoords) {
+                 const targetCard = newState.board[target.boardCoords.row][target.boardCoords.col].card;
+                 if (targetCard && item.statusType) {
+                     const count = item.count || 1;
+                     
+                     if (item.statusType === 'Power+') {
+                         if (targetCard.powerModifier === undefined) targetCard.powerModifier = 0;
+                         targetCard.powerModifier += (1 * count);
+                     } else if (item.statusType === 'Power-') {
+                         if (targetCard.powerModifier === undefined) targetCard.powerModifier = 0;
+                         targetCard.powerModifier -= (1 * count);
+                     } else {
+                         // Regular statuses
+                         if (!targetCard.statuses) targetCard.statuses = [];
+                         
+                         // Add 'count' instances of the status
+                         for(let i=0; i<count; i++) {
+                             if (['Support', 'Threat', 'Revealed'].includes(item.statusType)) {
+                                 // These statuses are unique per player, don't stack duplicates from same player
+                                 const exists = targetCard.statuses.some(s => s.type === item.statusType && s.addedByPlayerId === localPlayerIdRef.current);
+                                 if (!exists && localPlayerIdRef.current !== null) {
+                                     targetCard.statuses.push({ type: item.statusType, addedByPlayerId: localPlayerIdRef.current });
+                                 }
+                             } else {
+                                 if (localPlayerIdRef.current !== null) {
+                                     targetCard.statuses.push({ type: item.statusType, addedByPlayerId: localPlayerIdRef.current });
+                                 }
+                             }
+                         }
+                     }
+                 }
+                 // Do not place the dummy "counter" card itself onto the board.
+                 // Just return the state with the modified existing card.
+                 return newState;
+            }
+
+
+            // When moving to board, ensure we initialize an empty status array if needed.
+            if (!cardToMove.statuses) cardToMove.statuses = [];
+            
+            // If it's coming from hand or other sources (except board-to-board moves),
+            // we might want to set default face-down state.
+            // The `moveItem` call usually receives an already-configured card object from `playMode`.
+            // However, drag-and-drop defaults to face-up (handled in App.tsx / Drag logic).
+             if (item.source !== 'board' && cardToMove.isFaceDown === undefined) {
+                 cardToMove.isFaceDown = false; // Default to Face Up for drag and drop
+             }
         }
 
-        // --- Add the card to the target location ---
+
+        // --- Add the card to its target location ---
         if (target.target === 'hand' && target.playerId !== undefined) {
             const player = newState.players.find(p => p.id === target.playerId);
-            // Tokens and counters cannot go to hand.
-            if (player && cardToMove.deck !== 'counter' && cardToMove.deck !== DeckType.Tokens) {
-                player.hand.push(cardToMove);
-            }
+            if (player) player.hand.push(cardToMove);
         } else if (target.target === 'board' && target.boardCoords) {
-            const cell = newState.board[target.boardCoords.row][target.boardCoords.col];
-            if (!cell.card) { // Only place if the cell is empty
-                // Respect explicit faceDown status from playMode, otherwise apply defaults.
-                if (typeof item.card.isFaceDown === 'boolean') {
-                    cardToMove.isFaceDown = item.card.isFaceDown;
-                } else {
-                    // Defaults for drag-and-drop
-                    if (item.source === 'hand') {
-                        cardToMove.isFaceDown = true; // from hand -> face down
-                    } else if (item.source === 'token_panel') {
-                        cardToMove.isFaceDown = false; // from token panel -> face up
-                    }
-                }
-
-                // Assign owner to new tokens when they are first played
-                if (item.source === 'token_panel') {
-                    const player = newState.players.find(p => p.id === localPlayerIdRef.current);
-                    if (player) {
-                        cardToMove.ownerId = player.id;
-                        cardToMove.ownerName = player.name;
-                    }
+            // If target cell is occupied, swap (if source was board) or prevent (if source was external)?
+            // Currently, handleDrop in GameBoard prevents dropping on occupied cells.
+            // But for safety:
+            if (newState.board[target.boardCoords.row][target.boardCoords.col].card === null) {
+                 // Assign owner if not set (e.g. generic tokens)
+                if (cardToMove.ownerId === undefined && localPlayerIdRef.current !== null) {
+                     const currentPlayer = newState.players.find(p => p.id === localPlayerIdRef.current);
+                     if (currentPlayer) {
+                         cardToMove.ownerId = currentPlayer.id;
+                         cardToMove.ownerName = currentPlayer.name;
+                     }
                 }
                 
-                cell.card = cardToMove;
-                
-                // If a card is played from an external source (not just moved on the board),
-                // it becomes the "last played" card for its owner.
-                const isPlayedFromOffBoard = item.source !== 'board' && item.source !== 'announced';
-                if (isPlayedFromOffBoard && cardToMove.ownerId && cardToMove.deck !== DeckType.Tokens) {
-                    const currentPlayerId = cardToMove.ownerId;
-                    
-                    // Clear LastPlayed from any other card owned by this player
-                    newState.board.forEach(row => row.forEach(c => {
-                        if (c.card?.ownerId === currentPlayerId && c.card?.statuses) {
-                            c.card.statuses = c.card.statuses.filter(s => s.type !== 'LastPlayed');
-                        }
-                    }));
-                    newState.players.forEach(p => {
-                        if (p.id === currentPlayerId && p.announcedCard?.statuses) {
-                            p.announcedCard.statuses = p.announcedCard.statuses.filter(s => s.type !== 'LastPlayed');
-                        }
-                    });
-                    
-                    if (!cardToMove.statuses) cardToMove.statuses = [];
-                    cardToMove.statuses.push({ type: 'LastPlayed', addedByPlayerId: cardToMove.ownerId });
+                // --- Automatic 'LastPlayed' Logic ---
+                if (item.source === 'hand' && item.playerId !== undefined) {
+                     const playerId = item.playerId;
+                     
+                     // 1. Remove 'LastPlayed' status from any other cards on the board owned by this player.
+                     for (let r = 0; r < newState.board.length; r++) {
+                         for (let c = 0; c < newState.board[r].length; c++) {
+                             const boardCard = newState.board[r][c].card;
+                             if (boardCard && boardCard.ownerId === playerId && boardCard.statuses) {
+                                 boardCard.statuses = boardCard.statuses.filter(s => s.type !== 'LastPlayed');
+                             }
+                         }
+                     }
+                     
+                     // 2. Add 'LastPlayed' status to the newly played card.
+                     if (!cardToMove.statuses) cardToMove.statuses = [];
+                     // Prevent duplicates
+                     cardToMove.statuses = cardToMove.statuses.filter(s => s.type !== 'LastPlayed');
+                     cardToMove.statuses.push({ type: 'LastPlayed', addedByPlayerId: playerId });
                 }
+                
+                newState.board[target.boardCoords.row][target.boardCoords.col].card = cardToMove;
             }
         } else if (target.target === 'discard' && target.playerId !== undefined) {
-             // If a token is moved to discard, it's permanently removed from the game.
-            if (cardToMove.deck === DeckType.Tokens) {
-                // Do nothing, effectively deleting it as it was already removed from source.
+            // If it's a Token (DeckType.Tokens), do not add to discard pile. Effectively remove from game.
+            if (cardToMove.deck === 'Tokens') {
+                // Do nothing. Card is removed from the game.
             } else {
                 const player = newState.players.find(p => p.id === target.playerId);
-                if (player) player.discard.unshift(cardToMove);
+                if (player) player.discard.push(cardToMove);
             }
         } else if (target.target === 'deck' && target.playerId !== undefined) {
             const player = newState.players.find(p => p.id === target.playerId);
-            // Tokens and counters cannot go to deck.
-            if (player && cardToMove.deck !== 'counter' && cardToMove.deck !== DeckType.Tokens) {
-                if (target.deckPosition === 'bottom') {
-                    player.deck.push(cardToMove);
-                } else { // Default to top
+            if (player) {
+                 if (target.deckPosition === 'top') {
                     player.deck.unshift(cardToMove);
+                } else {
+                    player.deck.push(cardToMove);
                 }
             }
         } else if (target.target === 'announced' && target.playerId !== undefined) {
             const player = newState.players.find(p => p.id === target.playerId);
-            if (player && !player.announcedCard) {
+            if (player) {
+                // If there was already a card, move it to discard? Or swap?
+                // Simple implementation: Push old to discard if exists.
+                if (player.announcedCard) {
+                    player.discard.push(player.announcedCard);
+                }
                 player.announcedCard = cardToMove;
             }
         }
 
-        // After any move that affects the board, recalculate statuses like Support and Threat.
-        newState.board = recalculateBoardStatuses(newState);
+        // Recalculate board statuses if the board changed.
+        if (item.source === 'board' || target.target === 'board') {
+            newState.board = recalculateBoardStatuses(newState);
+        }
 
         return newState;
     });
   }, [updateState]);
 
-  const handleDrop = useCallback((item: DragItem, target: DropTarget) => {
-    moveItem(item, target);
-  }, [moveItem]);
+  const triggerHighlight = useCallback((highlightData: Omit<HighlightData, 'timestamp'>) => {
+      if (ws.current?.readyState === WebSocket.OPEN && gameStateRef.current.gameId) {
+          const fullHighlightData: HighlightData = {
+              ...highlightData,
+              timestamp: Date.now()
+          };
+          ws.current.send(JSON.stringify({
+              type: 'TRIGGER_HIGHLIGHT',
+              gameId: gameStateRef.current.gameId,
+              highlightData: fullHighlightData
+          }));
+      }
+  }, []);
 
   return {
     gameState,
     localPlayerId,
     setLocalPlayerId,
+    draggedItem,
+    setDraggedItem,
+    connectionStatus,
+    gamesList,
+    latestHighlight, // Expose the latest highlight from server
     createGame,
     joinGame,
+    requestGamesList,
+    exitGame,
+    startGame,
     startReadyCheck,
     playerReady,
     assignTeams,
@@ -1177,19 +1246,15 @@ export const useGameState = () => {
     changePlayerDeck,
     loadCustomDeck,
     drawCard,
-    handleDrop,
-    draggedItem,
-    setDraggedItem,
-    connectionStatus,
-    gamesList,
-    requestGamesList,
-    exitGame,
-    moveItem,
     shufflePlayerDeck,
+    moveItem,
+    handleDrop: moveItem,
     addBoardCardStatus,
     removeBoardCardStatus,
+    modifyBoardCardPower,
     addAnnouncedCardStatus,
     removeAnnouncedCardStatus,
+    modifyAnnouncedCardPower,
     flipBoardCard,
     flipBoardCardFaceDown,
     revealHandCard,
@@ -1201,5 +1266,6 @@ export const useGameState = () => {
     resetGame,
     toggleActiveTurnPlayer,
     forceReconnect,
+    triggerHighlight, // Expose the trigger function
   };
 };

@@ -1,8 +1,11 @@
 /**
- * @file A generic, reusable tooltip component for displaying rich content.
+ * @file A generic, reusable tooltip component and the specific card content renderer.
  */
 
 import React, { useRef, useLayoutEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import type { Card } from '../types';
+import { formatAbilityText } from '../utils/textFormatters';
 
 /**
  * Props for the Tooltip component.
@@ -16,8 +19,7 @@ interface TooltipProps {
 /**
  * A generic tooltip component that displays content at specific coordinates
  * and automatically adjusts its position to stay within the viewport.
- * @param {TooltipProps} props The properties for the component.
- * @returns {React.ReactElement} The rendered tooltip.
+ * Uses a Portal to render at the body level to bypass stacking contexts.
  */
 export const Tooltip: React.FC<TooltipProps> = ({ x, y, children }) => {
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -35,24 +37,163 @@ export const Tooltip: React.FC<TooltipProps> = ({ x, y, children }) => {
       if (newLeft + offsetWidth > innerWidth) {
         newLeft = x - offsetWidth - 20;
       }
+      // Ensure it doesn't go off the left edge
+      if (newLeft < 5) newLeft = 5;
       
       let newTop = y + 20;
       // If the tooltip would go off the bottom edge, flip it to above the cursor.
       if (newTop + offsetHeight > innerHeight) {
         newTop = y - offsetHeight - 20;
       }
+      // Ensure it doesn't go off the top edge
+      if (newTop < 5) newTop = 5;
       
       setPosition({ top: newTop, left: newLeft });
     }
   }, [x, y, children]); // Rerun when content changes, as its size might change.
 
-  return (
+  return createPortal(
     <div
       ref={tooltipRef}
-      className="fixed bg-gray-900 border border-gray-700 rounded-md shadow-lg z-[110] p-3 text-white text-base pointer-events-none max-w-xs transition-opacity duration-100 text-left"
+      // Removed fixed max-w-xs to allow children to dictate width (up to a reasonable screen limit)
+      // Added w-max to try to hug content, but max-w constraints in children prevent overflow.
+      className="fixed bg-gray-900 border border-gray-700 rounded-md shadow-lg z-[99999] p-3 text-white text-base pointer-events-none transition-opacity duration-100"
       style={{ top: position.top, left: position.left, opacity: 1 }}
     >
       {children}
+    </div>,
+    document.body
+  );
+};
+
+interface CardTooltipContentProps {
+  card: Card;
+  statusDescriptions?: Record<string, string>; // Optional mapping for detailed status descriptions
+  className?: string; // Allow overriding styles for inline display
+  hideOwner?: boolean; // Optionally hide the owner line
+  powerPosition?: 'default' | 'inner'; // Controls where the power icon sits. 'inner' is for list mode (2px padding).
+}
+
+export const CardTooltipContent: React.FC<CardTooltipContentProps> = ({ card, statusDescriptions, className, hideOwner = false, powerPosition = 'default' }) => {
+  // Calculate the display string for types.
+  // If there are specific types, join them.
+  // If no types, default to "{Deck} Card", UNLESS it's a 'counter' deck, in which case we show nothing (per user request).
+  const typeString = card.types?.length 
+    ? card.types.join(", ") 
+    : (card.deck === 'counter' ? '' : `${card.deck} Card`);
+
+  const modifier = card.powerModifier || 0;
+  const currentPower = Math.max(0, card.power + modifier);
+
+  // Group statuses by type and count them
+  const statusCountsByType = (card.statuses ?? []).reduce((acc, status) => {
+    acc[status.type] = (acc[status.type] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const hasStatuses = Object.keys(statusCountsByType).length > 0;
+  const ownerName = card.ownerName || (card.ownerId ? `Player ${card.ownerId}` : null);
+
+  // Determine background color for power box based on modifiers
+  let powerBg = "bg-gray-700 border-gray-500";
+  let powerText = "text-white";
+  if (modifier > 0) {
+    powerBg = "bg-green-900 border-green-500";
+    powerText = "text-green-400";
+  } else if (modifier < 0) {
+    powerBg = "bg-red-900 border-red-500";
+    powerText = "text-red-400";
+  }
+
+  // Heuristic to determine if we should enforce a wrap width (approx 35 chars).
+  // 16rem is roughly 256px, which fits ~35 characters of standard text.
+  const abilityLen = card.ability ? card.ability.length : 0;
+  // Estimate status text length (approx 10 chars per status group)
+  const statusLen = hasStatuses ? Object.keys(statusCountsByType).length * 10 : 0;
+  
+  // Constraint set to 35 characters to trigger wrapping
+  const isLongContent = abilityLen > 35 || statusLen > 35;
+
+  // Default base classes
+  const baseClasses = className || "relative flex flex-col text-left w-max max-w-[90vw]";
+
+  // Power position classes
+  // 'default': -top-1 -right-1 (Overhanging the corner, standard tooltip style)
+  // 'inner': top-0.5 right-0.5 (Inside the box with 2px margin, for list mode)
+  const powerPosClass = powerPosition === 'inner' 
+    ? "top-0.5 right-0.5" 
+    : "-top-1 -right-1";
+
+  return (
+    <div className={baseClasses}>
+      {/* Power Box (Top Right) - Only if power > 0 */}
+      {/* Increased size by 15% (w-8 h-8 is 32px, so ~37px) */}
+      {card.power > 0 && (
+        <div className={`absolute ${powerPosClass} w-[37px] h-[37px] flex items-center justify-center rounded border-2 ${powerBg} shadow-sm z-10`}>
+          <span className={`font-bold text-lg ${powerText}`}>{currentPower}</span>
+        </div>
+      )}
+
+      {/* Header Section: Name & Type */}
+      {/* whitespace-nowrap ensures the Title forces the container width to expand if it's very long. */}
+      <div className="mb-1 pr-8 whitespace-nowrap">
+          <div className="font-bold text-white text-lg leading-tight mb-0.5">
+            {card.name}
+          </div>
+          {typeString && (
+            <div className="text-xs text-gray-400 font-semibold">
+                {typeString}
+            </div>
+          )}
+      </div>
+
+      {/* Body Section: Ability, Statuses, Owner */}
+      {/* 
+          Logic: 
+          - If content is long (>35 chars), set w-[16rem] (approx 256px) to force wrapping at ~35 chars.
+          - If content is short, let it auto-size (shrink wrap).
+          - whitespace-normal allows wrapping.
+          - If Title is wider than 16rem, the parent (w-max) expands. 
+            This body section will align to the left inside that space.
+      */}
+      <div className={`flex flex-col ${!className && isLongContent ? 'w-[16rem]' : 'w-full'} whitespace-normal break-words`}>
+          
+          {/* Divider above Ability - Custom spacing: 1px top, 5px bottom */}
+          {card.ability && <hr className="border-gray-600 mt-[0px] mb-[2px]" />}
+
+          {/* Ability Text */}
+          {card.ability && (
+            <div className="text-sm text-gray-200 leading-snug">
+              {formatAbilityText(card.ability)}
+            </div>
+          )}
+          
+          {/* Divider below Ability */}
+          {card.ability && <hr className="border-gray-600 my-[4px]" />}
+
+          {/* Statuses Section */}
+          {hasStatuses && (
+            <div className="text-xs text-gray-200 leading-snug">
+                {Object.entries(statusCountsByType).map(([type, count], index, array) => (
+                  <span key={type}>
+                    <span className="font-bold text-indigo-300">{type}</span>
+                    {count > 1 && <span className="text-gray-400 ml-1">(x{count})</span>}
+                    {index < array.length - 1 ? <span className="text-gray-400 mr-1">, </span> : ''}
+                  </span>
+                ))}
+            </div>
+          )}
+
+          {/* Divider above Owner */}
+          {hasStatuses && ownerName && !hideOwner && <hr className="border-gray-600 my-[2px]" />}
+
+          {/* Owner Section */}
+          {ownerName && !hideOwner && (
+            <div className="text-xs text-gray-500 font-semibold">
+              Owner: <span className="text-gray-300">{ownerName}</span>
+            </div>
+          )}
+      </div>
     </div>
   );
 };

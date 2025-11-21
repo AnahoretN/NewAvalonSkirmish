@@ -13,7 +13,7 @@ import React from 'react';
 const formatLine = (line: string): (React.ReactNode | string | null)[] => {
     const keywords = {
         // All keywords are now bold for emphasis, and matching is case-insensitive.
-        bold: ['Support', 'support', 'Threat', 'threat', 'threaten', 'Act', 'Pas', 'Trg', 'Int', 'Exploit', 'Aim', 'Stun', 'Shield'],
+        bold: ['Support', 'support', 'Threat', 'threat', 'threaten', 'Act', 'Pas', 'Trg', 'Int', 'Exploit', 'exploits', 'Aim', 'Stun', 'Shield'],
         italic: [], // No italic keywords currently used.
     };
 

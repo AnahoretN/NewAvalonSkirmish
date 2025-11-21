@@ -631,8 +631,31 @@ broadcastGamesList();
                         if (allReady) {
                             gameState.isGameStarted = true;
                             gameState.isReadyCheckActive = false;
+
+                            // Randomly select starting player from active real players
+                            const activePlayers = gameState.players.filter(p => !p.isDummy && !p.isDisconnected);
+                            if (activePlayers.length > 0) {
+                                const randomIndex = Math.floor(Math.random() * activePlayers.length);
+                                gameState.activeTurnPlayerId = activePlayers[randomIndex].id;
+                                logToGame(gameId, `Game started. Player ${gameState.activeTurnPlayerId} is starting.`);
+                            } else {
+                                logToGame(gameId, `Game started. No active players found to select start?`);
+                            }
                         }
                         broadcastState(gameId, gameState);
+                    }
+                    break;
+                }
+                case 'TRIGGER_HIGHLIGHT': {
+                    const { highlightData } = data;
+                    if (gameState) {
+                        // Broadcast the highlight event to all clients in the game (including sender)
+                        const highlightMessage = JSON.stringify({ type: 'HIGHLIGHT_TRIGGERED', highlightData });
+                        wss.clients.forEach(client => {
+                            if (client.readyState === WebSocket.OPEN && clientGameMap.get(client) === gameId) {
+                                client.send(highlightMessage);
+                            }
+                        });
                     }
                     break;
                 }
