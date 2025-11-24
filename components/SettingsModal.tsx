@@ -79,7 +79,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
                 <div>
                     <h3 className="text-white font-bold">List Mode Interface</h3>
                     <p className="text-xs text-gray-400">
-                        In List Mode, your panel occupies the full left side of the screen, and your hand is displayed as a detailed list.
+                        In List Mode, your panel occupies the full left side of the screen, and cards in hand are shown as a list.
                     </p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">

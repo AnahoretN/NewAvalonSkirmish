@@ -41,6 +41,9 @@ interface PlayerPanelProps {
   layoutMode?: 'standard' | 'list-local' | 'list-remote';
   onCardClick?: (player: Player, card: Card, cardIndex: number) => void;
   validHandTargets?: {playerId: number, cardIndex: number}[];
+  onAnnouncedCardDoubleClick?: (player: Player, card: Card) => void;
+  currentPhase?: number;
+  disableActiveHighlights?: boolean; // New prop
 }
 
 /**
@@ -211,7 +214,10 @@ export const PlayerPanel: React.FC<PlayerPanelProps> = ({
   imageRefreshVersion,
   layoutMode = 'standard',
   onCardClick,
-  validHandTargets
+  validHandTargets,
+  onAnnouncedCardDoubleClick,
+  currentPhase,
+  disableActiveHighlights
 }) => {
   const isDisconnected = !!player.isDisconnected;
   const isTeammate = localPlayerTeamId !== undefined && player.teamId === localPlayerTeamId;
@@ -329,13 +335,22 @@ export const PlayerPanel: React.FC<PlayerPanelProps> = ({
                 </DropZone>
                 <DropZone onDrop={() => draggedItem && handleDrop(draggedItem, {target: 'announced', playerId: player.id})} className="w-full aspect-square bg-gray-800 border border-dashed border-gray-600 rounded flex items-center justify-center" isOverClassName="bg-indigo-600">
                     {player.announcedCard ? (
-                        <div className="w-full h-full"
+                        <div className="w-full h-full cursor-pointer"
                              draggable={canPerformActions}
                              onDragStart={() => canPerformActions && setDraggedItem({ card: player.announcedCard!, source: 'announced', playerId: player.id })}
                              onDragEnd={() => setDraggedItem(null)}
                              onContextMenu={(e) => canPerformActions && openContextMenu(e, 'announcedCard', { card: player.announcedCard, player })}
+                             onDoubleClick={() => onAnnouncedCardDoubleClick && onAnnouncedCardDoubleClick(player, player.announcedCard!)}
                         >
-                             <CardComponent card={player.announcedCard} isFaceUp={true} playerColorMap={playerColorMap} imageRefreshVersion={imageRefreshVersion} />
+                             <CardComponent 
+                                card={player.announcedCard} 
+                                isFaceUp={true} 
+                                playerColorMap={playerColorMap} 
+                                imageRefreshVersion={imageRefreshVersion} 
+                                activePhaseIndex={currentPhase} 
+                                activeTurnPlayerId={activeTurnPlayerId}
+                                disableActiveHighlights={disableActiveHighlights}
+                             />
                         </div>
                     ) : <span className="text-xs font-bold text-gray-400">Showcase</span>} 
                 </DropZone>
@@ -445,13 +460,22 @@ export const PlayerPanel: React.FC<PlayerPanelProps> = ({
                        <DropZone onDrop={() => draggedItem && handleDrop(draggedItem, {target: 'announced', playerId: player.id})} className="w-[120px] h-[120px] bg-gray-800 border border-dashed border-gray-600 rounded flex items-center justify-center">
                             {player.announcedCard ? (
                                 <div 
-                                    className="w-full h-full p-1"
+                                    className="w-full h-full p-1 cursor-pointer"
                                     draggable={canPerformActions}
                                     onDragStart={() => canPerformActions && setDraggedItem({ card: player.announcedCard!, source: 'announced', playerId: player.id })}
                                     onDragEnd={() => setDraggedItem(null)}
                                     onContextMenu={(e) => canPerformActions && openContextMenu(e, 'announcedCard', { card: player.announcedCard, player })}
+                                    onDoubleClick={() => onAnnouncedCardDoubleClick && onAnnouncedCardDoubleClick(player, player.announcedCard!)}
                                 >
-                                    <CardComponent card={player.announcedCard} isFaceUp={true} playerColorMap={playerColorMap} imageRefreshVersion={imageRefreshVersion} />
+                                    <CardComponent 
+                                        card={player.announcedCard} 
+                                        isFaceUp={true} 
+                                        playerColorMap={playerColorMap} 
+                                        imageRefreshVersion={imageRefreshVersion} 
+                                        activePhaseIndex={currentPhase} 
+                                        activeTurnPlayerId={activeTurnPlayerId}
+                                        disableActiveHighlights={disableActiveHighlights}
+                                    />
                                 </div>
                             ) : <span className="text-xs font-bold text-gray-500">Showcase</span>}
                        </DropZone>
@@ -632,7 +656,8 @@ export const PlayerPanel: React.FC<PlayerPanelProps> = ({
                         onDragStart={() => canPerformActions && setDraggedItem({ card: player.announcedCard!, source: 'announced', playerId: player.id })}
                         onDragEnd={() => setDraggedItem(null)}
                         onContextMenu={(e) => canPerformActions && openContextMenu(e, 'announcedCard', { card: player.announcedCard, player })}
-                        className="w-full h-full"
+                        onDoubleClick={() => onAnnouncedCardDoubleClick && onAnnouncedCardDoubleClick(player, player.announcedCard!)}
+                        className="w-full h-full cursor-pointer"
                         data-interactive="true"
                     >
                         <CardComponent 
@@ -641,6 +666,9 @@ export const PlayerPanel: React.FC<PlayerPanelProps> = ({
                             playerColorMap={playerColorMap} 
                             localPlayerId={localPlayerId} 
                             imageRefreshVersion={imageRefreshVersion}
+                            activePhaseIndex={currentPhase}
+                            activeTurnPlayerId={activeTurnPlayerId}
+                            disableActiveHighlights={disableActiveHighlights}
                         />
                     </div>
                 )}
@@ -698,4 +726,4 @@ export const PlayerPanel: React.FC<PlayerPanelProps> = ({
       </div>
     </div>
   );
-};
+}

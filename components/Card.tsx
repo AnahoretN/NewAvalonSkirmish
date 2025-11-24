@@ -22,6 +22,7 @@ interface CardProps {
   smallStatusIcons?: boolean;
   activePhaseIndex?: number;
   activeTurnPlayerId?: number; // Added to check turn ownership
+  disableActiveHighlights?: boolean; // New prop to suppress active state
 }
 
 /**
@@ -30,7 +31,7 @@ interface CardProps {
  * @param {CardProps} props The properties for the component.
  * @returns {React.ReactElement} The rendered card.
  */
-export const Card: React.FC<CardProps> = ({ card, isFaceUp, playerColorMap, localPlayerId, imageRefreshVersion, disableTooltip, smallStatusIcons, activePhaseIndex, activeTurnPlayerId }) => {
+export const Card: React.FC<CardProps> = ({ card, isFaceUp, playerColorMap, localPlayerId, imageRefreshVersion, disableTooltip, smallStatusIcons, activePhaseIndex, activeTurnPlayerId, disableActiveHighlights }) => {
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const tooltipTimeoutRef = useRef<number | null>(null);
@@ -113,7 +114,11 @@ export const Card: React.FC<CardProps> = ({ card, isFaceUp, playerColorMap, loca
       ? canActivateAbility(card, activePhaseIndex, activeTurnPlayerId) 
       : false;
 
-  const shouldHighlight = !highlightDismissed && canActivate;
+  // Highlighting is disabled if:
+  // 1. The user dismissed it explicitly (clicked it).
+  // 2. The parent component requested to disable highlights (e.g., during targeting mode).
+  // 3. The ability conditions are not met.
+  const shouldHighlight = !disableActiveHighlights && !highlightDismissed && canActivate;
 
   const handleCardClick = (e: React.MouseEvent) => {
       // If the card is currently highlighted, a click dismisses the highlight

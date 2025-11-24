@@ -34,6 +34,7 @@ interface GameBoardProps {
   onEmptyCellClick?: (boardCoords: { row: number, col: number }) => void;
   validTargets?: {row: number, col: number}[];
   noTargetOverlay?: {row: number, col: number} | null;
+  disableActiveHighlights?: boolean; // New prop to suppress active highlighting
 }
 
 /**
@@ -66,7 +67,8 @@ const GridCell: React.FC<{
   onEmptyCellClick?: (boardCoords: { row: number, col: number }) => void;
   isValidTarget?: boolean;
   showNoTarget?: boolean;
-}> = ({ row, col, cell, isGameStarted, handleDrop, draggedItem, setDraggedItem, openContextMenu, playMode, setPlayMode, playerColorMap, localPlayerId, onCardDoubleClick, onEmptyCellDoubleClick, imageRefreshVersion, cursorStack, setCursorStack, currentPhase, activeTurnPlayerId, onCardClick, onEmptyCellClick, isValidTarget, showNoTarget }) => {
+  disableActiveHighlights?: boolean;
+}> = ({ row, col, cell, isGameStarted, handleDrop, draggedItem, setDraggedItem, openContextMenu, playMode, setPlayMode, playerColorMap, localPlayerId, onCardDoubleClick, onEmptyCellDoubleClick, imageRefreshVersion, cursorStack, setCursorStack, currentPhase, activeTurnPlayerId, onCardClick, onEmptyCellClick, isValidTarget, showNoTarget, disableActiveHighlights }) => {
   const [isOver, setIsOver] = React.useState(false);
 
   /**
@@ -216,6 +218,7 @@ const GridCell: React.FC<{
               imageRefreshVersion={imageRefreshVersion}
               activePhaseIndex={currentPhase}
               activeTurnPlayerId={activeTurnPlayerId}
+              disableActiveHighlights={disableActiveHighlights}
             />
             {showNoTarget && (
                 <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none animate-pulse">
@@ -244,7 +247,7 @@ const gridSizeClasses: { [key in GridSize]: string } = {
  * @param {GameBoardProps} props The properties for the component.
  * @returns {React.ReactElement} The rendered game board.
  */
-export const GameBoard: React.FC<GameBoardProps> = ({ board, isGameStarted, activeGridSize, handleDrop, draggedItem, setDraggedItem, openContextMenu, playMode, setPlayMode, highlight, playerColorMap, localPlayerId, onCardDoubleClick, onEmptyCellDoubleClick, imageRefreshVersion, cursorStack, setCursorStack, currentPhase, activeTurnPlayerId, onCardClick, onEmptyCellClick, validTargets, noTargetOverlay }) => {
+export const GameBoard: React.FC<GameBoardProps> = ({ board, isGameStarted, activeGridSize, handleDrop, draggedItem, setDraggedItem, openContextMenu, playMode, setPlayMode, highlight, playerColorMap, localPlayerId, onCardDoubleClick, onEmptyCellDoubleClick, imageRefreshVersion, cursorStack, setCursorStack, currentPhase, activeTurnPlayerId, onCardClick, onEmptyCellClick, validTargets, noTargetOverlay, disableActiveHighlights }) => {
   const totalSize = board.length;
   // Calculate the offset to center the active grid within the total board area.
   const offset = Math.floor((totalSize - activeGridSize) / 2);
@@ -352,6 +355,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({ board, isGameStarted, acti
                 onEmptyCellClick={onEmptyCellClick}
                 isValidTarget={isValidTarget}
                 showNoTarget={isNoTarget}
+                disableActiveHighlights={disableActiveHighlights}
               />
             )
           })

@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { GameState, Player, Board, GridSize, Card, DragItem, DropTarget, PlayerColor, GameMode, RevealRequest, CardIdentifier, CustomDeckFile, HighlightData } from '../types';
 import { DeckType, GameMode as GameModeEnum } from '../types';
 import { shuffleDeck, PLAYER_COLOR_NAMES, TURN_PHASES } from '../constants';
-import { decksData, getCardDefinition, commandCardIds, deckFiles, countersDatabase, rawJsonData, getCardDefinitionByName } from '../decks';
+import { decksData, countersDatabase, rawJsonData, getCardDefinitionByName, getCardDefinition, commandCardIds } from '../decks';
 
 const MAX_PLAYERS = 4;
 const GRID_MAX_SIZE = 7;
@@ -528,7 +528,7 @@ export const useGameState = () => {
         const currentState = gameStateRef.current;
         const refreshedState = JSON.parse(JSON.stringify(currentState));
         
-        // Refresh cards in hand/deck/board with latest logic/text
+        // Refresh cards in hand/deck/discard with latest logic/text
         refreshedState.players.forEach((p: Player) => {
              ['hand', 'deck', 'discard'].forEach(pile => {
                  // @ts-ignore
@@ -1484,12 +1484,59 @@ export const useGameState = () => {
         } else if (target.target === 'announced' && target.playerId !== undefined) {
             const player = newState.players.find(p => p.id === target.playerId);
             if (player) {
-                // If there was already a card, move it to discard? Or swap?
-                // Simple implementation: Push old to discard if exists.
+                // If there was already a card, move it to HAND.
+                // Changed from Discard to Hand per request.
                 if (player.announcedCard) {
-                    player.discard.push(player.announcedCard);
+                    // Reset temporary statuses/flags since it's returning to hand
+                    if (player.announcedCard.statuses) {
+                        player.announcedCard.statuses = player.announcedCard.statuses.filter(s => s.type === 'Revealed');
+                    }
+                    delete player.announcedCard.enteredThisTurn;
+                    delete player.announcedCard.abilityUsedInPhase;
+                    delete player.announcedCard.powerModifier;
+                    
+                    player.hand.push(player.announcedCard);
                 }
                 player.announcedCard = cardToMove;
+            }
+        }
+
+        // --- Vigilant Spotter Passive Trigger ---
+        // Trigger: Opponent plays revealed card from hand to board.
+        // Effect: Vigilant Spotter owner gains 2 points IF Spotter has Support.
+        if (item.source === 'hand' && target.target === 'board') {
+            const movingCard = cardToMove;
+            // Check if it's "revealed" (either via property or status)
+            const isRevealed = movingCard.revealedTo === 'all' || movingCard.statuses?.some(s => s.type === 'Revealed');
+            
+            if (isRevealed) {
+                // Iterate through board to find Vigilant Spotters
+                const gridSize = newState.board.length;
+                for (let r = 0; r < gridSize; r++) {
+                    for (let c = 0; c < gridSize; c++) {
+                        const spotter = newState.board[r][c].card;
+                        if (spotter && spotter.name.toLowerCase().includes('vigilant spotter')) {
+                            // Check ownership (must be opponent of the moving card)
+                            if (spotter.ownerId !== movingCard.ownerId) {
+                                // Check if Spotter has Support
+                                // Note: We need to use recalculateBoardStatuses on `newState` first to ensure Support is up to date,
+                                // but specifically for the *old* state or the *new* state?
+                                // Usually passive triggers happen *after* the board state updates.
+                                // Let's recalc first.
+                                newState.board = recalculateBoardStatuses(newState);
+                                const updatedSpotter = newState.board[r][c].card!;
+                                
+                                if (updatedSpotter.statuses?.some(s => s.type === 'Support')) {
+                                     // Grant 2 points to spotter owner
+                                     const spotterOwner = newState.players.find(p => p.id === spotter.ownerId);
+                                     if (spotterOwner) {
+                                         spotterOwner.score += 2;
+                                     }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -1529,6 +1576,170 @@ export const useGameState = () => {
               card.abilityUsedInPhase = newState.currentPhase;
           }
           return newState;
+      });
+  }, [updateState]);
+
+  // --- New Helper Functions for Hoods Abilities ---
+
+  const swapCards = useCallback((coords1: {row: number, col: number}, coords2: {row: number, col: number}) => {
+      updateState(currentState => {
+          if (!currentState.isGameStarted) return currentState;
+          const newState: GameState = JSON.parse(JSON.stringify(currentState));
+          
+          const card1 = newState.board[coords1.row][coords1.col].card;
+          const card2 = newState.board[coords2.row][coords2.col].card;
+
+          newState.board[coords1.row][coords1.col].card = card2;
+          newState.board[coords2.row][coords2.col].card = card1;
+          
+          newState.board = recalculateBoardStatuses(newState);
+          return newState;
+      });
+  }, [updateState]);
+
+  const transferStatus = useCallback((fromCoords: {row: number, col: number}, toCoords: {row: number, col: number}, statusType: string) => {
+      updateState(currentState => {
+          if (!currentState.isGameStarted) return currentState;
+          const newState: GameState = JSON.parse(JSON.stringify(currentState));
+
+          const fromCard = newState.board[fromCoords.row][fromCoords.col].card;
+          const toCard = newState.board[toCoords.row][toCoords.col].card;
+
+          if (fromCard && toCard && fromCard.statuses) {
+              const statusIndex = fromCard.statuses.findIndex(s => s.type === statusType);
+              if (statusIndex > -1) {
+                  const [status] = fromCard.statuses.splice(statusIndex, 1);
+                  if (!toCard.statuses) toCard.statuses = [];
+                  toCard.statuses.push(status);
+              }
+          }
+          newState.board = recalculateBoardStatuses(newState);
+          return newState;
+      });
+  }, [updateState]);
+
+  const recoverDiscardedCard = useCallback((playerId: number, cardIndex: number) => {
+      updateState(currentState => {
+          if (!currentState.isGameStarted) return currentState;
+          const newState: GameState = JSON.parse(JSON.stringify(currentState));
+          const player = newState.players.find(p => p.id === playerId);
+          
+          if (player && player.discard.length > cardIndex) {
+              const [card] = player.discard.splice(cardIndex, 1);
+              player.hand.push(card);
+          }
+          return newState;
+      });
+  }, [updateState]);
+
+  const spawnToken = useCallback((coords: {row: number, col: number}, tokenName: string, ownerId: number) => {
+      updateState(currentState => {
+         if (!currentState.isGameStarted) return currentState;
+         const newState: GameState = JSON.parse(JSON.stringify(currentState));
+         
+         const tokenDefKey = Object.keys(rawJsonData.tokenDatabase).find(key => rawJsonData.tokenDatabase[key].name === tokenName);
+         if (!tokenDefKey) return currentState;
+         
+         const tokenDef = rawJsonData.tokenDatabase[tokenDefKey];
+         const owner = newState.players.find(p => p.id === ownerId);
+
+         if (tokenDef && newState.board[coords.row][coords.col].card === null) {
+              const tokenCard: Card = {
+                  id: `TKN_${tokenName.toUpperCase().replace(/\s/g, '_')}_${Date.now()}`,
+                  deck: DeckType.Tokens,
+                  name: tokenName,
+                  imageUrl: tokenDef.imageUrl,
+                  fallbackImage: tokenDef.fallbackImage,
+                  power: tokenDef.power,
+                  ability: tokenDef.ability,
+                  color: tokenDef.color,
+                  types: tokenDef.types || ['Unit'],
+                  faction: 'Tokens',
+                  ownerId: ownerId,
+                  ownerName: owner?.name,
+                  enteredThisTurn: true
+              };
+              newState.board[coords.row][coords.col].card = tokenCard;
+         }
+         
+         newState.board = recalculateBoardStatuses(newState);
+         return newState;
+      });
+  }, [updateState]);
+  
+  const scoreLine = useCallback((row1: number, col1: number, row2: number, col2: number, playerId: number) => {
+      updateState(currentState => {
+         if (!currentState.isGameStarted) return currentState;
+         const newState: GameState = JSON.parse(JSON.stringify(currentState));
+         
+         const player = newState.players.find(p => p.id === playerId);
+         if (!player) return currentState;
+
+         let totalScore = 0;
+         const gridSize = newState.board.length;
+         
+         // Helper to check if card counts for scoring
+         const cardCountsForPlayer = (card: Card, pid: number) => {
+             // 1. Owned by player
+             if (card.ownerId === pid) return true;
+             
+             // 2. Data Liberator Passive
+             // Condition: Card has Exploit counter owned by pid
+             const hasExploit = card.statuses?.some(s => s.type === 'Exploit' && s.addedByPlayerId === pid);
+             
+             // Check if pid controls a Data Liberator with Support
+             let hasActiveLiberator = false;
+             for(let r=0; r<gridSize; r++) {
+                 for(let c=0; c<gridSize; c++) {
+                     const cCard = newState.board[r][c].card;
+                     if (cCard && cCard.ownerId === pid && cCard.name.toLowerCase().includes('data liberator')) {
+                         // Check support in CURRENT state (status might not be updated if we just moved, but usually recalc runs)
+                         if (cCard.statuses?.some(s => s.type === 'Support')) {
+                             hasActiveLiberator = true;
+                         }
+                     }
+                 }
+             }
+             
+             if (hasExploit && hasActiveLiberator) return true;
+             
+             return false;
+         };
+
+         // Iterate over the line defined by (row1, col1) and (row2, col2)
+         // Assuming vertical or horizontal lines only for now based on prompt "row or column"
+         // If generic line, logic is complex. Prompt says "row or column of previous cell".
+         
+         let rStart = row1, rEnd = row1, cStart = col1, cEnd = col1;
+         
+         if (row1 === row2) {
+             // Horizontal Row
+             rStart = row1; rEnd = row1;
+             cStart = 0; cEnd = gridSize - 1;
+         } else if (col1 === col2) {
+             // Vertical Col
+             cStart = col1; cEnd = col1;
+             rStart = 0; rEnd = gridSize - 1;
+         } else {
+             // Not a straight line? Abort or just count the two points?
+             // Prompt: "row or column in which both cells are located".
+             // This implies if they share a row, score that row. If share a col, score that col.
+             return currentState;
+         }
+         
+         for(let r = rStart; r <= rEnd; r++) {
+             for(let c = cStart; c <= cEnd; c++) {
+                 const cell = newState.board[r][c];
+                 if (cell.card && !cell.card.statuses?.some(s => s.type === 'Stun')) {
+                     if (cardCountsForPlayer(cell.card, playerId)) {
+                         totalScore += Math.max(0, cell.card.power + (cell.card.powerModifier || 0));
+                     }
+                 }
+             }
+         }
+         
+         player.score += totalScore;
+         return newState;
       });
   }, [updateState]);
 
@@ -1586,5 +1797,11 @@ export const useGameState = () => {
     prevPhase,
     setPhase,
     markAbilityUsed, // Expose function
+    // New Actions
+    swapCards,
+    transferStatus,
+    recoverDiscardedCard,
+    spawnToken,
+    scoreLine
   };
 };
