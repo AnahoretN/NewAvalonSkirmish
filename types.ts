@@ -13,6 +13,7 @@ export enum DeckType {
   Command = 'Command',
   Tokens = 'Tokens',
   Custom = 'Custom',
+  Neutral = 'Neutral',
 }
 
 /**
@@ -68,6 +69,7 @@ export interface Card {
   fallbackImage: string; // The local fallback image path.
   power: number;
   powerModifier?: number; // Adjustment to the base power.
+  bonusPower?: number; // Temporary power bonus from passive effects (recalculated on board updates).
   ability: string;
   flavorText?: string;
   color?: string; // Used for counters or simple tokens to define their display color.
@@ -102,6 +104,7 @@ export interface Player {
   playerToken?: string; // A secret token for reconnecting to this player slot.
   isReady?: boolean; // For the pre-game ready check.
   teamId?: number; // The team this player belongs to.
+  boardHistory: string[]; // Stack of card IDs currently on the board, used to track 'LastPlayed' status fallback.
 }
 
 /**
@@ -285,6 +288,7 @@ export interface CursorStackState {
 export interface CommandContext {
     lastMovedCardCoords?: { row: number, col: number };
     lastMovedCardId?: string; // To track power of moved card
+    selectedHandCard?: { playerId: number, cardIndex: number }; // For Quick Response Team
 }
 
 /**

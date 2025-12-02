@@ -146,6 +146,14 @@ const getDeployAction = (
     if (name.includes('threat analyst')) {
         return { type: 'CREATE_STACK', tokenType: 'Exploit', count: 1 };
     }
+    if (name.includes('mr. pearl')) {
+        return { 
+            type: 'OPEN_MODAL', 
+            mode: 'SEARCH_DECK', // Reusing search deck modal infrastructure but pointing to discard
+            sourceCard: card,
+            payload: { filterType: 'Unit', actionType: 'RETRIEVE_FROM_DISCARD' } // Custom flag for discard source
+        };
+    }
 
     // HOODS
     if (name.includes('reckless provocateur')) {
@@ -194,16 +202,17 @@ const getDeployAction = (
             };
         }
     }
+    if (name.includes('lucius')) {
+        return { type: 'CREATE_STACK', tokenType: 'Aim', count: 1 };
+    }
 
     // FUSION
     if (name.includes('code keeper')) {
+        // Rule 3: Exploit ALL opponent cards with threat automatically.
         return {
             type: 'GLOBAL_AUTO_APPLY',
-            sourceCard: card,
-            sourceCoords: coords,
             payload: {
                 tokenType: 'Exploit',
-                count: 1,
                 filter: (target: Card) => target.ownerId !== ownerId && hasStatus(target, 'Threat', ownerId)
             }
         };
@@ -215,13 +224,11 @@ const getDeployAction = (
         return { type: 'CREATE_STACK', tokenType: 'Exploit', count: 1 };
     }
     if (name.includes('signal prophet')) {
+        // Rule 3: Exploit ALL own cards with support automatically.
         return {
             type: 'GLOBAL_AUTO_APPLY',
-            sourceCard: card,
-            sourceCoords: coords,
             payload: {
                 tokenType: 'Exploit',
-                count: 1,
                 filter: (target: Card) => target.ownerId === ownerId && hasStatus(target, 'Support', ownerId)
             }
         };
@@ -230,9 +237,79 @@ const getDeployAction = (
         return { type: 'CREATE_STACK', tokenType: 'Exploit', count: 1 };
     }
 
+    // NEUTRAL / HEROES
+    if (name.includes('abr "gawain"') || name.includes('autonomous battle robot')) {
+         return {
+            type: 'ENTER_MODE',
+            mode: 'ABR_DEPLOY_SHIELD_AIM',
+            sourceCard: card,
+            sourceCoords: coords,
+            payload: {
+                filter: (target: Card) => {
+                    if (target.ownerId === ownerId) return false;
+                    // Check teammate
+                    const actor = gameState.players.find(p => p.id === ownerId);
+                    const targetPlayer = gameState.players.find(p => p.id === target.ownerId);
+                    if (actor?.teamId !== undefined && targetPlayer?.teamId !== undefined && actor.teamId === targetPlayer.teamId) return false;
+
+                    // Has Threat from ME
+                    return target.statuses?.some(s => s.type === 'Threat' && s.addedByPlayerId === ownerId);
+                }
+            }
+         };
+    }
+    if (name.includes('reclaimed "gawain"')) {
+        return { type: 'ENTER_MODE', mode: 'SHIELD_SELF_THEN_RIOT_PUSH', sourceCard: card, sourceCoords: coords, payload: {} };
+    }
+    if (name.includes('michael falk')) {
+        return {
+            type: 'OPEN_MODAL',
+            mode: 'SEARCH_DECK',
+            sourceCard: card,
+            payload: { filterType: 'Any' } // Search for ANY card
+        };
+    }
+    if (name.includes('edith byron')) {
+        // Deploy: Shield 1. Place Recon Drone.
+        // We trigger SHIELD_SELF_THEN_SPAWN
+        return {
+            type: 'ENTER_MODE',
+            mode: 'SHIELD_SELF_THEN_SPAWN',
+            sourceCard: card,
+            sourceCoords: coords,
+            payload: { tokenName: 'Recon Drone' }
+        };
+    }
+    if (name.includes('pinkunoneko')) {
+        // Deploy: Stun adjacent opponent.
+        return {
+            type: 'CREATE_STACK',
+            tokenType: 'Stun',
+            count: 1,
+            onlyOpponents: true,
+            mustBeAdjacentToSource: true,
+            sourceCoords: coords
+        };
+    }
+    if (name.includes('maria "eleftheria"')) {
+        return { type: 'CREATE_STACK', tokenType: 'Aim', count: 1 };
+    }
+    if (name.includes('zius')) {
+        return { type: 'CREATE_STACK', tokenType: 'Exploit', count: 1 };
+    }
+
     // Generic fallback
     if (card.ability.toLowerCase().includes('deploy:')) {
-         if (card.ability.toLowerCase().includes('shield 1')) return { type: 'CREATE_STACK', tokenType: 'Shield', count: 1 };
+         if (card.ability.toLowerCase().includes('shield 1')) {
+             // Rule 2: Self only, automatic
+             return { 
+                 type: 'GLOBAL_AUTO_APPLY', 
+                 payload: { 
+                     tokenType: 'Shield',
+                     filter: (target: Card) => target.id === card.id 
+                 }
+             };
+         }
          if (card.ability.toLowerCase().includes('stun 1')) return { type: 'CREATE_STACK', tokenType: 'Stun', count: 1 };
          if (card.ability.toLowerCase().includes('aim 1')) return { type: 'CREATE_STACK', tokenType: 'Aim', count: 1 };
     }
@@ -279,6 +356,18 @@ const getPhaseAction = (
             if (!hasSup) return null;
             return { type: 'OPEN_MODAL', mode: 'RETRIEVE_DEVICE', sourceCard: card, sourceCoords: coords, payload: {} };
         }
+        if (name.includes('abr "gawain"') || name.includes('autonomous battle robot')) {
+            return {
+                type: 'ENTER_MODE',
+                mode: 'SELECT_TARGET',
+                sourceCard: card,
+                sourceCoords: coords,
+                payload: {
+                    actionType: 'DESTROY',
+                    filter: (target: Card, r: number, c: number) => isLine(r, c, coords.row, coords.col) && hasStatus(target, 'Aim')
+                }
+            };
+        }
         if (name.includes('princeps')) {
             return {
                 type: 'ENTER_MODE',
@@ -302,7 +391,7 @@ const getPhaseAction = (
             };
         }
         if (name.includes('devout synthetic')) {
-            if (!hasSup) return null;
+            // Requirement removed per request
             return {
                 type: 'ENTER_MODE',
                 mode: 'SELECT_TARGET',
@@ -323,6 +412,98 @@ const getPhaseAction = (
         }
         if (name.includes('recon drone')) {
             return { type: 'ENTER_MODE', mode: 'SELECT_CELL', sourceCard: card, sourceCoords: coords, payload: { allowSelf: false, range: 'global' } };
+        }
+
+        // Neutral Setup Abilities
+        if (name.includes('reclaimed "gawain"')) {
+            // Requirement removed per request
+            return {
+                type: 'ENTER_MODE',
+                mode: 'SELECT_TARGET',
+                sourceCard: card,
+                sourceCoords: coords,
+                payload: {
+                    actionType: 'DESTROY',
+                    filter: (target: Card, r: number, c: number) => 
+                        isAdjacent(r, c, coords.row, coords.col) && 
+                        target.ownerId !== ownerId && 
+                        (hasStatus(target, 'Threat', ownerId) || hasStatus(target, 'Stun', ownerId))
+                }
+            };
+        }
+        if (name.includes('edith byron')) {
+            // Setup: Move to any cell in line. (Same as Patrol Agent)
+            return { type: 'ENTER_MODE', mode: 'PATROL_MOVE', sourceCard: card, sourceCoords: coords, payload: {} };
+        }
+        if (name.includes('pinkunoneko')) {
+            // Setup: Destroy adjacent with threat/stun. May move to an adjacent cell.
+            return {
+                type: 'ENTER_MODE',
+                mode: 'SELECT_TARGET',
+                sourceCard: card,
+                sourceCoords: coords,
+                payload: {
+                    actionType: 'DESTROY',
+                    filter: (target: Card, r: number, c: number) => 
+                        isAdjacent(r, c, coords.row, coords.col) && 
+                        (hasStatus(target, 'Threat', ownerId) || hasStatus(target, 'Stun', ownerId)),
+                    chainedAction: {
+                        type: 'ENTER_MODE',
+                        mode: 'SELECT_CELL',
+                        payload: { range: 1, allowSelf: true } // Range 1 = Adjacent. Allow Self = "May move"
+                    }
+                }
+            };
+        }
+        if (name.includes('maria "eleftheria"')) {
+            // Setup: Destroy card with aim.
+            return {
+                type: 'ENTER_MODE',
+                mode: 'SELECT_TARGET',
+                sourceCard: card,
+                sourceCoords: coords,
+                payload: { actionType: 'DESTROY', filter: (target: Card) => hasStatus(target, 'Aim') }
+            };
+        }
+        if (name.includes('zius')) {
+            // Setup: Exploit any card. Gain 1 point for each of your exploits in the line.
+            return {
+                type: 'CREATE_STACK',
+                tokenType: 'Exploit',
+                count: 1,
+                sourceCard: card,
+                sourceCoords: coords
+            };
+        }
+        if (name.includes('reverend')) {
+            // Setup: Exploit any card.
+            return { type: 'CREATE_STACK', tokenType: 'Exploit', count: 1, sourceCard: card, sourceCoords: coords };
+        }
+        if (name.includes('finn')) {
+            // Setup: Move any of your cards 1 or 2 cells.
+            return {
+                type: 'ENTER_MODE',
+                mode: 'SELECT_UNIT_FOR_MOVE',
+                sourceCard: card,
+                sourceCoords: coords,
+                payload: {
+                    range: 2,
+                    filter: (target: Card) => target.ownerId === ownerId
+                }
+            };
+        }
+        if (name.includes('lucius')) {
+            // Setup: Destroy card with aim in line.
+            return {
+                type: 'ENTER_MODE',
+                mode: 'SELECT_TARGET',
+                sourceCard: card,
+                sourceCoords: coords,
+                payload: {
+                    actionType: 'DESTROY',
+                    filter: (target: Card, r: number, c: number) => isLine(r, c, coords.row, coords.col) && hasStatus(target, 'Aim')
+                }
+            };
         }
     }
 
@@ -395,7 +576,14 @@ const getPhaseAction = (
         if (name.includes('walking turret')) {
             if (!hasSup) return null;
             if (hasStatus(card, 'Shield')) return null;
-            return { type: 'ENTER_MODE', mode: 'WALKING_TURRET_SHIELD', sourceCard: card, sourceCoords: coords, payload: {} };
+            // Rule 2: Automatic shield on self
+            return { 
+                type: 'GLOBAL_AUTO_APPLY', 
+                payload: { 
+                    tokenType: 'Shield',
+                    filter: (target: Card) => target.id === card.id
+                }
+            };
         }
         if (name.includes('code keeper')) {
             if (!hasSup) return null;
@@ -424,6 +612,14 @@ const getPhaseAction = (
         if (name.includes('zealous missionary')) {
             if (!hasSup) return null;
             return { type: 'ENTER_MODE', mode: 'ZEALOUS_WEAKEN', sourceCard: card, sourceCoords: coords, payload: { filter: (target: Card) => hasStatus(target, 'Exploit', ownerId) } };
+        }
+        
+        if (name.includes('michael falk')) {
+            return { type: 'CREATE_STACK', tokenType: 'Revealed', count: 1, onlyFaceDown: true, excludeOwnerId: ownerId };
+        }
+        if (name.includes('finn')) {
+            // Commit: Gain 1 point for each revealed card in opponents' hands.
+            return { type: 'GLOBAL_AUTO_APPLY', payload: { customAction: 'FINN_SCORING' }, sourceCard: card, sourceCoords: coords };
         }
     }
 

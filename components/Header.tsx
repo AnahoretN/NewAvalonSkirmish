@@ -6,11 +6,9 @@ import React, { useState } from 'react';
 import type { GridSize, GameMode } from '../types';
 import { GameMode as GameModeEnum } from '../types';
 import type { ConnectionStatus } from '../hooks/useGameState';
-import { TURN_PHASES } from '../constants';
+import { TURN_PHASES, MAX_PLAYERS } from '../constants';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Tooltip } from './Tooltip';
-
-const MAX_PLAYERS = 4;
 
 /**
  * Props for the Header component.

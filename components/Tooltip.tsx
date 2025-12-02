@@ -82,9 +82,6 @@ export const CardTooltipContent: React.FC<CardTooltipContentProps> = ({ card, st
     ? card.types.join(", ") 
     : (card.deck === 'counter' ? '' : `${card.deck} Card`);
 
-  const modifier = card.powerModifier || 0;
-  const currentPower = Math.max(0, card.power + modifier);
-
   // Group statuses by type and count them
   const statusCountsByType = (card.statuses ?? []).reduce((acc, status) => {
     acc[status.type] = (acc[status.type] || 0) + 1;
@@ -93,17 +90,6 @@ export const CardTooltipContent: React.FC<CardTooltipContentProps> = ({ card, st
 
   const hasStatuses = Object.keys(statusCountsByType).length > 0;
   const ownerName = card.ownerName || (card.ownerId ? `Player ${card.ownerId}` : null);
-
-  // Determine background color for power box based on modifiers
-  let powerBg = "bg-gray-700 border-gray-500";
-  let powerText = "text-white";
-  if (modifier > 0) {
-    powerBg = "bg-green-900 border-green-500";
-    powerText = "text-green-400";
-  } else if (modifier < 0) {
-    powerBg = "bg-red-900 border-red-500";
-    powerText = "text-red-400";
-  }
 
   // Heuristic to determine if we should enforce a wrap width (approx 35 chars).
   // 16rem is roughly 256px, which fits ~35 characters of standard text.
@@ -117,26 +103,11 @@ export const CardTooltipContent: React.FC<CardTooltipContentProps> = ({ card, st
   // Default base classes
   const baseClasses = className || "relative flex flex-col text-left w-max max-w-[90vw]";
 
-  // Power position classes
-  // 'default': -top-1 -right-1 (Overhanging the corner, standard tooltip style)
-  // 'inner': top-0.5 right-0.5 (Inside the box with 2px margin, for list mode)
-  const powerPosClass = powerPosition === 'inner' 
-    ? "top-0.5 right-0.5" 
-    : "-top-1 -right-1";
-
   return (
     <div className={baseClasses}>
-      {/* Power Box (Top Right) - Only if power > 0 */}
-      {/* Increased size by 15% (w-8 h-8 is 32px, so ~37px) */}
-      {card.power > 0 && (
-        <div className={`absolute ${powerPosClass} w-[37px] h-[37px] flex items-center justify-center rounded border-2 ${powerBg} shadow-sm z-10`}>
-          <span className={`font-bold text-lg ${powerText}`}>{currentPower}</span>
-        </div>
-      )}
-
       {/* Header Section: Name & Type */}
       {/* whitespace-nowrap ensures the Title forces the container width to expand if it's very long. */}
-      <div className="mb-1 pr-8 whitespace-nowrap">
+      <div className="mb-1 pr-1 whitespace-nowrap">
           <div className="font-bold text-white text-lg leading-tight mb-0.5">
             {card.name}
           </div>

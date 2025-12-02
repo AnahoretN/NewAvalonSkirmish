@@ -51,7 +51,12 @@ export const commandCardIds = new Set([
     'mobilization',
     'inspiration',
     'dataInterception',
-    'falseOrders'
+    'falseOrders',
+    'experimentalStimulants',
+    'logisticsChain',
+    'quickResponseTeam',
+    'temporaryShelter',
+    'enhancedInterrogation'
 ]);
 
 type DecksData = Record<string, Card[]>;

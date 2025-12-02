@@ -1,4 +1,3 @@
-
 import { Board, GameState } from '../types';
 
 const GRID_MAX_SIZE = 7;
@@ -12,6 +11,7 @@ export const createInitialBoard = (): Board =>
 
 /**
  * Recalculates "Support" and "Threat" statuses for all cards on the board.
+ * Also calculates passive buffs like Mr. Pearl's bonus power.
  * This function is computationally intensive and should be called only when the board changes.
  * @param {GameState} gameState The entire current game state.
  * @returns {Board} A new board object with updated statuses.
@@ -25,17 +25,22 @@ export const recalculateBoardStatuses = (gameState: GameState): Board => {
     const playerTeamMap = new Map<number, number | undefined>();
     players.forEach(p => playerTeamMap.set(p.id, p.teamId));
 
-    // First, clear all automatic statuses from every card.
+    // 1. Reset dynamic properties
     for (let r = 0; r < GRID_SIZE; r++) {
         for (let c = 0; c < GRID_SIZE; c++) {
             const card = newBoard[r][c].card;
-            if (card && card.statuses) {
-                card.statuses = card.statuses.filter((s: {type: string}) => s.type !== 'Support' && s.type !== 'Threat');
+            if (card) {
+                // Remove auto statuses
+                if (card.statuses) {
+                    card.statuses = card.statuses.filter((s: {type: string}) => s.type !== 'Support' && s.type !== 'Threat');
+                }
+                // Reset bonus power
+                delete card.bonusPower;
             }
         }
     }
 
-    // Then, re-apply statuses based on current positions.
+    // 2. Standard Support/Threat Logic
     for (let r = 0; r < GRID_SIZE; r++) {
         for (let c = 0; c < GRID_SIZE; c++) {
             const card = newBoard[r][c].card;
@@ -57,7 +62,11 @@ export const recalculateBoardStatuses = (gameState: GameState): Board => {
                 const { r: nr, c: nc } = pos;
                 if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE) {
                     const neighborCard = newBoard[nr][nc].card;
-                    if (neighborCard && neighborCard.ownerId !== undefined && !neighborCard.isFaceDown) {
+                    
+                    // A Stunned card cannot provide Support or create Threat.
+                    const isNeighborStunned = neighborCard?.statuses?.some((s: {type: string}) => s.type === 'Stun');
+
+                    if (neighborCard && neighborCard.ownerId !== undefined && !neighborCard.isFaceDown && !isNeighborStunned) {
                         const neighborOwnerId = neighborCard.ownerId;
                         const neighborTeamId = playerTeamMap.get(neighborOwnerId);
 
@@ -120,5 +129,63 @@ export const recalculateBoardStatuses = (gameState: GameState): Board => {
             }
         }
     }
+
+    // 3. Hero Passives (Reverend & Mr. Pearl)
+    // We iterate again to find Heroes and apply their effects to OTHERS.
+    for (let r = 0; r < GRID_SIZE; r++) {
+        for (let c = 0; c < GRID_SIZE; c++) {
+            const card = newBoard[r][c].card;
+            
+            // Stunned Heroes do not emit passive auras
+            const isStunned = card?.statuses?.some((s: {type: string}) => s.type === 'Stun');
+
+            if (!card || !card.name || card.isFaceDown || card.ownerId === undefined || isStunned) continue;
+
+            // 3.1 Reverend of The Choir: Support to all own units in lines
+            if (card.name.includes("Reverend")) {
+                const ownerId = card.ownerId;
+                // Row
+                for (let i = 0; i < GRID_SIZE; i++) {
+                    const target = newBoard[r][i].card;
+                    if (target && target.ownerId === ownerId && !target.isFaceDown && target.id !== card.id) {
+                        if (!target.statuses) target.statuses = [];
+                        if (!target.statuses.some((s: {type: string}) => s.type === 'Support')) {
+                            target.statuses.push({ type: 'Support', addedByPlayerId: ownerId });
+                        }
+                    }
+                }
+                // Col
+                for (let i = 0; i < GRID_SIZE; i++) {
+                    const target = newBoard[i][c].card;
+                    if (target && target.ownerId === ownerId && !target.isFaceDown && target.id !== card.id) {
+                        if (!target.statuses) target.statuses = [];
+                        if (!target.statuses.some((s: {type: string}) => s.type === 'Support')) {
+                            target.statuses.push({ type: 'Support', addedByPlayerId: ownerId });
+                        }
+                    }
+                }
+            }
+
+            // 3.2 Mr. Pearl: +2 Power to other own units in lines
+            if (card.name.includes("Mr. Pearl")) {
+                const ownerId = card.ownerId;
+                // Row
+                for (let i = 0; i < GRID_SIZE; i++) {
+                    const target = newBoard[r][i].card;
+                    if (target && target.ownerId === ownerId && !target.isFaceDown && target.id !== card.id) {
+                        target.bonusPower = (target.bonusPower || 0) + 2;
+                    }
+                }
+                // Col
+                for (let i = 0; i < GRID_SIZE; i++) {
+                    const target = newBoard[i][c].card;
+                    if (target && target.ownerId === ownerId && !target.isFaceDown && target.id !== card.id) {
+                        target.bonusPower = (target.bonusPower || 0) + 2;
+                    }
+                }
+            }
+        }
+    }
+
     return newBoard;
 };

@@ -122,6 +122,9 @@ export const DeckBuilderModal: React.FC<DeckBuilderModalProps> = ({ isOpen, onCl
               if (selectedFactionFilter === 'Command') {
                   return commandCardIds.has(id) || card.types?.includes('Command');
               }
+              if (selectedFactionFilter === 'Neutral') {
+                  return card.faction === 'Neutral';
+              }
               // For standard factions
               if (card.faction !== selectedFactionFilter) {
                   return false;
@@ -143,9 +146,19 @@ export const DeckBuilderModal: React.FC<DeckBuilderModalProps> = ({ isOpen, onCl
           alert(`Deck cannot exceed ${MAX_DECK_SIZE} cards.`);
           return;
       }
+      
+      const cardDef = getCardDefinition(cardId);
+      const isHero = cardDef?.types?.includes('Hero');
+
       setCurrentDeck(prev => {
           const newDeck = new Map(prev);
           const currentQty = newDeck.get(cardId) || 0;
+          
+          if (isHero && currentQty >= 1) {
+              // Can't add more than 1 Hero
+              return newDeck; 
+          }
+
           if (currentQty < 3) { // Limit 3 copies per card
                newDeck.set(cardId, currentQty + 1);
           }
@@ -380,6 +393,7 @@ export const DeckBuilderModal: React.FC<DeckBuilderModalProps> = ({ isOpen, onCl
                            >
                                <option value="All">All Factions</option>
                                {selectableFactions.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                               <option value="Neutral">Neutral</option>
                                <option value="Command">Command Cards</option>
                            </select>
                            {selectedFactionFilter !== 'All' && (
@@ -403,7 +417,7 @@ export const DeckBuilderModal: React.FC<DeckBuilderModalProps> = ({ isOpen, onCl
                                    ...card,
                                    id: id,
                                    baseId: id,
-                                   deck: card.faction as DeckType || DeckType.Custom, 
+                                   deck: (card.faction === 'Neutral' ? DeckType.Neutral : (card.faction as DeckType || DeckType.Custom)), 
                                    ownerId: 0
                                };
                                
@@ -417,12 +431,11 @@ export const DeckBuilderModal: React.FC<DeckBuilderModalProps> = ({ isOpen, onCl
                                           setViewingCard({ card: displayCard });
                                       }}
                                    >
-                                       <div className="w-full aspect-square transition-transform duration-100 hover:scale-105 hover:shadow-lg hover:z-10">
+                                       <div className="w-full aspect-square transition-transform duration-100 hover:scale-105 hover:shadow-lg hover:z-[100]">
                                             <CardComponent 
                                                 card={displayCard} 
                                                 isFaceUp={true} 
                                                 playerColorMap={new Map()} 
-                                                disableTooltip={true} 
                                                 extraPowerSpacing={true} 
                                             />
                                        </div>
@@ -464,12 +477,13 @@ export const DeckBuilderModal: React.FC<DeckBuilderModalProps> = ({ isOpen, onCl
                                ...cardDef,
                                id: cardId,
                                baseId: cardId,
-                               deck: cardDef.faction as DeckType || DeckType.Custom, 
+                               deck: (cardDef.faction === 'Neutral' ? DeckType.Neutral : (cardDef.faction as DeckType || DeckType.Custom)), 
                                ownerId: 0
                            };
                            
                            const translation = getCardTranslation(cardId);
                            const displayName = translation ? translation.name : cardDef.name;
+                           const isHero = cardDef.types?.includes('Hero');
 
                            return (
                                <div key={cardId} className="flex items-center bg-gray-700 rounded p-2 group hover:bg-gray-600 transition-colors select-none">
@@ -480,11 +494,11 @@ export const DeckBuilderModal: React.FC<DeckBuilderModalProps> = ({ isOpen, onCl
                                           setViewingCard({ card: displayCard });
                                       }}
                                    >
-                                       <CardComponent card={displayCard} isFaceUp={true} playerColorMap={new Map()} disableTooltip={true} />
+                                       <CardComponent card={displayCard} isFaceUp={true} playerColorMap={new Map()} hidePower={true} />
                                    </div>
                                    <div className="flex-grow min-w-0">
                                        <div className="font-bold text-sm text-white truncate">{displayName}</div>
-                                       <div className="text-xs text-gray-400 truncate">{cardDef.faction}</div>
+                                       <div className="text-xs text-gray-400 truncate">{cardDef.faction} {isHero ? '(Hero)' : ''}</div>
                                    </div>
                                    <div className="flex items-center gap-2 ml-2">
                                        <button 
@@ -497,9 +511,9 @@ export const DeckBuilderModal: React.FC<DeckBuilderModalProps> = ({ isOpen, onCl
                                        <span className="font-bold text-white w-4 text-center">{quantity}</span>
                                        <button 
                                           onClick={() => handleAddCard(cardId)}
-                                          className="w-6 h-6 flex items-center justify-center bg-gray-800 hover:bg-green-900 text-gray-300 rounded text-sm font-bold"
-                                          title="Add one"
-                                          disabled={quantity >= 3}
+                                          className="w-6 h-6 flex items-center justify-center bg-gray-800 hover:bg-green-900 text-gray-300 rounded text-sm font-bold disabled:opacity-30 disabled:cursor-not-allowed"
+                                          title={isHero ? "Hero (Max 1)" : "Add one"}
+                                          disabled={quantity >= (isHero ? 1 : 3)}
                                        >
                                            +
                                        </button>

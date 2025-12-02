@@ -5,7 +5,7 @@
 import React from 'react';
 import type { Board, GridSize, DragItem, DropTarget, Card as CardType, PlayerColor, HighlightData, FloatingTextData } from '../types';
 import { Card } from './Card';
-import { PLAYER_COLORS } from '../constants';
+import { PLAYER_COLORS, FLOATING_TEXT_COLORS } from '../constants';
 
 /**
  * Props for the GameBoard component.
@@ -30,7 +30,7 @@ interface GameBoardProps {
   setCursorStack: (stack: null) => void;
   currentPhase?: number;
   activeTurnPlayerId?: number;
-  onCardClick?: (card: CardType, boardCoords: { row: number, col: number }) => void;
+  onCardClick?: (card: CardType, boardCoords: { row: number; col: number }) => void;
   onEmptyCellClick?: (boardCoords: { row: number, col: number }) => void;
   validTargets?: {row: number, col: number}[];
   noTargetOverlay?: {row: number, col: number} | null;
@@ -64,7 +64,7 @@ const GridCell: React.FC<{
   setCursorStack: GameBoardProps['setCursorStack'];
   currentPhase?: number;
   activeTurnPlayerId?: number;
-  onCardClick?: (card: CardType, boardCoords: { row: number, col: number }) => void;
+  onCardClick?: (card: CardType, boardCoords: { row: number; col: number }) => void;
   onEmptyCellClick?: (boardCoords: { row: number, col: number }) => void;
   isValidTarget?: boolean;
   showNoTarget?: boolean;
@@ -146,6 +146,7 @@ const GridCell: React.FC<{
   // 3. Counter Stack Targets (canStack - occupied cards)
   const isInteractive = isValidTarget || canPlay || canStack;
 
+  // Target outline: z-10
   const targetClasses = isInteractive ? 'ring-4 ring-cyan-400 shadow-[0_0_15px_#22d3ee] cursor-pointer z-10' : '';
 
   const cellClasses = `bg-board-cell-active ${isOver && canDrop ? 'bg-indigo-400 opacity-80' : ''} ${isInPlayMode && isOccupied ? 'cursor-not-allowed' : ''} ${targetClasses}`;
@@ -170,9 +171,9 @@ const GridCell: React.FC<{
       data-interactive={!cell.card}
       data-board-coords={`${row},${col}`}
     >
-      {/* Visual pulsing overlay for interactive targets - SATURATED CYAN */}
+      {/* Visual pulsing overlay for interactive targets - SATURATED CYAN - z-10 */}
       {isInteractive && (
-           <div className="absolute inset-0 rounded-lg bg-cyan-400 bg-opacity-30 animate-pulse pointer-events-none"></div>
+           <div className="absolute inset-0 rounded-lg bg-cyan-400 bg-opacity-30 animate-pulse pointer-events-none z-10"></div>
       )}
 
       {cell.card && (
@@ -196,7 +197,8 @@ const GridCell: React.FC<{
                   handleClick(); // Trigger the stack application (via global handler)
               }
           }}
-          className={`w-full h-full ${isGameStarted ? 'cursor-grab' : 'cursor-default'} relative`}
+          // Higher z-index to float above highlights
+          className={`w-full h-full ${isGameStarted ? 'cursor-grab' : 'cursor-default'} relative z-30`}
           data-interactive="true"
         >
             <Card
@@ -218,6 +220,7 @@ const GridCell: React.FC<{
               activeTurnPlayerId={activeTurnPlayerId}
               disableActiveHighlights={disableActiveHighlights}
             />
+            {/* No Target Overlay - z-50 */}
             {showNoTarget && (
                 <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none animate-pulse">
                         <img src="https://res.cloudinary.com/dxxh6meej/image/upload/v1763978163/no_tarket_mic5sm.png" alt="No Target" className="w-4/5 h-4/5 object-contain drop-shadow-lg opacity-90" />
@@ -241,19 +244,8 @@ const gridSizeClasses: { [key in GridSize]: string } = {
 
 const FloatingTextOverlay: React.FC<{ textData: FloatingTextData; playerColorMap: Map<number, PlayerColor>; }> = ({ textData, playerColorMap }) => {
     const playerColor = playerColorMap.get(textData.playerId);
-    // Map player colors to text colors explicitly for better visibility
-    const colorClassMap: Record<string, string> = {
-        blue: 'text-blue-400 drop-shadow-[0_0_4px_rgba(59,130,246,0.8)]',
-        purple: 'text-purple-400 drop-shadow-[0_0_4px_rgba(168,85,247,0.8)]',
-        red: 'text-red-500 drop-shadow-[0_0_4px_rgba(239,68,68,0.8)]',
-        green: 'text-green-400 drop-shadow-[0_0_4px_rgba(34,197,94,0.8)]',
-        yellow: 'text-yellow-400 drop-shadow-[0_0_4px_rgba(234,179,8,0.8)]',
-        orange: 'text-orange-400 drop-shadow-[0_0_4px_rgba(249,115,22,0.8)]',
-        pink: 'text-pink-400 drop-shadow-[0_0_4px_rgba(236,72,153,0.8)]',
-        brown: 'text-[#A0522D] drop-shadow-[0_0_4px_rgba(139,69,19,0.8)]', // Sienna
-    };
     
-    const colorClass = (playerColor && colorClassMap[playerColor]) ? colorClassMap[playerColor] : 'text-white';
+    const colorClass = (playerColor && FLOATING_TEXT_COLORS[playerColor]) ? FLOATING_TEXT_COLORS[playerColor] : 'text-white';
 
     return (
         <div className={`absolute inset-0 flex items-center justify-center pointer-events-none z-[60] animate-float-up`}>

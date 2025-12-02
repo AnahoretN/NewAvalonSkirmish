@@ -57,7 +57,7 @@ export const useAppCommand = ({
             if (mainAction) {
                 setActionQueue([
                     mainAction,
-                    { type: 'GLOBAL_AUTO_APPLY', payload: { cleanupCommand: true, card: card }, sourceCard: card }
+                    { type: 'GLOBAL_AUTO_APPLY', payload: { cleanupCommand: true, card: card, ownerId: source.playerId! }, sourceCard: card }
                 ]);
             }
         }
@@ -91,7 +91,7 @@ export const useAppCommand = ({
         if (!commandModalCard.baseId?.toLowerCase().includes('inspiration')) {
             queue.push({
                 type: 'GLOBAL_AUTO_APPLY',
-                payload: { cleanupCommand: true, card: commandModalCard },
+                payload: { cleanupCommand: true, card: commandModalCard, ownerId },
                 sourceCard: commandModalCard
             });
         }
@@ -141,7 +141,7 @@ export const useAppCommand = ({
         if (player && player.announcedCard) {
              setActionQueue([{
                  type: 'GLOBAL_AUTO_APPLY',
-                 payload: { cleanupCommand: true, card: player.announcedCard },
+                 payload: { cleanupCommand: true, card: player.announcedCard, ownerId },
                  sourceCard: player.announcedCard
             }]);
         }

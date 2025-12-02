@@ -1,13 +1,10 @@
-
 // ... existing imports
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { GameState, Player, Board, GridSize, Card, DragItem, DropTarget, PlayerColor, GameMode, RevealRequest, CardIdentifier, CustomDeckFile, HighlightData, FloatingTextData } from '../types';
 import { DeckType, GameMode as GameModeEnum } from '../types';
-import { shuffleDeck, PLAYER_COLOR_NAMES, TURN_PHASES } from '../constants';
+import { shuffleDeck, PLAYER_COLOR_NAMES, TURN_PHASES, MAX_PLAYERS } from '../constants';
 import { decksData, countersDatabase, rawJsonData, getCardDefinitionByName, getCardDefinition, commandCardIds } from '../contentDatabase';
 import { createInitialBoard, recalculateBoardStatuses } from '../utils/boardUtils';
-
-const MAX_PLAYERS = 4;
 
 /**
  * Constructs the WebSocket URL based on the window's current location,
@@ -48,19 +45,51 @@ export type ConnectionStatus = 'Connecting' | 'Connected' | 'Disconnected';
  */
 const generateGameId = () => Math.random().toString(36).substring(2, 18).toUpperCase();
 
+/**
+ * Helper to sync the 'LastPlayed' status based on the player's board history.
+ * Ensures only the card at the top of the history stack has the status.
+ */
+const syncLastPlayed = (board: Board, player: Player) => {
+    // 1. Remove all 'LastPlayed' by this player from the board
+    board.forEach(row => row.forEach(cell => {
+        if (cell.card?.statuses) {
+            cell.card.statuses = cell.card.statuses.filter(s => !(s.type === 'LastPlayed' && s.addedByPlayerId === player.id));
+        }
+    }));
+
+    // 2. Find the top valid card ID from history
+    // We iterate backwards through history until we find a card actually on the board
+    let found = false;
+    while (player.boardHistory.length > 0 && !found) {
+        const lastId = player.boardHistory[player.boardHistory.length - 1];
+        
+        // Find it on board
+        for(let r=0; r<board.length; r++) {
+            for(let c=0; c<board.length; c++) {
+                if (board[r][c].card?.id === lastId) {
+                    if (!board[r][c].card!.statuses) board[r][c].card!.statuses = [];
+                    board[r][c].card!.statuses!.push({ type: 'LastPlayed', addedByPlayerId: player.id });
+                    found = true;
+                    break;
+                }
+            }
+            if (found) break;
+        }
+        
+        // If the ID in history isn't on the board (e.g. it was destroyed but history desynced), remove it and try next
+        if (!found) {
+            player.boardHistory.pop();
+        }
+    }
+};
+
 
 /**
  * Custom hook to manage all game state logic and server communication.
  * @returns An object containing the game state and functions to modify it.
  */
 export const useGameState = () => {
-  /**
-   * Creates a shuffled deck for a specific player based on a deck type.
-   * @param {DeckType} deckType - The type of deck to create.
-   * @param {number} playerId - The ID of the player who will own the cards.
-   * @param {string} playerName - The name of the player who will own the cards.
-   * @returns {Card[]} A new, shuffled array of cards.
-   */
+  // ... (Previous logic for createDeck, createNewPlayer, createInitialState, updateState, etc. kept as is)
   const createDeck = useCallback((deckType: DeckType, playerId: number, playerName: string): Card[] => {
     const deck = decksData[deckType];
     if (!deck) {
@@ -71,12 +100,6 @@ export const useGameState = () => {
     return shuffleDeck(deckWithOwner);
   }, []);
 
-  /**
-   * Creates a new player object with a default deck.
-   * @param {number} id - The ID for the new player.
-   * @param {boolean} [isDummy=false] - Whether the player is a dummy player.
-   * @returns {Player} The new player object.
-   */
   const createNewPlayer = useCallback((id: number, isDummy = false): Player => {
       const initialDeckType = Object.keys(decksData)[0] as DeckType;
       const player = {
@@ -91,15 +114,12 @@ export const useGameState = () => {
           color: PLAYER_COLOR_NAMES[id - 1] || 'blue',
           isDummy,
           isReady: false,
+          boardHistory: [] // Initialize empty history stack
       };
       player.deck = createDeck(initialDeckType, id, player.name);
       return player;
   }, [createDeck]);
 
-  /**
-   * Creates the initial, empty state for a new game.
-   * @returns {GameState} The initial game state.
-   */
   const createInitialState = useCallback((): GameState => ({
     players: [],
     board: createInitialBoard(),
@@ -146,11 +166,6 @@ export const useGameState = () => {
   }, [localPlayerId]);
 
 
-  /**
-   * Updates the game state and broadcast it to other players.
-   * This is the primary function for all state mutations.
-   * @param {GameState | ((prevState: GameState) => GameState)} newStateOrFn - The new state or a function that returns the new state.
-   */
   const updateState = useCallback((newStateOrFn: GameState | ((prevState: GameState) => GameState)) => {
     setGameState(prevState => {
       const newState = typeof newStateOrFn === 'function' ? newStateOrFn(prevState) : newStateOrFn;
@@ -161,10 +176,9 @@ export const useGameState = () => {
     });
   }, []);
   
-  // ... (WebSocket connection logic omitted for brevity, unchanged) ...
-  // ... but must include connectWebSocket, joinGame, createGame, etc ...
+  // ... (WebSocket connection logic kept as is) ...
   const connectWebSocket = useCallback(() => {
-    if (isManualExitRef.current) return; // Do not reconnect if user exited manually
+    if (isManualExitRef.current) return;
     if (ws.current && (ws.current.readyState === WebSocket.OPEN || ws.current.readyState === WebSocket.CONNECTING)) return;
     
     const WS_URL = getWebSocketURL(); 
@@ -182,9 +196,7 @@ export const useGameState = () => {
       console.log('WebSocket connection established');
       setConnectionStatus('Connected');
       const currentGameState = gameStateRef.current;
-      // Re-subscribe or recover session if gameId exists
       if (currentGameState && currentGameState.gameId && ws.current?.readyState === WebSocket.OPEN) {
-            // Retrieve token to attempt seamless reconnection
             let playerToken = undefined;
             try {
                 const stored = localStorage.getItem('reconnection_data');
@@ -235,7 +247,6 @@ export const useGameState = () => {
             }
         } else if (data.type === 'ERROR') {
             if (data.message.includes('not found') || data.message.includes('Dummy')) {
-                // If game doesn't exist or player converted to dummy, stop trying to reconnect to that game
                 setGameState(createInitialState());
                 setLocalPlayerId(null);
                 localStorage.removeItem('reconnection_data');
@@ -245,7 +256,6 @@ export const useGameState = () => {
         } else if (data.type === 'HIGHLIGHT_TRIGGERED') {
             setLatestHighlight(data.highlightData);
         } else if (data.type === 'FLOATING_TEXT_TRIGGERED') {
-            // Legacy support for single messages (handled as array of 1)
             setLatestFloatingTexts([data.floatingTextData]);
         } else if (data.type === 'FLOATING_TEXT_BATCH_TRIGGERED') {
             setLatestFloatingTexts(data.batch);
@@ -259,7 +269,6 @@ export const useGameState = () => {
     ws.current.onclose = () => {
       console.log('WebSocket connection closed. Attempting to reconnect in 3s...');
       setConnectionStatus('Disconnected');
-      // Retry connection every 3 seconds
       if (!isManualExitRef.current) {
           if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
           reconnectTimeoutRef.current = window.setTimeout(connectWebSocket, 3000);
@@ -289,7 +298,6 @@ export const useGameState = () => {
         }
         ws.current.send(JSON.stringify(payload));
     } else { 
-        // If not connected, try connecting, which will trigger onopen and send join
         connectWebSocket();
         joiningGameIdRef.current = gameId;
     }
@@ -326,7 +334,7 @@ export const useGameState = () => {
   }, []);
   
   const exitGame = useCallback(() => {
-    isManualExitRef.current = true; // Prevent auto-reconnect
+    isManualExitRef.current = true;
     const gameIdToLeave = gameStateRef.current.gameId;
     const playerIdToLeave = localPlayerIdRef.current;
     
@@ -334,7 +342,6 @@ export const useGameState = () => {
     setLocalPlayerId(null);
     localStorage.removeItem('reconnection_data');
     
-    // Prevent onclose from firing reconnection logic
     if (ws.current) {
         ws.current.onclose = null; 
     }
@@ -343,10 +350,8 @@ export const useGameState = () => {
       ws.current.send(JSON.stringify({ type: 'LEAVE_GAME', gameId: gameIdToLeave, playerId: playerIdToLeave }));
     }
     
-    // Close socket cleanly
     if (ws.current) ws.current.close();
     
-    // Re-initialize socket for lobby (after short delay to allow clean close)
     setTimeout(() => {
         isManualExitRef.current = false;
         connectWebSocket();
@@ -354,7 +359,7 @@ export const useGameState = () => {
 
   }, [createInitialState, connectWebSocket]);
 
-  // ... rest of the file
+  // ... (All other existing methods: startReadyCheck, cancelReadyCheck, playerReady, assignTeams, setGameMode, setGamePrivacy, syncGame, resetGame, setActiveGridSize, setDummyPlayerCount, etc. are kept) ...
   const startReadyCheck = useCallback(() => {
       if (ws.current?.readyState === WebSocket.OPEN && gameStateRef.current.gameId) ws.current.send(JSON.stringify({ type: 'START_READY_CHECK', gameId: gameStateRef.current.gameId }));
   }, []);
@@ -428,6 +433,7 @@ export const useGameState = () => {
                     announcedCard: null,
                     score: 0,
                     isReady: false,
+                    boardHistory: [] // Reset history
                 };
             });
             return {
@@ -477,14 +483,18 @@ export const useGameState = () => {
     });
   }, [updateState, createNewPlayer]);
 
-  // ... (Status manipulation functions omitted, unchanged) ...
-  // addBoardCardStatus, removeBoardCardStatus, etc.
+  // Status updates
   const addBoardCardStatus = useCallback((boardCoords: { row: number; col: number }, status: string, addedByPlayerId: number) => {
     updateState(currentState => {
         if (!currentState.isGameStarted) return currentState;
         const newState: GameState = JSON.parse(JSON.stringify(currentState));
         const card = newState.board[boardCoords.row][boardCoords.col].card;
         if (card) {
+            // Lucius, The Immortal Immunity: Cannot be stunned
+            if (status === 'Stun' && card.name.includes('Lucius') && card.ownerId !== undefined) {
+                return currentState;
+            }
+
             if (['Support', 'Threat', 'Revealed'].includes(status)) {
                 const alreadyHasStatusFromPlayer = card.statuses?.some(s => s.type === status && s.addedByPlayerId === addedByPlayerId);
                 if (alreadyHasStatusFromPlayer) return currentState; 
@@ -522,7 +532,7 @@ export const useGameState = () => {
       });
   }, [updateState]);
 
-    const modifyBoardCardPower = useCallback((boardCoords: { row: number; col: number }, delta: number) => {
+  const modifyBoardCardPower = useCallback((boardCoords: { row: number; col: number }, delta: number) => {
     updateState(currentState => {
         if (!currentState.isGameStarted) return currentState;
         const newState: GameState = JSON.parse(JSON.stringify(currentState));
@@ -535,6 +545,8 @@ export const useGameState = () => {
     });
   }, [updateState]);
 
+  // ... (Other status/card modification methods kept as is) ...
+  // addAnnouncedCardStatus, removeAnnouncedCardStatus, modifyAnnouncedCardPower, addHandCardStatus, removeHandCardStatus, flipBoardCard, etc.
   const addAnnouncedCardStatus = useCallback((playerId: number, status: string, addedByPlayerId: number) => {
     updateState(currentState => {
         if (!currentState.isGameStarted) return currentState;
@@ -614,8 +626,6 @@ export const useGameState = () => {
     });
   }, [updateState]);
 
-  // ... (Flip/Reveal logic omitted, unchanged) ...
-  // flipBoardCard, flipBoardCardFaceDown, revealHandCard, revealBoardCard, requestCardReveal, respondToRevealRequest, removeRevealedStatus
   const flipBoardCard = useCallback((boardCoords: { row: number; col: number }) => {
     updateState(currentState => {
         if (!currentState.isGameStarted) return currentState;
@@ -813,7 +823,7 @@ export const useGameState = () => {
       ...currentState,
       players: currentState.players.map(p => 
         p.id === playerId 
-          ? { ...p, deck: createDeck(deckType, playerId, p.name), selectedDeck: deckType, hand: [], discard: [], announcedCard: null }
+          ? { ...p, deck: createDeck(deckType, playerId, p.name), selectedDeck: deckType, hand: [], discard: [], announcedCard: null, boardHistory: [] }
           : p
       )
     }});
@@ -848,7 +858,7 @@ export const useGameState = () => {
             ...currentState,
             players: currentState.players.map(p =>
                 p.id === playerId
-                    ? { ...p, deck: shuffleDeck(newDeck), selectedDeck: DeckType.Custom, hand: [], discard: [], announcedCard: null }
+                    ? { ...p, deck: shuffleDeck(newDeck), selectedDeck: DeckType.Custom, hand: [], discard: [], announcedCard: null, boardHistory: [] }
                     : p
             )
         };
@@ -907,14 +917,10 @@ export const useGameState = () => {
             if (!currentState.isGameStarted) return currentState;
             const newState: GameState = JSON.parse(JSON.stringify(currentState));
 
-            // If currently in Scoring Step, finishing it advances the actual phase logic
             if (newState.isScoringStep) {
                 newState.isScoringStep = false;
-                
-                // NOW proceed to change player/turn as if Commit Phase ended
                 const finishingPlayerId = currentState.activeTurnPlayerId;
                 if (finishingPlayerId !== undefined) {
-                    // Remove Stun from cards of the finishing player
                     newState.board.forEach(row => {
                         row.forEach(cell => {
                             if (cell.card && cell.card.ownerId === finishingPlayerId && cell.card.statuses) {
@@ -940,63 +946,26 @@ export const useGameState = () => {
                 newState.currentPhase = 0;
                 newState.activeTurnPlayerId = nextPlayerId;
 
-                // === ROUND END CHECK LOGIC ===
-                // The check occurs when the First Player (Starting Player) starts their Setup Phase (Phase 0)
                 if (newState.startingPlayerId !== undefined && nextPlayerId === newState.startingPlayerId) {
-                    
-                    // 1. Calculate Dynamic Threshold for current round
                     const currentThreshold = (newState.currentRound * 10) + 10;
-                    
-                    // 2. Check Round 5 Turn 10 Limit
                     const isFinalRoundLimit = newState.currentRound === 5 && newState.turnNumber >= 10;
-
-                    // 3. Find Max Score
                     let maxScore = -Infinity;
-                    newState.players.forEach(p => {
-                        if (p.score > maxScore) maxScore = p.score;
-                    });
-
-                    // 4. Check if threshold met OR limit reached
-                    // If limit reached, max score wins regardless of threshold
+                    newState.players.forEach(p => { if (p.score > maxScore) maxScore = p.score; });
                     const thresholdMet = maxScore >= currentThreshold;
 
                     if (thresholdMet || isFinalRoundLimit) {
-                        // --- ROUND ENDS ---
-                        
-                        // Identify Winners (Ties allowed)
-                        const winners = newState.players
-                            .filter(p => p.score === maxScore)
-                            .map(p => p.id);
-                        
+                        const winners = newState.players.filter(p => p.score === maxScore).map(p => p.id);
                         newState.roundWinners[newState.currentRound] = winners;
-
-                        // Check Game Over (2 Wins)
                         const allWins = Object.values(newState.roundWinners).flat();
-                        const winCounts = allWins.reduce((acc, id) => {
-                            acc[id] = (acc[id] || 0) + 1;
-                            return acc;
-                        }, {} as Record<number, number>);
-
-                        const gameWinners = Object.keys(winCounts)
-                            .filter(id => winCounts[Number(id)] >= 2)
-                            .map(id => Number(id));
-
-                        if (gameWinners.length > 0) {
-                            // Determine Match Winner (First found for now to satisfy type, effectively a tie if multiple)
-                            newState.gameWinner = gameWinners[0];
-                        }
-
-                        // Open Modal
+                        const winCounts = allWins.reduce((acc, id) => { acc[id] = (acc[id] || 0) + 1; return acc; }, {} as Record<number, number>);
+                        const gameWinners = Object.keys(winCounts).filter(id => winCounts[Number(id)] >= 2).map(id => Number(id));
+                        if (gameWinners.length > 0) { newState.gameWinner = gameWinners[0]; }
                         newState.isRoundEndModalOpen = true;
-                        
-                        // NOTE: Scores are reset in confirmRoundEnd to allow viewing in modal
                     } else {
-                        // --- ROUND CONTINUES ---
                         newState.turnNumber += 1;
                     }
                 }
 
-                // Reset turn-specific flags
                 newState.board.forEach(row => {
                     row.forEach(cell => {
                         if (cell.card) {
@@ -1006,7 +975,6 @@ export const useGameState = () => {
                     });
                 });
 
-                // Check for temporary 'Resurrected' status and convert to Stun x2
                 newState.board.forEach(row => {
                     row.forEach(cell => {
                         if (cell.card && cell.card.statuses) {
@@ -1025,23 +993,12 @@ export const useGameState = () => {
             }
 
             const nextPhaseIndex = currentState.currentPhase + 1;
+            newState.board.forEach(row => { row.forEach(cell => { if (cell.card) { cell.card.deployAbilityConsumed = true; } }); });
 
-            // RULE: Forced Deploy Consumption
-            newState.board.forEach(row => {
-                row.forEach(cell => {
-                    if (cell.card) {
-                        cell.card.deployAbilityConsumed = true;
-                    }
-                });
-            });
-
-            // Transition from Commit Phase (Index 2) -> Scoring Step (before next player)
             if (nextPhaseIndex >= TURN_PHASES.length) {
-                // Enter Scoring Step instead of immediately swapping players
                 newState.isScoringStep = true;
                 return newState; 
             } else {
-                // Normal Phase Change
                 newState.board.forEach(row => {
                     row.forEach(cell => {
                         if (cell.card && cell.card.statuses) {
@@ -1055,7 +1012,6 @@ export const useGameState = () => {
                         }
                     });
                 });
-
                 newState.currentPhase = nextPhaseIndex;
                 return newState;
             }
@@ -1075,25 +1031,15 @@ export const useGameState = () => {
         });
     }, [updateState]);
 
-    // Function to confirm round end via Modal
     const confirmRoundEnd = useCallback(() => {
         updateState(currentState => {
             const newState: GameState = JSON.parse(JSON.stringify(currentState));
             newState.isRoundEndModalOpen = false;
-            
-            // Reset Scores
             newState.players.forEach(p => p.score = 0);
-            
-            // Advance Round
             newState.currentRound += 1;
             newState.roundEndTriggered = false; 
-            
-            // Reset Turn Number for clarity in new round
             newState.turnNumber = 1;
-
-            // Clear gameWinner to allow game continuation
             newState.gameWinner = null;
-            
             return newState;
         });
     }, [updateState]);
@@ -1122,10 +1068,7 @@ export const useGameState = () => {
             }
         }
 
-        // --- First Player Logic ---
-        // If startingPlayerId is not set, and a player drops a card on the board, they become the starting player.
         if (newState.startingPlayerId === undefined && target.target === 'board' && item.source !== 'board') {
-             // Determine who dropped it. Use item.playerId if explicit (e.g. from hand), or localPlayerId
              const dropperId = item.playerId || localPlayerIdRef.current;
              if (dropperId !== null) {
                  newState.startingPlayerId = dropperId;
@@ -1145,14 +1088,11 @@ export const useGameState = () => {
             if (isStunned) {
                 const moverId = localPlayerIdRef.current;
                 const ownerId = currentCardState.ownerId;
-                
                 const moverPlayer = currentState.players.find(p => p.id === moverId);
                 const ownerPlayer = currentState.players.find(p => p.id === ownerId);
-
                 const isOwner = moverId === ownerId;
                 const isTeammate = moverPlayer?.teamId !== undefined && ownerPlayer?.teamId !== undefined && moverPlayer.teamId === ownerPlayer.teamId;
                 
-                // If owned by player or teammate, prevent move UNLESS it is a manual drag (not an ability)
                 if ((isOwner || isTeammate) && !item.isManual) {
                      return currentState;
                 }
@@ -1160,7 +1100,6 @@ export const useGameState = () => {
         }
         
         if (item.source === 'counter_panel' && item.statusType) {
-            // ... (Counter logic omitted, unchanged) ...
             const counterDef = countersDatabase[item.statusType];
             const allowedTargets = counterDef?.allowedTargets || ['board', 'hand'];
             if (!allowedTargets.includes(target.target)) return currentState;
@@ -1179,6 +1118,11 @@ export const useGameState = () => {
                 }
             }
             if (targetCard) {
+                // Lucius Immunity Logic
+                if (item.statusType === 'Stun' && targetCard.name.includes('Lucius') && targetCard.ownerId !== undefined) {
+                    return newState; // No change
+                }
+
                 const count = item.count || 1;
                 const activePlayer = newState.players.find(p => p.id === newState.activeTurnPlayerId);
                 const effectiveActorId = (activePlayer && activePlayer.isDummy) ? activePlayer.id : (localPlayerIdRef.current !== null ? localPlayerIdRef.current : 0); 
@@ -1207,7 +1151,6 @@ export const useGameState = () => {
 
         let cardToMove: Card = { ...item.card };
 
-        // ... (Removing from source logic omitted, unchanged) ...
         if (item.source === 'hand' && item.playerId !== undefined && item.cardIndex !== undefined) {
             const player = newState.players.find(p => p.id === item.playerId);
             if (player) player.hand.splice(item.cardIndex, 1);
@@ -1232,6 +1175,7 @@ export const useGameState = () => {
             }
             cardToMove.isFaceDown = false;
             delete cardToMove.powerModifier;
+            delete cardToMove.bonusPower; // Clear passive buffs
             delete cardToMove.enteredThisTurn;
             delete cardToMove.abilityUsedInPhase;
             delete cardToMove.deployAbilityConsumed;
@@ -1243,13 +1187,25 @@ export const useGameState = () => {
              if (item.source !== 'board') {
                  cardToMove.enteredThisTurn = true;
                  delete cardToMove.deployAbilityConsumed;
+                 
+                 // Lucius, The Immortal: Bonus if entered from discard
+                 if (item.source === 'discard' && cardToMove.name.includes('Lucius')) {
+                     if (cardToMove.powerModifier === undefined) cardToMove.powerModifier = 0;
+                     cardToMove.powerModifier += 3;
+                 }
              }
         }
 
         if (target.target === 'hand' && target.playerId !== undefined) {
             if (cardToMove.deck === DeckType.Tokens || cardToMove.deck === 'counter') return newState;
             const player = newState.players.find(p => p.id === target.playerId);
-            if (player) player.hand.push(cardToMove);
+            if (player) {
+                player.hand.push(cardToMove);
+                // Automatic Shuffle if moving from Deck to Hand
+                if (item.source === 'deck') {
+                    player.deck = shuffleDeck(player.deck);
+                }
+            }
         } else if (target.target === 'board' && target.boardCoords) {
             if (newState.board[target.boardCoords.row][target.boardCoords.col].card === null) {
                 if (cardToMove.ownerId === undefined && localPlayerIdRef.current !== null) {
@@ -1260,37 +1216,37 @@ export const useGameState = () => {
                      }
                 }
                 
-                // RULE: "Last Played" Status
-                // Applies only if played MANUALLY from Hand or Announced
-                if ((item.source === 'hand' || item.source === 'announced') && item.isManual) {
-                    // Clear LastPlayed from any other card owned by this player on board
-                    const ownerId = cardToMove.ownerId;
-                    newState.board.forEach(row => {
-                        row.forEach(cell => {
-                            if (cell.card && cell.card.ownerId === ownerId && cell.card.statuses) {
-                                cell.card.statuses = cell.card.statuses.filter(s => s.type !== 'LastPlayed');
-                            }
-                        });
-                    });
-                    
-                    // Add LastPlayed to this card
-                    if (!cardToMove.statuses) cardToMove.statuses = [];
-                    cardToMove.statuses.push({ type: 'LastPlayed', addedByPlayerId: ownerId! });
+                // --- HISTORY TRACKING: Entering Board ---
+                // Manually played cards get tracked in history for fallback 'LastPlayed' status
+                if (item.source !== 'board' && item.isManual && cardToMove.ownerId !== undefined) {
+                    const player = newState.players.find(p => p.id === cardToMove.ownerId);
+                    if (player) {
+                        player.boardHistory.push(cardToMove.id);
+                    }
                 }
 
                 newState.board[target.boardCoords.row][target.boardCoords.col].card = cardToMove;
             }
         } 
-        // ... (Rest of drop logic for discard/deck/announced omitted, unchanged) ...
         else if (target.target === 'discard' && target.playerId !== undefined) {
             if (cardToMove.deck === DeckType.Tokens || cardToMove.deck === 'counter') {} else {
                 const player = newState.players.find(p => p.id === target.playerId);
-                if (player) player.discard.push(cardToMove);
+                if (player) {
+                    if (cardToMove.ownerId === undefined) {
+                        cardToMove.ownerId = target.playerId;
+                        cardToMove.ownerName = player.name;
+                    }
+                    player.discard.push(cardToMove);
+                }
             }
         } else if (target.target === 'deck' && target.playerId !== undefined) {
             if (cardToMove.deck === DeckType.Tokens || cardToMove.deck === 'counter') return newState;
             const player = newState.players.find(p => p.id === target.playerId);
             if (player) {
+                 if (cardToMove.ownerId === undefined) {
+                        cardToMove.ownerId = target.playerId;
+                        cardToMove.ownerName = player.name;
+                 }
                  if (target.deckPosition === 'top' || !target.deckPosition) player.deck.unshift(cardToMove);
                  else player.deck.push(cardToMove);
             }
@@ -1302,6 +1258,7 @@ export const useGameState = () => {
                     delete player.announcedCard.enteredThisTurn;
                     delete player.announcedCard.abilityUsedInPhase;
                     delete player.announcedCard.powerModifier;
+                    delete player.announcedCard.bonusPower;
                     delete player.announcedCard.deployAbilityConsumed;
                     player.hand.push(player.announcedCard);
                 }
@@ -1309,7 +1266,22 @@ export const useGameState = () => {
             }
         }
 
-        // ... (Vigilant Spotter logic omitted, unchanged) ...
+        // --- HISTORY TRACKING: Leaving Board ---
+        if (item.source === 'board' && target.target !== 'board' && cardToMove.ownerId !== undefined) {
+            const player = newState.players.find(p => p.id === cardToMove.ownerId);
+            if (player) {
+                player.boardHistory = player.boardHistory.filter(id => id !== cardToMove.id);
+            }
+        }
+
+        // --- Post-Move: Sync LastPlayed Status ---
+        if ((item.source === 'board' || target.target === 'board') && cardToMove.ownerId !== undefined) {
+            const player = newState.players.find(p => p.id === cardToMove.ownerId);
+            if (player) {
+                syncLastPlayed(newState.board, player);
+            }
+        }
+
         if (item.source === 'hand' && target.target === 'board') {
             const movingCard = cardToMove;
             const isRevealed = movingCard.revealedTo === 'all' || movingCard.statuses?.some(s => s.type === 'Revealed');
@@ -1326,7 +1298,6 @@ export const useGameState = () => {
                                      const spotterOwner = newState.players.find(p => p.id === spotter.ownerId);
                                      if (spotterOwner) {
                                          spotterOwner.score += 2;
-                                         // Only add score here, do NOT trigger round end (that happens at start of turn cycle)
                                      }
                                 }
                             }
@@ -1354,6 +1325,13 @@ export const useGameState = () => {
               const [card] = player.discard.splice(cardIndex, 1);
               card.enteredThisTurn = true;
               delete card.deployAbilityConsumed;
+              
+              // Lucius Bonus if resurrected
+              if (card.name.includes('Lucius')) {
+                  if (card.powerModifier === undefined) card.powerModifier = 0;
+                  card.powerModifier += 3;
+              }
+
               if (!card.statuses) card.statuses = [];
               card.statuses.push({ type: 'Resurrected', addedByPlayerId: playerId });
               if (statuses) {
@@ -1361,14 +1339,20 @@ export const useGameState = () => {
                       if (s.type !== 'Resurrected') card.statuses?.push({ type: s.type, addedByPlayerId: playerId });
                   });
               }
+              
+              // Add to history
+              player.boardHistory.push(card.id);
+              
               newState.board[boardCoords.row][boardCoords.col].card = card;
+              
+              syncLastPlayed(newState.board, player);
+              
               newState.board = recalculateBoardStatuses(newState);
           }
           return newState;
       });
   }, [updateState]);
 
-  // ... (triggerHighlight, markAbilityUsed, applyGlobalEffect, swapCards, transferStatus, transferAllCounters, recoverDiscardedCard, spawnToken - Unchanged) ...
   const triggerHighlight = useCallback((highlightData: Omit<HighlightData, 'timestamp'>) => {
       if (ws.current?.readyState === WebSocket.OPEN && gameStateRef.current.gameId) {
           const fullHighlightData: HighlightData = { ...highlightData, timestamp: Date.now() };
@@ -1380,7 +1364,7 @@ export const useGameState = () => {
       if (ws.current?.readyState === WebSocket.OPEN && gameStateRef.current.gameId) {
           const items = Array.isArray(data) ? data : [data];
           const timestamp = Date.now();
-          const batch = items.map((item, i) => ({ ...item, timestamp: timestamp + i })); // Unique timestamp for keying
+          const batch = items.map((item, i) => ({ ...item, timestamp: timestamp + i })); 
           ws.current.send(JSON.stringify({ 
               type: 'TRIGGER_FLOATING_TEXT_BATCH', 
               gameId: gameStateRef.current.gameId, 
@@ -1402,6 +1386,30 @@ export const useGameState = () => {
       });
   }, [updateState]);
 
+  const resetDeployStatus = useCallback((boardCoords: { row: number, col: number }) => {
+      updateState(currentState => {
+          if (!currentState.isGameStarted) return currentState;
+          const newState: GameState = JSON.parse(JSON.stringify(currentState));
+          const card = newState.board[boardCoords.row][boardCoords.col].card;
+          if (card) {
+              delete card.deployAbilityConsumed;
+          }
+          return newState;
+      });
+  }, [updateState]);
+
+  const removeStatusByType = useCallback((boardCoords: { row: number, col: number }, type: string) => {
+      updateState(currentState => {
+          if (!currentState.isGameStarted) return currentState;
+          const newState: GameState = JSON.parse(JSON.stringify(currentState));
+          const card = newState.board[boardCoords.row][boardCoords.col].card;
+          if (card && card.statuses) {
+              card.statuses = card.statuses.filter(s => s.type !== type);
+          }
+          return newState;
+      });
+  }, [updateState]);
+
   const applyGlobalEffect = useCallback((
       sourceCoords: { row: number, col: number },
       targetCoords: { row: number, col: number }[],
@@ -1415,6 +1423,11 @@ export const useGameState = () => {
           targetCoords.forEach(({row, col}) => {
               const card = newState.board[row][col].card;
               if (card) {
+                  // Lucius Immunity
+                  if (tokenType === 'Stun' && card.name.includes('Lucius') && card.ownerId !== undefined) {
+                      return;
+                  }
+
                   if (!card.statuses) card.statuses = [];
                   if (['Support', 'Threat', 'Revealed'].includes(tokenType)) {
                       const exists = card.statuses.some(s => s.type === tokenType && s.addedByPlayerId === addedByPlayerId);
@@ -1531,12 +1544,9 @@ export const useGameState = () => {
   }, [updateState]);
   
   const scoreLine = useCallback((row1: number, col1: number, row2: number, col2: number, playerId: number) => {
-      // 1. Calculate score based on current state (don't mutate inside setState yet to trigger effects)
       const currentState = gameStateRef.current;
       if (!currentState.isGameStarted) return;
 
-      // Check for Data Liberator passive ability
-      // Condition: Player owns a Data Liberator on board AND it has Support status.
       const hasActiveLiberator = currentState.board.some(row => 
           row.some(cell => 
               cell.card && 
@@ -1555,7 +1565,7 @@ export const useGameState = () => {
           cStart = col1; cEnd = col1;
           rStart = 0; rEnd = gridSize - 1;
       } else {
-          return; // Invalid line
+          return; 
       }
 
       let totalScore = 0;
@@ -1570,12 +1580,10 @@ export const useGameState = () => {
                   const isOwner = card.ownerId === playerId;
                   const hasExploit = card.statuses?.some(s => s.type === 'Exploit' && s.addedByPlayerId === playerId);
                   
-                  // Normal scoring OR Data Liberator Passive (Enemy + Exploit)
                   if (isOwner || (hasActiveLiberator && hasExploit && card.ownerId !== playerId)) {
-                      const points = Math.max(0, card.power + (card.powerModifier || 0));
+                      const points = Math.max(0, card.power + (card.powerModifier || 0) + (card.bonusPower || 0));
                       if (points > 0) {
                           totalScore += points;
-                          // 2. Collect Visual Effect for this card
                           scoreEvents.push({ 
                               row: r, 
                               col: c, 
@@ -1592,16 +1600,81 @@ export const useGameState = () => {
           triggerFloatingText(scoreEvents);
       }
 
-      // 3. Apply score update to state
       updateState(prevState => {
          const newState: GameState = JSON.parse(JSON.stringify(prevState));
          const player = newState.players.find(p => p.id === playerId);
          if (player) {
              player.score += totalScore;
          }
-         
-         // NOTE: Do NOT clear LastPlayed status here.
+         return newState;
+      });
+  }, [updateState, triggerFloatingText]);
 
+  const scoreDiagonal = useCallback((r1: number, c1: number, r2: number, c2: number, playerId: number, bonusType?: 'point_per_support' | 'draw_per_support') => {
+      const currentState = gameStateRef.current;
+      if (!currentState.isGameStarted) return;
+
+      const dRow = r2 > r1 ? 1 : -1;
+      const dCol = c2 > c1 ? 1 : -1;
+      const steps = Math.abs(r1 - r2); // Assuming square valid diagonal
+
+      let totalScore = 0;
+      let totalBonus = 0;
+      const scoreEvents: Omit<FloatingTextData, 'timestamp'>[] = [];
+
+      for (let i = 0; i <= steps; i++) {
+          const r = r1 + (i * dRow);
+          const c = c1 + (i * dCol);
+          
+          if (r < 0 || r >= currentState.board.length || c < 0 || c >= currentState.board.length) continue;
+
+          const cell = currentState.board[r][c];
+          const card = cell.card;
+
+          if (card && !card.statuses?.some(s => s.type === 'Stun')) {
+              const isOwner = card.ownerId === playerId;
+              
+              if (isOwner) {
+                  const points = Math.max(0, card.power + (card.powerModifier || 0) + (card.bonusPower || 0));
+                  if (points > 0) {
+                      totalScore += points;
+                      scoreEvents.push({ 
+                          row: r, 
+                          col: c, 
+                          text: `+${points}`, 
+                          playerId: playerId 
+                          });
+                  }
+                  
+                  // Logistics Chain Bonus Logic
+                  if (bonusType && card.statuses?.some(s => s.type === 'Support' && s.addedByPlayerId === playerId)) {
+                      totalBonus += 1;
+                  }
+              }
+          }
+      }
+
+      if (bonusType === 'point_per_support' && totalBonus > 0) {
+          totalScore += totalBonus;
+          // Could add visual for bonus here, but standard update is fine
+      }
+
+      if (scoreEvents.length > 0) {
+          triggerFloatingText(scoreEvents);
+      }
+
+      updateState(prevState => {
+         const newState: GameState = JSON.parse(JSON.stringify(prevState));
+         const player = newState.players.find(p => p.id === playerId);
+         if (player) {
+             player.score += totalScore;
+             
+             if (bonusType === 'draw_per_support' && totalBonus > 0 && player.deck.length > 0) {
+                 for(let i=0; i<totalBonus; i++) {
+                     if(player.deck.length > 0) player.hand.push(player.deck.shift()!);
+                 }
+             }
+         }
          return newState;
       });
   }, [updateState, triggerFloatingText]);
@@ -1671,6 +1744,9 @@ export const useGameState = () => {
     resurrectDiscardedCard,
     spawnToken,
     scoreLine,
-    confirmRoundEnd
+    confirmRoundEnd,
+    resetDeployStatus,
+    scoreDiagonal,
+    removeStatusByType
   };
 };

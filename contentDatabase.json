@@ -55,6 +55,17 @@
       "faction": "SynchroTech",
       "allowedPanels": ["DECK_BUILDER"]
     },
+	"mrPearlDoF": {
+      "name": "Mr. Pearl, Director of BioSynch",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1764678622/Mr._Pearl_Director_of_BioSynch_mo0cil.png",
+      "fallbackImage": "/images/cards/SYN_IP_DEPT_AGENT.png",
+      "power": 1,
+      "ability": "Pas: Your other units in lines get +2 Power.\nDeploy: Search your discard pile for a unit card and put it into your hand.",
+      "flavorText": "Efficiency is the only metric that matters.",
+      "types": ["Unit", "Hero", "SynchroTech"],
+      "faction": "SynchroTech",
+      "allowedPanels": ["DECK_BUILDER"]
+	},
 
     "recklessProvocateur": {
       "name": "Reckless Provocateur",
@@ -108,6 +119,17 @@
       "ability": "Deploy: Place the Recon Drone token in a free adjacent cell.\nSupport ⇒ Setup: Return a device card from the discard pile to your hand.",
       "flavorText": "- \"Patience is a weapon. Vengeance is an art.\"",
       "types": ["Unit", "Hoods"],
+      "faction": "Hoods",
+      "allowedPanels": ["DECK_BUILDER"]
+    },
+    "finnMW": {
+      "name": "Finn, Most Wanted",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1764637482/Finn_nehk0r.png",
+      "fallbackImage": "/images/cards/HOO_RECKLESS_PROVOCATEUR.png",
+      "power": 2,
+      "ability": "Setup: Move any of your cards 1 or 2 cells.\nCommit: Gain 1 point for each revealed card in opponents' hands.",
+      "flavorText": "Catch me if you can. Spoiler: You can't.",
+      "types": ["Unit", "Hero", "Hoods"],
       "faction": "Hoods",
       "allowedPanels": ["DECK_BUILDER"]
     },
@@ -167,6 +189,17 @@
       "faction": "Optimates",
       "allowedPanels": ["DECK_BUILDER"]
     },
+	"luciusTheImmortal": {
+      "name": "Lucius, The Immortal",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1764678954/Lucius_The_Immortal_z0lemw.png",
+      "fallbackImage": "/images/cards/OPT_PRINCEPS.png",
+      "power": 3,
+      "ability": "Pas: Immune to Stun.\nDeploy: Aim any card. If entered from discard, gets +3 Power.\nSetup: Destroy a card with aim in a line.",
+      "flavorText": "Death implies a cessation of function. I have simply optimized it.",
+      "types": ["Unit", "Hero", "Optimates"],
+      "faction": "Optimates",
+      "allowedPanels": ["DECK_BUILDER"]
+    },
 
     "codeKeeper": {
       "name": "Code Keeper",
@@ -222,6 +255,17 @@
       "types": ["Unit", "Fusion"],
       "faction": "Fusion",
       "allowedPanels": ["DECK_BUILDER"]
+	},
+    "reverendOfTheChoir": {
+      "name": "Reverend of The Choir",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1764678937/Reverend_of_The_Choir_vts8im.png",
+      "fallbackImage": "/images/cards/FUS_SIGNAL_PROPHET.png",
+      "power": 3,
+      "ability": "Pas: Supports all your units in lines.\nSetup: Exploit any card.",
+      "flavorText": "The hum of the servers is a hymn to the initiated.",
+      "types": ["Unit", "Hero", "Fusion", "Device"],
+      "faction": "Fusion",
+      "allowedPanels": ["DECK_BUILDER"]
     },
     
     "overwatch": {
@@ -229,7 +273,7 @@
       "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253291/CMD_OVERWATCH_hrba9x.png",
       "fallbackImage": "/images/cards/CMD_OVERWATCH.png",
       "power": 0,
-      "ability": "■ Aim 1 on any card. Reveal 1 opponent hand card for each of your Aim counters on the battlefield. \n■ Aim 1 on any card. Draw 1 card for each of your Aim counters on the battlefield.",
+      "ability": "● Aim 1 on any card. Reveal 1 opponent hand card for each of your Aim counters on the battlefield. \n● Aim 1 on any card. Draw 1 card for each of your Aim counters on the battlefield.",
       "types": ["Command"],
       "faction": "Command",
       "allowedPanels": ["DECK_BUILDER"]
@@ -239,17 +283,17 @@
       "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253296/CMD_REPOSITIONING_m7k4kf.png",
       "fallbackImage": "/images/cards/CMD_REPOSITIONING.png",
       "power": 0,
-      "ability": "■ Move your unit to an open cell in its line. Draw cards equal to the Power of the moved unit. \n■ Move your unit to an open cell in its line. Gain points equal to the Power of the moved unit.",
+      "ability": "● Move your unit to an open cell in its line. Draw cards equal to the moved unit's Power. \n● Move your unit to an open cell in its line. Gain points equal to the moved unit's Power.",
       "types": ["Command"],
       "faction": "Command",
       "allowedPanels": ["DECK_BUILDER"]
     },
-      "inspiration": {
+    "inspiration": {
       "name": "Inspiration",
       "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763260942/CMD_INSPIRATION_nxifhu.png",
       "fallbackImage": "/images/cards/CMD_INSPIRATION.png",
       "power": 0,
-      "ability": "■ Remove any number of non-Support/Threat counters from your unit. Draw 1 card for each counter removed. \n■ Remove any number of non-Support/Threat counters from your unit. Gain 1 point for each counter removed.",
+      "ability": "● Remove any number of non-Support/Threat counters from your unit. Draw 1 card for each counter removed. \n● Remove any number of non-Support/Threat counters from your unit. Gain 1 point for each counter removed.",
       "types": ["Command"],
       "faction": "Command",
       "allowedPanels": ["DECK_BUILDER"]
@@ -259,7 +303,7 @@
       "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253290/CMD_DATA_INTERCEPTION_ks4lcv.png",
       "fallbackImage": "/images/cards/CMD_DATA_INTERCEPTION.png",
       "power": 0,
-      "ability": "■ Exploit 1 on any card. Reveal 1 opponent hand card for each of your Exploit counters on the battlefield. \n■ Exploit 1 on any card. Move a unit with your Exploit to an open cell in its line.",
+      "ability": "● Exploit 1 on any card. Reveal 1 opponent hand card for each of your Exploit counters on the battlefield. \n● Exploit 1 on any card. Move a unit with your Exploit to an open cell in its line.",
       "types": ["Command"],
       "faction": "Command",
       "allowedPanels": ["DECK_BUILDER"]
@@ -269,7 +313,57 @@
       "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763640484/CMD_FALSE_ORDERS_ghi01y.png",
       "fallbackImage": "/images/cards/CMD_DATA_INTERCEPTION.png",
       "power": 0,
-      "ability": "■ Exploit 1 on an opponent card. Move a card with your Exploit up to 2 adjacent cells. Reveal up to 2 opponent hand cards. \n■ Exploit 1 on an opponent card. Move a card with your Exploit up to 2 adjacent cells. Stun the moved card 1.",
+      "ability": "● Place 1 Exploit on an opponent's card. Then move an opponent's unit with your Exploit up to 2 cells. Reveal up to 2 cards from that opponent's hand. \n● Place 1 Exploit on an opponent's card. Then move an opponent's unit with your Exploit up to 2 cells. Stun the moved unit.",
+      "types": ["Command"],
+      "faction": "Command",
+      "allowedPanels": ["DECK_BUILDER"]
+    },
+    "experimentalStimulants": {
+      "name": "Experimental Stimulants",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1764507610/Experimental_Stimulants_x8ns1g.png",
+      "fallbackImage": "/images/cards/CMD_MOBILIZATION.png",
+      "power": 0,
+      "ability": "● Your unit on the battlefield may activate its Deploy ability an additional time.\n● Move your unit to an open cell in a line.",
+      "types": ["Command"],
+      "faction": "Command",
+      "allowedPanels": ["DECK_BUILDER"]
+    },
+    "logisticsChain": {
+      "name": "Logistics Chain",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1764507610/Logistics_Chain_d4irtq.png",
+      "fallbackImage": "/images/cards/CMD_MOBILIZATION.png",
+      "power": 0,
+      "ability": "● Gain points in a chosen diagonal. Gain 1 additional point for each of your cards with Support in that diagonal.\n● Gain points in a chosen diagonal. Draw 1 card for each of your cards with Support in that diagonal.",
+      "types": ["Command"],
+      "faction": "Command",
+      "allowedPanels": ["DECK_BUILDER"]
+    },
+    "quickResponseTeam": {
+      "name": "Quick Response Team",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1764507609/Quick_Response_Team_rw2cut.png",
+      "fallbackImage": "/images/cards/CMD_MOBILIZATION.png",
+      "power": 0,
+      "ability": "● Deploy your unit to the battlefield.\n● Search your deck for a unit card and put it into your hand.",
+      "types": ["Command"],
+      "faction": "Command",
+      "allowedPanels": ["DECK_BUILDER"]
+    },
+    "temporaryShelter": {
+      "name": "Temporary Shelter",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1764507610/Temporary_Shelter_o0embx.png",
+      "fallbackImage": "/images/cards/CMD_MOBILIZATION.png",
+      "power": 0,
+      "ability": "● Place a shield on your card on the battlefield. Remove all aim from that card.\n● Place a shield on your card on the battlefield. Move that card 1 or 2 cells.",
+      "types": ["Command"],
+      "faction": "Command",
+      "allowedPanels": ["DECK_BUILDER"]
+    },
+    "enhancedInterrogation": {
+      "name": "Enhanced Interrogation",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1764507610/Enhanced_Interrogation_suzvxe.png",
+      "fallbackImage": "/images/cards/CMD_MOBILIZATION.png",
+      "power": 0,
+      "ability": "● Aim 1 on any card. Reveal 1 opponent hand card for each of your Aim counters on the battlefield.\n● Aim 1 on any card. Move any card with your Aim counter 1 or 2 cells.",
       "types": ["Command"],
       "faction": "Command",
       "allowedPanels": ["DECK_BUILDER"]
@@ -282,10 +376,89 @@
       "ability": "Gain points in a chosen line of the battlefield.",
       "types": ["Command"],
       "faction": "Command",
+      "allowedPanels": []
+    },
+
+    "abrGawain": {
+      "name": "ABR \"Gawain\"",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1764626980/Autonomous_Battle_Robot_Gawain_uoyjm5.png",
+      "fallbackImage": "/images/cards/FUS_DEVOUT_SYNTHETIC.png",
+      "power": 5,
+      "ability": "Deploy: Shield 1. Aim a card with threat.\nSetup: Destroy a card with aim in a line.",
+      "flavorText": "Protocol initiated. Threat assessment: Extreme.",
+      "types": ["Unit", "Device"],
+      "faction": "Neutral",
+      "allowedPanels": ["DECK_BUILDER"]
+    },
+    "reclaimedGawain": {
+      "name": "Reclaimed \"Gawain\"",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1764622845/Reclaimed_Gawain_sg6257.png",
+      "fallbackImage": "/images/cards/FUS_DEVOUT_SYNTHETIC.png",
+      "power": 5,
+      "ability": "Deploy: Shield 1. Push an adjacent card 1 cell. May take its place.\nSetup: Destroy an adjacent card with threat or stun.",
+      "flavorText": "Once a knight of the system, now a ghost in the machine.",
+      "types": ["Unit", "Device"],
+      "faction": "Neutral",
+      "allowedPanels": ["DECK_BUILDER"]
+    },
+
+    "FalkPD": {
+      "name": "Michael Falk, Private Detective",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1764623710/Michael_Falk_wcxjnp.png",
+      "fallbackImage": "/images/cards/HOO_VIGILANT_SPOTTER.png",
+      "power": 3,
+      "ability": "Deploy: Search your deck for any card and put it into your hand.\nCommit: Each opponent reveals 1 cards to you.",
+      "flavorText": "He finds things. Sometimes things that should stay lost.",
+      "types": ["Unit", "Hero"],
+      "faction": "Neutral",
+      "allowedPanels": ["DECK_BUILDER"]
+    },
+    "edithByron": {
+      "name": "Edith Byron, Extreme Engineer",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1764623710/Edith_Byron_v6691r.png",
+      "fallbackImage": "/images/cards/HOO_INVENTIVE_MAKER.png",
+      "power": 3,
+      "ability": "Deploy: Shield 1. Place the Recon Drone token in a free adjacent cell.\nSetup: Move this card to any cell in a line.",
+      "flavorText": "Building the future, one explosion at a time.",
+      "types": ["Unit", "Hero"],
+      "faction": "Neutral",
+      "allowedPanels": ["DECK_BUILDER"]
+    },
+    "pinkunonekoSV": {
+      "name": "Pinkunoneko, Street Vigilante",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1764622844/Pinkunoneko_nhmjfv.png",
+      "fallbackImage": "/images/cards/SYN_RIOT_AGENT.png",
+      "power": 3,
+      "ability": "Deploy: Stun an adjacent opponent card.\nSetup: Destroy an adjacent card with threat or stun. May move to an adjacent cell.",
+      "flavorText": "Neon claws in the dark alley.",
+      "types": ["Unit", "Hero"],
+      "faction": "Neutral",
+      "allowedPanels": ["DECK_BUILDER"]
+    },
+    "EleftheriaMD": {
+      "name": "Maria \"Eleftheria\" Damanaki",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1764622845/Maria_Eleftheria_Damanaki_bmx6xv.png",
+      "fallbackImage": "/images/cards/SYN_TACTICAL_AGENT.png",
+      "power": 3,
+      "ability": "Deploy: Aim any card.\nSetup: Destroy the card with aim.",
+      "flavorText": "Freedom has a price. She collects it.",
+      "types": ["Unit", "Hero"],
+      "faction": "Neutral",
+      "allowedPanels": ["DECK_BUILDER"]
+    },
+    "ziusIJ": {
+      "name": "Zius, Independent Journalist",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1764622844/Zius_cwd92f.png",
+      "fallbackImage": "/images/cards/FUS_UNWAVERING_INTEGRATOR.png",
+      "power": 2,
+      "ability": "Deploy: Exploit any card.\nSetup: Exploit any card. Gain 1 point for each of your exploits in the line.",
+      "flavorText": "The truth is out there, and he's streaming it live.",
+      "types": ["Unit", "Hero"],
+      "faction": "Neutral",
       "allowedPanels": ["DECK_BUILDER"]
     }
-  },
 
+  },
   "tokenDatabase": {
     "reconDrone": {
       "name": "Recon Drone",
@@ -400,16 +573,24 @@
       "name": "SynchroTech",
       "isSelectable": true,
       "cards": [
+	  { "cardId": "mrPearlDoF", "quantity": 1 },
+	  { "cardId": "FalkPD", "quantity": 1 },
+	  { "cardId": "abrGawain", "quantity": 3 },
       { "cardId": "ipDeptAgent", "quantity": 3 },
       { "cardId": "tacticalAgent", "quantity": 3 },
       { "cardId": "patrolAgent", "quantity": 3 },
       { "cardId": "riotAgent", "quantity": 3 },
       { "cardId": "threatAnalyst", "quantity": 3 },
-      { "cardId": "overwatch", "quantity": 2 },
-      { "cardId": "tacticalManeuver", "quantity": 2 },
-      { "cardId": "inspiration", "quantity": 2 },
-      { "cardId": "dataInterception", "quantity": 2 },
-      { "cardId": "falseOrders", "quantity": 2 }
+      { "cardId": "overwatch", "quantity": 1 },
+      { "cardId": "tacticalManeuver", "quantity": 1 },
+      { "cardId": "inspiration", "quantity": 1 },
+      { "cardId": "dataInterception", "quantity": 1 },
+      { "cardId": "falseOrders", "quantity": 1 },
+	  { "cardId": "experimentalStimulants", "quantity": 1 },
+      { "cardId": "logisticsChain", "quantity": 1 },
+      { "cardId": "quickResponseTeam", "quantity": 1 },
+      { "cardId": "temporaryShelter", "quantity": 1 },
+      { "cardId": "enhancedInterrogation", "quantity": 1 }
       ]
     },
     {
@@ -417,16 +598,24 @@
       "name": "Hoods",
       "isSelectable": true,
       "cards": [
+	  { "cardId": "finnMW", "quantity": 1 },
+	  { "cardId": "pinkunonekoSV", "quantity": 1 },
+	  { "cardId": "reclaimedGawain", "quantity": 3 },
       { "cardId": "recklessProvocateur", "quantity": 3 },
       { "cardId": "dataLiberator", "quantity": 3 },
       { "cardId": "cautiousAvenger", "quantity": 3 },
       { "cardId": "vigilantSpotter", "quantity": 3 },
       { "cardId": "inventiveMaker", "quantity": 3 },
-      { "cardId": "overwatch", "quantity": 2 },
-      { "cardId": "tacticalManeuver", "quantity": 2 },
-      { "cardId": "inspiration", "quantity": 2 },
-      { "cardId": "dataInterception", "quantity": 2 },
-      { "cardId": "falseOrders", "quantity": 2 }
+      { "cardId": "overwatch", "quantity": 1 },
+      { "cardId": "tacticalManeuver", "quantity": 1 },
+      { "cardId": "inspiration", "quantity": 1 },
+      { "cardId": "dataInterception", "quantity": 1 },
+      { "cardId": "falseOrders", "quantity": 1 },
+	  { "cardId": "experimentalStimulants", "quantity": 1 },
+      { "cardId": "logisticsChain", "quantity": 1 },
+      { "cardId": "quickResponseTeam", "quantity": 1 },
+      { "cardId": "temporaryShelter", "quantity": 1 },
+      { "cardId": "enhancedInterrogation", "quantity": 1 }
       ]
     },
     {
@@ -434,16 +623,24 @@
       "name": "Optimates",
       "isSelectable": true,
       "cards": [
+	  { "cardId": "luciusTheImmortal", "quantity": 1 },
+	  { "cardId": "EleftheriaMD", "quantity": 1 },
+	  { "cardId": "abrGawain", "quantity": 3 },
       { "cardId": "faber", "quantity": 3 },
       { "cardId": "censor", "quantity": 3 },
       { "cardId": "princeps", "quantity": 3 },
       { "cardId": "immunis", "quantity": 3 },
       { "cardId": "centurion", "quantity": 3 },
-      { "cardId": "overwatch", "quantity": 2 },
-      { "cardId": "tacticalManeuver", "quantity": 2 },
-      { "cardId": "inspiration", "quantity": 2 },
-      { "cardId": "dataInterception", "quantity": 2 },
-      { "cardId": "falseOrders", "quantity": 2 }
+      { "cardId": "overwatch", "quantity": 1 },
+      { "cardId": "tacticalManeuver", "quantity": 1 },
+      { "cardId": "inspiration", "quantity": 1 },
+      { "cardId": "dataInterception", "quantity": 1 },
+      { "cardId": "falseOrders", "quantity": 1 },
+	  { "cardId": "experimentalStimulants", "quantity": 1 },
+      { "cardId": "logisticsChain", "quantity": 1 },
+      { "cardId": "quickResponseTeam", "quantity": 1 },
+      { "cardId": "temporaryShelter", "quantity": 1 },
+      { "cardId": "enhancedInterrogation", "quantity": 1 }
       ]
     },
     {
@@ -451,16 +648,24 @@
       "name": "Fusion",
       "isSelectable": true,
       "cards": [
-      { "cardId": "codeKeeper", "quantity": 3 },
+	  { "cardId": "reverendOfTheChoir", "quantity": 1 },
+	  { "cardId": "ziusIJ", "quantity": 1 },
+      { "cardId": "reclaimedGawain", "quantity": 3 },
       { "cardId": "devoutSynthetic", "quantity": 3 },
       { "cardId": "unwaveringIntegrator", "quantity": 3 },
       { "cardId": "signalProphet", "quantity": 3 },
       { "cardId": "zealousMissionary", "quantity": 3 },
-      { "cardId": "overwatch", "quantity": 2 },
-      { "cardId": "tacticalManeuver", "quantity": 2 },
-      { "cardId": "inspiration", "quantity": 2 },
-      { "cardId": "dataInterception", "quantity": 2 },
-      { "cardId": "falseOrders", "quantity": 2 }
+	  { "cardId": "codeKeeper", "quantity": 3 },
+      { "cardId": "overwatch", "quantity": 1 },
+      { "cardId": "tacticalManeuver", "quantity": 1 },
+      { "cardId": "inspiration", "quantity": 1 },
+      { "cardId": "dataInterception", "quantity": 1 },
+      { "cardId": "falseOrders", "quantity": 1 },
+	  { "cardId": "experimentalStimulants", "quantity": 1 },
+      { "cardId": "logisticsChain", "quantity": 1 },
+      { "cardId": "quickResponseTeam", "quantity": 1 },
+      { "cardId": "temporaryShelter", "quantity": 1 },
+      { "cardId": "enhancedInterrogation", "quantity": 1 }
       ]
     }
   ]

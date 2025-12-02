@@ -7,6 +7,11 @@ import { DeckType as DeckTypeEnum } from './types';
 import { countersDatabase } from './contentDatabase';
 
 /**
+ * The maximum number of players allowed in a game.
+ */
+export const MAX_PLAYERS = 4;
+
+/**
  * A mapping of deck types to their thematic properties, like color and ID prefix.
  */
 export const DECK_THEMES: { [key in DeckType]: { prefix: string, color: string } } = {
@@ -17,6 +22,7 @@ export const DECK_THEMES: { [key in DeckType]: { prefix: string, color: string }
     [DeckTypeEnum.Command]: { prefix: 'CMD', color: 'border-yellow-500' },
     [DeckTypeEnum.Tokens]: { prefix: 'TKN', color: 'border-gray-400' },
     [DeckTypeEnum.Custom]: { prefix: 'CUS', color: 'border-purple-400' },
+    [DeckTypeEnum.Neutral]: { prefix: 'NEU', color: 'border-gray-400' },
 };
 
 /**
@@ -32,6 +38,20 @@ export const PLAYER_COLORS: { [key in PlayerColor]: { bg: string, border: string
   orange: { bg: 'bg-orange-500', border: 'border-orange-500', outline: 'outline-orange-500', glow: 'shadow-[0_0_15px_#f97316]' },
   pink: { bg: 'bg-pink-500', border: 'border-pink-500', outline: 'outline-pink-500', glow: 'shadow-[0_0_15px_#ec4899]' },
   brown: { bg: 'bg-[#8B4513]', border: 'border-[#8B4513]', outline: 'outline-[#8B4513]', glow: 'shadow-[0_0_15px_#8B4513]' },
+};
+
+/**
+ * Text styling classes for floating text effects based on player color.
+ */
+export const FLOATING_TEXT_COLORS: Record<string, string> = {
+    blue: 'text-blue-400 drop-shadow-[0_0_4px_rgba(59,130,246,0.8)]',
+    purple: 'text-purple-400 drop-shadow-[0_0_4px_rgba(168,85,247,0.8)]',
+    red: 'text-red-500 drop-shadow-[0_0_4px_rgba(239,68,68,0.8)]',
+    green: 'text-green-400 drop-shadow-[0_0_4px_rgba(34,197,94,0.8)]',
+    yellow: 'text-yellow-400 drop-shadow-[0_0_4px_rgba(234,179,8,0.8)]',
+    orange: 'text-orange-400 drop-shadow-[0_0_4px_rgba(249,115,22,0.8)]',
+    pink: 'text-pink-400 drop-shadow-[0_0_4px_rgba(236,72,153,0.8)]',
+    brown: 'text-[#A0522D] drop-shadow-[0_0_4px_rgba(139,69,19,0.8)]',
 };
 
 /**

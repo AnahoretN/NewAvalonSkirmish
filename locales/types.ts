@@ -1,4 +1,3 @@
-
 export type LanguageCode = 'en' | 'ru' | 'de' | 'fr' | 'it' | 'pt' | 'zh' | 'hi' | 'es' | 'ar' | 'uk' | 'be' | 'tt' | 'sr';
 
 export interface CardTranslation {
@@ -67,26 +66,24 @@ export interface TranslationResource {
   };
   rules: {
     title: string;
-    introTitle: string;
-    introText: string;
-    componentsTitle: string;
-    componentsText: string;
+    conceptTitle: string;
+    conceptText: string;
+    winConditionTitle: string;
+    winConditionText: string;
+    fieldTitle: string;
+    fieldText: string;
+    setupTitle: string;
+    setupText: string;
+    statusesTitle: string;
+    statusesText: string;
+    countersTitle: string;
+    countersText: string;
     turnTitle: string;
     turnText: string;
-    priorityTitle: string;
-    priorityText: string;
-    stackTitle: string;
-    stackText: string;
-    supportTitle: string;
-    supportText: string;
-    threatTitle: string;
-    threatText: string;
-    deployTitle: string;
-    deployText: string;
-    scoringTitle: string;
-    scoringText: string;
-    endgameTitle: string;
-    endgameText: string;
+    mechanicsTitle: string;
+    mechanicsText: string;
+    creditsTitle: string;
+    creditsText: string;
   };
   cards: Record<string, CardTranslation>;
   counters: Record<string, CounterTranslation>;

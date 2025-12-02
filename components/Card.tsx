@@ -25,6 +25,7 @@ interface CardProps {
   activeTurnPlayerId?: number; // Added to check turn ownership
   disableActiveHighlights?: boolean; // New prop to suppress active state
   extraPowerSpacing?: boolean; // New prop to increase power circle offset from edges
+  hidePower?: boolean; // New prop to hide power circle
 }
 
 /**
@@ -33,11 +34,14 @@ interface CardProps {
  * @param {CardProps} props The properties for the component.
  * @returns {React.ReactElement} The rendered card.
  */
-export const Card: React.FC<CardProps> = ({ card, isFaceUp, playerColorMap, localPlayerId, imageRefreshVersion, disableTooltip, smallStatusIcons, activePhaseIndex, activeTurnPlayerId, disableActiveHighlights, extraPowerSpacing }) => {
+export const Card: React.FC<CardProps> = ({ card, isFaceUp, playerColorMap, localPlayerId, imageRefreshVersion, disableTooltip, smallStatusIcons, activePhaseIndex, activeTurnPlayerId, disableActiveHighlights, extraPowerSpacing, hidePower }) => {
   const { getCardTranslation } = useLanguage();
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const tooltipTimeoutRef = useRef<number | null>(null);
+  
+  // Local state for automatic foil animation
+  const [isShining, setIsShining] = useState(false);
 
   // Local state to track if the highlight for the current phase has been dismissed by clicking
   const [highlightDismissed, setHighlightDismissed] = useState(false);
@@ -84,18 +88,54 @@ export const Card: React.FC<CardProps> = ({ card, isFaceUp, playerColorMap, loca
     }
   };
 
+  const isHero = card.types?.includes('Hero');
+
+  // Automatic Foil Animation Logic
+  useEffect(() => {
+      if (!isHero || !isFaceUp) {
+          setIsShining(false);
+          return;
+      }
+
+      let shineTimer: number;
+      let resetTimer: number;
+
+      const scheduleShine = () => {
+          // Interval of 3 seconds
+          const delay = 3000 + Math.random() * 500; // Small variation to prevent artificial syncing
+          
+          shineTimer = window.setTimeout(() => {
+              setIsShining(true);
+              
+              // Remove animation class after duration (0.75s)
+              resetTimer = window.setTimeout(() => {
+                  setIsShining(false);
+                  scheduleShine(); // Schedule next loop
+              }, 750);
+          }, delay);
+      };
+
+      scheduleShine();
+
+      return () => {
+          window.clearTimeout(shineTimer);
+          window.clearTimeout(resetTimer);
+      };
+  }, [isHero, isFaceUp]);
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (disableTooltip) return;
-    // Prevent setting 0,0
-    if (e.clientX === 0 && e.clientY === 0) return;
-    
-    setTooltipPos({ x: e.clientX, y: e.clientY });
-    // Ensure tooltip shows if mouseEnter was missed (e.g. after drop)
-    if (!tooltipVisible && !tooltipTimeoutRef.current) {
-        tooltipTimeoutRef.current = window.setTimeout(() => {
-            setTooltipVisible(true);
-        }, 250);
+    // 1. Tooltip Logic
+    if (!disableTooltip) {
+        // Prevent setting 0,0
+        if (e.clientX !== 0 || e.clientY !== 0) {
+            setTooltipPos({ x: e.clientX, y: e.clientY });
+        }
+        // Ensure tooltip shows if mouseEnter was missed (e.g. after drop)
+        if (!tooltipVisible && !tooltipTimeoutRef.current) {
+            tooltipTimeoutRef.current = window.setTimeout(() => {
+                setTooltipVisible(true);
+            }, 250);
+        }
     }
   };
   
@@ -132,22 +172,13 @@ export const Card: React.FC<CardProps> = ({ card, isFaceUp, playerColorMap, loca
 
   // --- Phase Highlighting Logic ---
   // Use shared utility to determine if the card conditions are met for highlighting
-  // NOTE: canActivateAbility checks the card's *ability* string for keywords. 
-  // Since logic is based on English keywords (Deploy, Support, etc.), we should pass the ORIGINAL English card to logic checks,
-  // but render the LOCALIZED card to the user.
   const canActivate = (activePhaseIndex !== undefined && activeTurnPlayerId !== undefined) 
       ? canActivateAbility(card, activePhaseIndex, activeTurnPlayerId) 
       : false;
 
-  // Highlighting is disabled if:
-  // 1. The user dismissed it explicitly (clicked it).
-  // 2. The parent component requested to disable highlights (e.g., during targeting mode).
-  // 3. The ability conditions are not met.
   const shouldHighlight = !disableActiveHighlights && !highlightDismissed && canActivate;
 
   const handleCardClick = (e: React.MouseEvent) => {
-      // If the card is currently highlighted, a click dismisses the highlight
-      // Only the owner can dismiss the highlight to avoid confusion
       if (shouldHighlight && localPlayerId === card.ownerId) {
           setHighlightDismissed(true);
       }
@@ -237,17 +268,15 @@ export const Card: React.FC<CardProps> = ({ card, isFaceUp, playerColorMap, loca
       return a.playerId - b.playerId;
   });
 
-  // Calculate modified power
-  const modifier = card.powerModifier || 0;
+  // Calculate modified power: Base + Persistent Modifier + Transient Bonus (e.g. Mr. Pearl)
+  const modifier = (card.powerModifier || 0) + (card.bonusPower || 0);
   const currentPower = Math.max(0, card.power + modifier);
   let powerTextColor = "text-white";
   if (modifier > 0) powerTextColor = "text-green-400";
   else if (modifier < 0) powerTextColor = "text-red-500";
   
-  // Robust check for displaying tooltip: visible + coordinate check (prevent 0,0)
   const showTooltip = tooltipVisible && isFaceUp && !disableTooltip && (tooltipPos.x > 0 && tooltipPos.y > 0);
 
-  // Determine position classes for power indicator
   const powerPositionClass = extraPowerSpacing ? 'bottom-[10px] right-[10px]' : 'bottom-[5px] right-[5px]';
 
   return (
@@ -289,12 +318,10 @@ export const Card: React.FC<CardProps> = ({ card, isFaceUp, playerColorMap, loca
             const negativeGroups = uniqueStatusGroups.filter(g => !positiveStatusTypesList.includes(g.type) && g.type !== 'LastPlayed');
             const lastPlayedGroup = uniqueStatusGroups.find(g => g.type === 'LastPlayed');
 
-            // Combine positive statuses for rendering. LastPlayed goes first to appear at bottom-left.
             const combinedPositiveGroups = lastPlayedGroup
               ? [lastPlayedGroup, ...positiveGroups]
               : positiveGroups;
             
-            // Highlight Style: Thicker border + Owner Color Glow
             const ownerGlowClass = ownerColorData ? ownerColorData.glow : 'shadow-[0_0_15px_#ffffff]';
             const borderClass = shouldHighlight 
                 ? `border-[6px] shadow-2xl ${ownerGlowClass}` 
@@ -310,7 +337,10 @@ export const Card: React.FC<CardProps> = ({ card, isFaceUp, playerColorMap, loca
                 className={`relative w-full h-full ${cardBg} rounded-md shadow-md ${borderClass} ${themeColor} ${textColor} flex-shrink-0 select-none overflow-hidden transition-all duration-300 ${shouldHighlight ? 'scale-[1.15] z-10' : ''}`}
               >
                 {currentImageSrc ? (
-                  <img src={currentImageSrc} onError={handleImageError} alt={displayCard.name} className="absolute inset-0 w-full h-full object-cover" />
+                  <>
+                    <img src={currentImageSrc} onError={handleImageError} alt={displayCard.name} className="absolute inset-0 w-full h-full object-cover" />
+                    {isHero && <div className={`absolute inset-0 hero-foil-overlay ${isShining ? 'animating' : ''}`}></div>}
+                  </>
                 ) : (
                   <div className="w-full h-full p-1 flex items-center justify-center">
                       <span className="text-center text-sm font-bold">
@@ -319,17 +349,14 @@ export const Card: React.FC<CardProps> = ({ card, isFaceUp, playerColorMap, loca
                   </div>
                 )}
                 
-                {/* Status effect overlay */}
                 {uniqueStatusGroups.length > 0 && (
                    <>
-                    {/* Negative Statuses: Top-right, flowing left then down */}
                     <div className="absolute top-[3px] left-[3px] right-[3px] flex flex-row-reverse flex-wrap justify-start items-start z-10 pointer-events-none">
                       {negativeGroups.map((group) => (
                         <StatusIcon key={`${group.type}_${group.playerId}`} type={group.type} playerId={group.playerId} count={group.count} />
                       ))}
                     </div>
 
-                    {/* Positive Statuses Area: Bottom-left, flowing right then up */}
                     <div className="absolute bottom-[3px] left-[3px] right-[30px] flex flex-wrap-reverse content-start items-end z-10 pointer-events-none">
                         {combinedPositiveGroups.map((group) => (
                             <StatusIcon key={`${group.type}_${group.playerId}`} type={group.type} playerId={group.playerId} count={group.count} />
@@ -338,8 +365,7 @@ export const Card: React.FC<CardProps> = ({ card, isFaceUp, playerColorMap, loca
                   </>
                 )}
                 
-                {/* Power Display */}
-                {card.power > 0 && (
+                {card.power > 0 && !hidePower && (
                     <div 
                         className={`absolute ${powerPositionClass} w-8 h-8 rounded-full ${ownerColorData ? ownerColorData.bg : 'bg-gray-600'} border-[3px] border-white flex items-center justify-center z-20 shadow-md`}
                     >

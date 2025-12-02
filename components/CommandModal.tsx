@@ -19,24 +19,14 @@ export const CommandModal: React.FC<CommandModalProps> = ({ isOpen, card, player
     const abilityText = displayCard.ability || "";
 
     // Parse Ability Text for 2 Options
-    // Expected format: "Main description.\n‣ Option 1\n‣ Option 2"
-    // Supports both '‣' and '■' as delimiters.
+    // Expected format: "● Option 1 Text... \n● Option 2 Text..."
+    // Extracts text starting from ● up to the next ● or end of string.
     const parsedOptions = React.useMemo(() => {
-        // Normalize delimiters to '‣' for splitting
-        const normalizedText = abilityText.replace(/■/g, '‣');
-        const parts = normalizedText.split('‣');
+        const parts = abilityText.split('●').map(s => s.trim()).filter(s => s.length > 0);
         
-        if (parts.length >= 3) {
-            return {
-                main: parts[0].trim(),
-                opt1: parts[1].trim(),
-                opt2: parts[2].trim()
-            };
-        }
         return {
-            main: abilityText,
-            opt1: "Option 1",
-            opt2: "Option 2"
+            opt1: parts[0] || "Option 1",
+            opt2: parts[1] || "Option 2"
         };
     }, [abilityText]);
 
@@ -56,7 +46,7 @@ export const CommandModal: React.FC<CommandModalProps> = ({ isOpen, card, player
 
                 {/* Right: Selection Interface */}
                 <div className="w-2/3 flex flex-col">
-                    <h3 className="text-xl font-bold text-white mb-4 border-b border-gray-700 pb-2">Select an Option</h3>
+                    <h3 className="text-xl font-bold text-white mb-4 border-b border-gray-700 pb-2">Select Mode</h3>
                     
                     <div className="flex flex-col gap-3 flex-grow justify-center">
                         <button 
@@ -64,7 +54,7 @@ export const CommandModal: React.FC<CommandModalProps> = ({ isOpen, card, player
                             className="group relative bg-gray-800 hover:bg-indigo-900 border-2 border-gray-600 hover:border-indigo-400 rounded-lg p-4 transition-all duration-200 text-left shadow-lg hover:shadow-indigo-500/20 flex items-start gap-4"
                         >
                             <div className="bg-gray-700 text-gray-400 w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-full font-bold text-xs group-hover:bg-indigo-500 group-hover:text-white transition-colors mt-1">1</div>
-                            <p className="text-gray-200 group-hover:text-white text-base font-medium leading-snug">{parsedOptions.opt1}</p>
+                            <p className="text-gray-200 group-hover:text-white text-base font-medium leading-snug whitespace-pre-wrap">{parsedOptions.opt1}</p>
                         </button>
 
                         <button 
@@ -72,7 +62,7 @@ export const CommandModal: React.FC<CommandModalProps> = ({ isOpen, card, player
                             className="group relative bg-gray-800 hover:bg-indigo-900 border-2 border-gray-600 hover:border-indigo-400 rounded-lg p-4 transition-all duration-200 text-left shadow-lg hover:shadow-indigo-500/20 flex items-start gap-4"
                         >
                             <div className="bg-gray-700 text-gray-400 w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-full font-bold text-xs group-hover:bg-indigo-500 group-hover:text-white transition-colors mt-1">2</div>
-                            <p className="text-gray-200 group-hover:text-white text-base font-medium leading-snug">{parsedOptions.opt2}</p>
+                            <p className="text-gray-200 group-hover:text-white text-base font-medium leading-snug whitespace-pre-wrap">{parsedOptions.opt2}</p>
                         </button>
                     </div>
 

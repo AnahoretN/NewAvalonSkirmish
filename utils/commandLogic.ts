@@ -182,5 +182,145 @@ export const getCommandAction = (
         }
     }
 
+    // --- EXPERIMENTAL STIMULANTS ---
+    if (baseId.includes('experimentalstimulants')) {
+        // Option 0: Reactivate Deploy (Reset flag)
+        if (optionIndex === 0) {
+            return {
+                type: 'ENTER_MODE',
+                mode: 'SELECT_TARGET',
+                sourceCard: card,
+                payload: {
+                    actionType: 'RESET_DEPLOY',
+                    filter: (target: Card) => target.ownerId === localPlayerId && target.types?.includes('Unit')
+                }
+            };
+        }
+        // Option 1: Move Own Unit (Line)
+        if (optionIndex === 1) {
+            return {
+                type: 'ENTER_MODE',
+                mode: 'SELECT_UNIT_FOR_MOVE',
+                sourceCard: card,
+                payload: {
+                    range: 'line',
+                    filter: (target: Card) => target.ownerId === localPlayerId
+                }
+            };
+        }
+    }
+
+    // --- LOGISTICS CHAIN ---
+    if (baseId.includes('logisticschain')) {
+        // Option 0: Score Diagonal + 1 per Support
+        if (optionIndex === 0) {
+            return {
+                type: 'ENTER_MODE',
+                mode: 'SELECT_DIAGONAL',
+                sourceCard: card,
+                payload: { actionType: 'SCORE_DIAGONAL', bonusType: 'point_per_support' }
+            };
+        }
+        // Option 1: Score Diagonal + Draw 1 per Support
+        if (optionIndex === 1) {
+            return {
+                type: 'ENTER_MODE',
+                mode: 'SELECT_DIAGONAL',
+                sourceCard: card,
+                payload: { actionType: 'SCORE_DIAGONAL', bonusType: 'draw_per_support' }
+            };
+        }
+    }
+
+    // --- QUICK RESPONSE TEAM ---
+    if (baseId.includes('quickresponseteam')) {
+        // Option 0: Deploy Unit from Hand
+        if (optionIndex === 0) {
+            // Step 1: Select Unit in Hand (We use generic SELECT_TARGET on Hand logic, then chaining)
+            return {
+                type: 'ENTER_MODE',
+                mode: 'SELECT_HAND_CARD_FOR_DEPLOY',
+                sourceCard: card,
+                payload: {
+                    filter: (target: Card) => target.types?.includes('Unit')
+                }
+            };
+        }
+        // Option 1: Search Deck for Unit -> Hand
+        if (optionIndex === 1) {
+            return {
+                type: 'OPEN_MODAL',
+                mode: 'SEARCH_DECK',
+                sourceCard: card,
+                payload: { filterType: 'Unit' }
+            };
+        }
+    }
+
+    // --- TEMPORARY SHELTER ---
+    if (baseId.includes('temporaryshelter')) {
+        // Option 0: Shield + Remove Aim
+        if (optionIndex === 0) {
+            return {
+                type: 'ENTER_MODE',
+                mode: 'SELECT_TARGET',
+                sourceCard: card,
+                payload: {
+                    actionType: 'SHIELD_AND_REMOVE_AIM',
+                    filter: (target: Card) => target.ownerId === localPlayerId
+                }
+            };
+        }
+        // Option 1: Shield + Move (1-2)
+        if (optionIndex === 1) {
+            return {
+                type: 'ENTER_MODE',
+                mode: 'SELECT_UNIT_FOR_MOVE',
+                sourceCard: card,
+                payload: {
+                    range: 2,
+                    filter: (target: Card) => target.ownerId === localPlayerId,
+                    chainedAction: { type: 'CREATE_STACK', tokenType: 'Shield', count: 1, targetOwnerId: -2 } // -2 is moved unit owner
+                }
+            };
+        }
+    }
+
+    // --- ENHANCED INTERROGATION ---
+    if (baseId.includes('enhancedinterrogation')) {
+        // 1. Common Step: Aim 1 on ANY card.
+        if (isMain) {
+            return {
+                type: 'CREATE_STACK',
+                tokenType: 'Aim',
+                count: 1,
+                sourceCard: card
+            };
+        }
+        // Option 0: Reveal X opponent cards (X = total Aim).
+        if (optionIndex === 0) {
+            return { 
+                type: 'CREATE_STACK', 
+                tokenType: 'Revealed', 
+                dynamicCount: { factor: 'Aim', ownerId: localPlayerId },
+                targetOwnerId: -1, 
+                onlyOpponents: true, 
+                sourceCard: card
+            };
+        }
+        // Option 1: Move card with Aim (Range 1-2).
+        if (optionIndex === 1) {
+            return {
+                type: 'ENTER_MODE',
+                mode: 'SELECT_UNIT_FOR_MOVE',
+                sourceCard: card,
+                payload: {
+                    range: 2,
+                    filter: (target: Card) => target.statuses?.some(s => s.type === 'Aim' && s.addedByPlayerId === localPlayerId)
+                }
+            };
+        }
+    }
+
     return null;
 };
