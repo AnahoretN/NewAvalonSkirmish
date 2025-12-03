@@ -357,6 +357,9 @@ export const checkActionHasTargets = (action: AbilityAction, currentGameState: G
      // If modal open, valid.
      if (action.type === 'OPEN_MODAL') return true;
      
+     // Special Case: Select Deck has global targets (all decks)
+     if (action.mode === 'SELECT_DECK') return true;
+     
      // Note: CREATE_STACK is now checked via calculateValidTargets as well
      if (action.type === 'CREATE_STACK') {
          const boardTargets = calculateValidTargets(action, currentGameState, playerId, commandContext);

@@ -1,3 +1,4 @@
+
 /**
  * @file Renders a modal showing round results and winners.
  */

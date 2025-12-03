@@ -107,6 +107,7 @@ const createDeck = (deckType, playerId, playerName) => {
                     ...cardDef,
                     deck: "Command",
                     id: `CMD_${cardKey}`,
+                    baseId: deckEntry.cardId,
                     ownerId: playerId,
                     ownerName: playerName,
                 };
@@ -115,6 +116,7 @@ const createDeck = (deckType, playerId, playerName) => {
                     ...cardDef,
                     deck: deckFile.id,
                     id: `${deckFile.id.substring(0, 3).toUpperCase()}_${cardKey}_${i + 1}`,
+                    baseId: deckEntry.cardId,
                     ownerId: playerId,
                     ownerName: playerName,
                 };

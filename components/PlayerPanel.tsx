@@ -38,6 +38,8 @@ interface PlayerPanelProps {
   disableActiveHighlights?: boolean;
   roundWinners?: Record<number, number[]>;
   startingPlayerId?: number;
+  onDeckClick?: (playerId: number) => void;
+  isDeckSelectable?: boolean;
 }
 
 const ColorPicker: React.FC<{ player: Player, canEditSettings: boolean, selectedColors: Set<PlayerColor>, onColorChange: (c: PlayerColor) => void }> = ({ player, canEditSettings, selectedColors, onColorChange }) => {
@@ -124,7 +126,7 @@ const DropZone: React.FC<{ onDrop: () => void, className?: string, isOverClassNa
 
 // Helper for Score in Remote List Mode
 const RemoteScore: React.FC<{ score: number, onChange: (delta: number) => void, canEdit: boolean }> = ({ score, onChange, canEdit }) => (
-    <div className="w-full h-full bg-gray-800 rounded flex flex-col items-center justify-between text-white border border-gray-600 select-none overflow-hidden py-0.5">
+    <div className="w-full h-full bg-gray-800 rounded flex flex-col items-center justify-between text-white select-none overflow-hidden py-0.5">
         <button 
             onClick={() => canEdit && onChange(1)} 
             disabled={!canEdit}
@@ -191,7 +193,9 @@ export const PlayerPanel: React.FC<PlayerPanelProps> = ({
     currentPhase,
     disableActiveHighlights,
     roundWinners,
-    startingPlayerId
+    startingPlayerId,
+    onDeckClick,
+    isDeckSelectable
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     
@@ -237,6 +241,14 @@ export const PlayerPanel: React.FC<PlayerPanelProps> = ({
         fileInputRef.current?.click();
     };
 
+    const handleDeckInteraction = () => {
+        if (isDeckSelectable && onDeckClick) {
+            onDeckClick(player.id);
+        } else if (canPerformActions) {
+            onDrawCard();
+        }
+    };
+
     if (layoutMode === 'list-local') {
         const borderClass = isActiveTurn ? 'border-yellow-400' : 'border-gray-700';
 
@@ -259,7 +271,7 @@ export const PlayerPanel: React.FC<PlayerPanelProps> = ({
                  <div className="flex justify-between items-start gap-1 bg-gray-800 p-[2px] rounded-lg mb-[3px] flex-shrink-0 flex-wrap relative z-0">
                      <div className="p-0 border border-transparent flex gap-1 flex-wrap justify-center">
                           <DropZone className="relative z-30" onDrop={() => draggedItem && handleDrop(draggedItem, {target: 'deck', playerId: player.id, deckPosition: 'top'})} onContextMenu={(e) => openContextMenu(e, 'deckPile', { player })}>
-                            <div onClick={canPerformActions ? onDrawCard : undefined} className={`w-[120px] h-[120px] bg-card-back rounded flex flex-col items-center justify-center cursor-pointer hover:ring-2 ring-indigo-400 transition-all shadow-lg select-none text-white border-2 border-transparent ${shouldFlashDeck ? 'animate-deck-start' : ''}`}>
+                            <div onClick={handleDeckInteraction} className={`w-[120px] h-[120px] bg-card-back rounded flex flex-col items-center justify-center cursor-pointer hover:ring-2 ring-indigo-400 transition-all shadow-lg select-none text-white border-2 border-transparent ${shouldFlashDeck ? 'animate-deck-start' : ''} ${isDeckSelectable ? 'ring-4 ring-cyan-400 shadow-[0_0_15px_#22d3ee] animate-pulse' : ''}`}>
                                 <span className="text-xs font-bold mb-1">DECK</span>
                                 <span className="text-lg font-bold">{player.deck.length}</span>
                             </div>
@@ -373,8 +385,8 @@ export const PlayerPanel: React.FC<PlayerPanelProps> = ({
                             <RemotePile 
                                 label="DECK" 
                                 count={player.deck.length} 
-                                onClick={() => canPerformActions && onDrawCard()}
-                                className={`bg-card-back ${shouldFlashDeck ? 'animate-deck-start' : ''}`} 
+                                onClick={handleDeckInteraction}
+                                className={`bg-card-back ${shouldFlashDeck ? 'animate-deck-start' : ''} ${isDeckSelectable ? 'ring-4 ring-cyan-400 shadow-[0_0_15px_#22d3ee] animate-pulse' : ''}`} 
                             />
                         </DropZone>
 
@@ -391,7 +403,7 @@ export const PlayerPanel: React.FC<PlayerPanelProps> = ({
                         <DropZone className="h-full aspect-square relative" onDrop={() => draggedItem && handleDrop(draggedItem, {target: 'announced', playerId: player.id})}>
                                 <div className="w-full h-full bg-gray-800 border border-dashed border-gray-600 rounded flex items-center justify-center relative overflow-hidden">
                                     {player.announcedCard ? (
-                                        <div className="w-full h-full" draggable={canPerformActions} onDragStart={() => canPerformActions && setDraggedItem({ card: player.announcedCard!, source: 'announced', playerId: player.id, isManual: true })} onDragEnd={() => setDraggedItem(null)} onContextMenu={(e) => openContextMenu(e, 'announcedCard', { card: player.announcedCard, player })} onDoubleClick={() => onAnnouncedCardDoubleClick && onAnnouncedCardDoubleClick(player, player.announcedCard!)}>
+                                        <div className="w-full h-full" draggable={canPerformActions} onDragStart={() => canPerformActions && setDraggedItem({ card: player.announcedCard!, source: 'announced', playerId: player.id, isManual: true })} onDragEnd={() => setDraggedItem(null)} onContextMenu={(e) => canPerformActions && openContextMenu(e, 'announcedCard', { card: player.announcedCard, player })} onDoubleClick={() => onAnnouncedCardDoubleClick && onAnnouncedCardDoubleClick(player, player.announcedCard!)}>
                                             <CardComponent card={player.announcedCard} isFaceUp={true} playerColorMap={playerColorMap} imageRefreshVersion={imageRefreshVersion} disableTooltip={false} disableActiveHighlights={disableActiveHighlights} />
                                         </div>
                                     ) : <span className="text-[9px] font-bold text-gray-500 select-none uppercase">SHOW</span>}
@@ -412,11 +424,30 @@ export const PlayerPanel: React.FC<PlayerPanelProps> = ({
                         {player.hand.map((card, index) => {
                                 const isTarget = validHandTargets?.some(t => t.playerId === player.id && t.cardIndex === index);
                                 const targetClass = isTarget ? 'ring-2 ring-cyan-400 shadow-[0_0_8px_#22d3ee] rounded-md z-10' : '';
-                            
+                                
+                                const isRevealedToAll = card.revealedTo === 'all';
+                                const isRevealedToMe = localPlayerId !== null && Array.isArray(card.revealedTo) && card.revealedTo.includes(localPlayerId);
+                                const isRevealedByStatus = localPlayerId !== null && card.statuses?.some(s => s.type === 'Revealed' && s.addedByPlayerId === localPlayerId);
+                                
+                                const owner = allPlayers.find(p => p.id === card.ownerId);
+                                const isOwnerDummy = owner?.isDummy;
+                                const isOwner = localPlayerId === card.ownerId;
+                                
+                                const isVisible = isOwner || isOwnerDummy || isTeammate || isRevealedToAll || isRevealedToMe || isRevealedByStatus;
+
                             return (
                                 <div key={`${card.id}-${index}`} className={`aspect-square relative ${targetClass}`} draggable={canPerformActions} onDragStart={() => canPerformActions && setDraggedItem({ card, source: 'hand', playerId: player.id, cardIndex: index, isManual: true })} onDragEnd={() => setDraggedItem(null)} onContextMenu={(e) => canPerformActions && openContextMenu(e, 'handCard', { card, player, cardIndex: index })} onDoubleClick={() => onHandCardDoubleClick(player, card, index)} onClick={() => onCardClick && onCardClick(player, card, index)} data-hand-card={`${player.id},${index}`}>
                                     <div className="w-full h-full">
-                                        <CardComponent card={card} isFaceUp={true} playerColorMap={playerColorMap} localPlayerId={localPlayerId} imageRefreshVersion={imageRefreshVersion} disableTooltip={false} disableActiveHighlights={disableActiveHighlights} />
+                                        <CardComponent 
+                                            card={card} 
+                                            isFaceUp={isVisible} 
+                                            playerColorMap={playerColorMap} 
+                                            localPlayerId={localPlayerId} 
+                                            imageRefreshVersion={imageRefreshVersion} 
+                                            disableTooltip={!isVisible} 
+                                            disableActiveHighlights={disableActiveHighlights}
+                                            smallStatusIcons={true}
+                                        />
                                     </div>
                                 </div>
                             );
@@ -443,8 +474,8 @@ export const PlayerPanel: React.FC<PlayerPanelProps> = ({
              </div>
              
              <div className="flex gap-2 h-20">
-                 <div className="flex-1 bg-gray-800 rounded flex items-center justify-center border border-gray-600">
-                     <span className="text-white font-bold">{player.hand.length} Cards</span>
+                 <div onClick={handleDeckInteraction} className={`flex-1 bg-gray-800 rounded flex items-center justify-center border border-gray-600 cursor-pointer hover:bg-gray-700 transition-colors ${isDeckSelectable ? 'ring-4 ring-cyan-400 shadow-[0_0_15px_#22d3ee] animate-pulse' : ''}`}>
+                     <span className="text-white font-bold">{player.deck.length} Cards</span>
                  </div>
                  <div className="w-20 bg-gray-800 border-dashed border border-gray-600 rounded flex items-center justify-center p-1">
                      {player.announcedCard ? (

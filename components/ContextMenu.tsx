@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { ContextMenuItem } from '../types';
@@ -36,7 +37,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }
     return createPortal(
         <div 
             ref={menuRef}
-            className="fixed bg-gray-900 border border-gray-700 rounded-md shadow-lg z-[100] py-1"
+            className="fixed bg-gray-900 border border-gray-700 rounded-md shadow-lg z-[9999] py-1"
             style={{ top: correctedPos.top, left: correctedPos.left }}
             onClick={(e) => e.stopPropagation()} // Prevents the window click listener from closing the menu immediately.
         >

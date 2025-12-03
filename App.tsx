@@ -18,9 +18,11 @@ import { CommandModal } from './components/CommandModal';
 import { MainMenu } from './components/MainMenu';
 import { RoundEndModal } from './components/RoundEndModal'; 
 import { CounterSelectionModal } from './components/CounterSelectionModal';
+import { SecretInformantModal } from './components/SecretInformantModal'; 
 import { useGameState } from './hooks/useGameState';
 import { useAppAbilities } from './hooks/useAppAbilities';
 import { useAppCommand } from './hooks/useAppCommand';
+import { useAppCounters } from './hooks/useAppCounters';
 import type { Player, Card, DragItem, ContextMenuItem, ContextMenuParams, CursorStackState, CardStatus, HighlightData, PlayerColor, FloatingTextData, CommandContext, CounterSelectionData } from './types';
 import { AbilityAction } from './types';
 import { DeckType, GameMode } from './types';
@@ -29,6 +31,8 @@ import { canActivateAbility } from './utils/autoAbilities';
 import { countersDatabase } from './contentDatabase';
 import { validateTarget, calculateValidTargets } from './utils/targeting';
 import { useLanguage } from './contexts/LanguageContext';
+
+const COUNTER_BG_URL = 'https://res.cloudinary.com/dxxh6meej/image/upload/v1763653192/background_counter_socvss.png';
 
 export default function App() {
   const { t } = useLanguage();
@@ -112,6 +116,7 @@ export default function App() {
   // Command & Ability State
   const [commandModalCard, setCommandModalCard] = useState<Card | null>(null);
   const [counterSelectionData, setCounterSelectionData] = useState<CounterSelectionData | null>(null);
+  const [secretInformantData, setSecretInformantData] = useState<{ targetPlayerId: number, sourceCard: Card | undefined, isDeployAbility?: boolean, sourceCoords?: {row: number, col: number}, snapshot?: Card[] } | null>(null); 
   
   const [tokensModalAnchor, setTokensModalAnchor] = useState<{ top: number; left: number } | null>(null);
   const [countersModalAnchor, setCountersModalAnchor] = useState<{ top: number; left: number } | null>(null);
@@ -141,9 +146,7 @@ export default function App() {
 
   const [contextMenuProps, setContextMenuProps] = useState<ContextMenuParams | null>(null);
   const [playMode, setPlayMode] = useState<{ card: Card; sourceItem: DragItem; faceDown?: boolean } | null>(null);
-  const [cursorStack, setCursorStack] = useState<CursorStackState | null>(null);
-  const cursorFollowerRef = useRef<HTMLDivElement>(null);
-  const lastClickPos = useRef<{x: number, y: number} | null>(null);
+  
   const [highlight, setHighlight] = useState<HighlightData | null>(null);
   const [activeFloatingTexts, setActiveFloatingTexts] = useState<FloatingTextData[]>([]); 
   const [isAutoAbilitiesEnabled, setIsAutoAbilitiesEnabled] = useState(true);
@@ -153,12 +156,28 @@ export default function App() {
   const [validHandTargets, setValidHandTargets] = useState<{playerId: number, cardIndex: number}[]>([]);
   const [noTargetOverlay, setNoTargetOverlay] = useState<{row: number, col: number} | null>(null);
   const [commandContext, setCommandContext] = useState<CommandContext>({}); 
-  const mousePos = useRef({ x: 0, y: 0 });
   const leftPanelRef = useRef<HTMLDivElement>(null);
   const boardContainerRef = useRef<HTMLDivElement>(null);
   const [sidePanelWidth, setSidePanelWidth] = useState<number | undefined>(undefined);
   
   const interactionLock = useRef(false);
+
+  // Hook for Counters Logic
+  const {
+      cursorStack,
+      setCursorStack,
+      cursorFollowerRef,
+      handleCounterMouseDown
+  } = useAppCounters({
+      gameState,
+      localPlayerId,
+      handleDrop,
+      markAbilityUsed,
+      setAbilityMode,
+      requestCardReveal,
+      interactionLock,
+      abilityMode
+  });
 
   // Hook for Command Logic
   const {
@@ -237,6 +256,86 @@ export default function App() {
 
   const isTargetingMode = !!abilityMode || !!cursorStack;
 
+  // New handler for deck clicks (Secret Informant)
+  const handleDeckClick = (targetPlayerId: number) => {
+      if (abilityMode?.mode === 'SELECT_DECK') {
+          const targetPlayer = gameState.players.find(p => p.id === targetPlayerId);
+          // Snapshot top 3 cards from current deck state
+          const snapshot = targetPlayer ? targetPlayer.deck.slice(0, 3) : [];
+          
+          setSecretInformantData({
+              targetPlayerId,
+              sourceCard: abilityMode.sourceCard,
+              isDeployAbility: abilityMode.isDeployAbility,
+              sourceCoords: abilityMode.sourceCoords,
+              snapshot
+          });
+          setAbilityMode(null);
+      }
+  };
+
+  const handleInformantMoveToBottom = (cardIndex: number) => {
+      if (!secretInformantData || !secretInformantData.snapshot) return;
+      
+      const targetPlayer = gameState.players.find(p => p.id === secretInformantData.targetPlayerId);
+      if (!targetPlayer) return;
+
+      // Re-calculate the currently visible cards based on the snapshot
+      // This is crucial because if we move one card, the others shift up in index.
+      // The Modal uses `secretInformantCards` to display. `cardIndex` corresponds to that array.
+      const visibleCards = secretInformantData.snapshot.filter(snapCard => {
+          const currentIdx = targetPlayer.deck.findIndex(c => c.id === snapCard.id);
+          return currentIdx !== -1 && currentIdx < 3;
+      });
+
+      const cardToMove = visibleCards[cardIndex];
+      
+      if (cardToMove) {
+          // Find real index in current deck
+          const realIndex = targetPlayer.deck.findIndex(c => c.id === cardToMove.id);
+          if (realIndex !== -1) {
+              moveItem({
+                  // Using DeckType.Custom as a dummy type for the action object
+                  card: { id: 'dummy', deck: DeckType.Custom, name: '', imageUrl: '', fallbackImage: '', power: 0, ability: '', types: [] }, 
+                  source: 'deck',
+                  playerId: secretInformantData.targetPlayerId,
+                  cardIndex: realIndex
+              }, {
+                  target: 'deck',
+                  playerId: secretInformantData.targetPlayerId,
+                  deckPosition: 'bottom'
+              });
+          }
+      }
+  };
+
+  const handleInformantClose = () => {
+      if (secretInformantData) {
+          // Draw card for the owner of the Informant
+          if (secretInformantData.sourceCard?.ownerId !== undefined) {
+              drawCard(secretInformantData.sourceCard.ownerId);
+          }
+          // Mark ability used
+          if (secretInformantData.sourceCoords) {
+              markAbilityUsed(secretInformantData.sourceCoords, secretInformantData.isDeployAbility);
+          }
+      }
+      setSecretInformantData(null);
+  };
+
+  const secretInformantCards = useMemo(() => {
+      if (!secretInformantData || !secretInformantData.snapshot) return [];
+      const targetPlayer = gameState.players.find(p => p.id === secretInformantData.targetPlayerId);
+      if (!targetPlayer) return [];
+      
+      // Filter snapshot to show only cards that are still in the top 3 of the real deck
+      return secretInformantData.snapshot.filter(snapCard => {
+          const currentIdx = targetPlayer.deck.findIndex(c => c.id === snapCard.id);
+          return currentIdx !== -1 && currentIdx < 3;
+      });
+  }, [secretInformantData, gameState.players]);
+
+
   useLayoutEffect(() => {
       const handleResize = () => {
           if (!isListMode) return;
@@ -258,194 +357,6 @@ export default function App() {
       handleResize(); // Initial calculation
       return () => window.removeEventListener('resize', handleResize);
   }, [isListMode]);
-
-  useEffect(() => {
-      const handleMouseMove = (e: MouseEvent) => {
-          mousePos.current = { x: e.clientX, y: e.clientY };
-          if (cursorFollowerRef.current) {
-              cursorFollowerRef.current.style.transform = `translate(${e.clientX + 2}px, ${e.clientY + 2}px)`;
-          }
-      };
-      window.addEventListener('mousemove', handleMouseMove);
-      return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, []);
-
-  // Correct positioning when follower first appears
-  useLayoutEffect(() => {
-      if ((cursorStack || abilityMode) && cursorFollowerRef.current) {
-          const { x, y } = mousePos.current;
-          // Apply immediate transform to prevent jumping from 0,0
-          cursorFollowerRef.current.style.transform = `translate(${x + 2}px, ${y + 2}px)`;
-      }
-  }, [cursorStack, abilityMode]);
-
-  useEffect(() => {
-      const handleGlobalMouseUp = (e: MouseEvent) => {
-          if (!cursorStack) return;
-          const target = document.elementFromPoint(e.clientX, e.clientY);
-          
-          const handCard = target?.closest('[data-hand-card]');
-          if (handCard) {
-              const attr = handCard.getAttribute('data-hand-card');
-              if (attr) {
-                  const [playerIdStr, cardIndexStr] = attr.split(',');
-                  const playerId = parseInt(playerIdStr, 10);
-                  const cardIndex = parseInt(cardIndexStr, 10);
-                  const targetPlayer = gameState.players.find(p => p.id === playerId);
-                  const targetCard = targetPlayer?.hand[cardIndex];
-
-                  if (targetPlayer && targetCard) {
-                      const constraints = {
-                          targetOwnerId: cursorStack.targetOwnerId,
-                          excludeOwnerId: cursorStack.excludeOwnerId,
-                          onlyOpponents: cursorStack.onlyOpponents || (cursorStack.targetOwnerId === -1),
-                          onlyFaceDown: cursorStack.onlyFaceDown,
-                          requiredTargetStatus: cursorStack.requiredTargetStatus,
-                          tokenType: cursorStack.type 
-                      };
-
-                      const isValid = validateTarget(
-                          { card: targetCard, ownerId: playerId, location: 'hand' },
-                          constraints,
-                          localPlayerId,
-                          gameState.players
-                      );
-                      
-                      if (!isValid) return;
-                      
-                      if (cursorStack.targetOwnerId === -2) {
-                          // Handled in getCommandAction logic usually, but here we validate actual ID
-                      }
-
-                      if (cursorStack.type === 'Revealed' && playerId !== localPlayerId && !targetPlayer.isDummy) {
-                           if (localPlayerId !== null) {
-                               requestCardReveal({ source: 'hand', ownerId: playerId, cardIndex }, localPlayerId);
-                               if (cursorStack.sourceCoords) markAbilityUsed(cursorStack.sourceCoords, cursorStack.isDeployAbility);
-                               if (cursorStack.count > 1) {
-                                   setCursorStack(prev => prev ? ({ ...prev, count: prev.count - 1 }) : null);
-                               } else {
-                                   setCursorStack(null);
-                               }
-                               interactionLock.current = true;
-                               setTimeout(() => { interactionLock.current = false; }, 300);
-                           }
-                           return; 
-                      }
-                       handleDrop({
-                          card: { id: `stack`, deck: 'counter', name: '', imageUrl: '', fallbackImage: '', power: 0, ability: '', types: [] },
-                          source: 'counter_panel',
-                          statusType: cursorStack.type,
-                          count: 1 
-                       }, { target: 'hand', playerId, cardIndex, boardCoords: undefined }); 
-                       if (cursorStack.sourceCoords) markAbilityUsed(cursorStack.sourceCoords, cursorStack.isDeployAbility);
-                       if (cursorStack.count > 1) {
-                           setCursorStack(prev => prev ? ({ ...prev, count: prev.count - 1 }) : null);
-                       } else {
-                           setCursorStack(null);
-                       }
-                       interactionLock.current = true;
-                       setTimeout(() => { interactionLock.current = false; }, 300);
-                      return;
-                  }
-              }
-          }
-
-          const boardCell = target?.closest('[data-board-coords]');
-          if (boardCell) {
-              const coords = boardCell.getAttribute('data-board-coords');
-              if (coords) {
-                  const [rowStr, colStr] = coords.split(',');
-                  const row = parseInt(rowStr, 10);
-                  const col = parseInt(colStr, 10);
-                  const targetCard = gameState.board[row][col].card;
-                  
-                  if (targetCard && targetCard.ownerId !== undefined) {
-                      const constraints = {
-                          targetOwnerId: cursorStack.targetOwnerId,
-                          excludeOwnerId: cursorStack.excludeOwnerId,
-                          onlyOpponents: cursorStack.onlyOpponents || (cursorStack.targetOwnerId === -1),
-                          onlyFaceDown: cursorStack.onlyFaceDown,
-                          requiredTargetStatus: cursorStack.requiredTargetStatus,
-                          mustBeAdjacentToSource: cursorStack.mustBeAdjacentToSource,
-                          mustBeInLineWithSource: cursorStack.mustBeInLineWithSource,
-                          sourceCoords: cursorStack.sourceCoords,
-                          tokenType: cursorStack.type
-                      };
-
-                      const isValid = validateTarget(
-                          { card: targetCard, ownerId: targetCard.ownerId, location: 'board', boardCoords: { row, col } },
-                          constraints,
-                          localPlayerId,
-                          gameState.players
-                      );
-                      if (!isValid) return;
-                      
-                      const targetPlayer = gameState.players.find(p => p.id === targetCard.ownerId);
-                      
-                      if (cursorStack.type === 'Revealed' && targetCard.ownerId !== localPlayerId && !targetPlayer?.isDummy) {
-                           if (targetCard.isFaceDown) {
-                               if (localPlayerId !== null) {
-                                   requestCardReveal({ source: 'board', ownerId: targetCard.ownerId, boardCoords: { row, col } }, localPlayerId);
-                               }
-                           } else {
-                               handleDrop({
-                                  card: { id: `stack`, deck: 'counter', name: '', imageUrl: '', fallbackImage: '', power: 0, ability: '', types: [] },
-                                  source: 'counter_panel',
-                                  statusType: cursorStack.type,
-                                  count: 1
-                               }, { target: 'board', boardCoords: { row, col }});
-                           }
-                           
-                           if (cursorStack.sourceCoords) markAbilityUsed(cursorStack.sourceCoords, cursorStack.isDeployAbility);
-                           if (cursorStack.count > 1) {
-                               setCursorStack(prev => prev ? ({ ...prev, count: prev.count - 1 }) : null);
-                           } else {
-                               setCursorStack(null);
-                           }
-                           interactionLock.current = true;
-                           setTimeout(() => { interactionLock.current = false; }, 300);
-                           return;
-                      }
-                  }
-                  if (targetCard) {
-                      const amountToDrop = cursorStack.placeAllAtOnce ? cursorStack.count : 1;
-                      
-                      handleDrop({
-                          card: { id: `stack`, deck: 'counter', name: '', imageUrl: '', fallbackImage: '', power: 0, ability: '', types: [] },
-                          source: 'counter_panel',
-                          statusType: cursorStack.type,
-                          count: amountToDrop
-                      }, { target: 'board', boardCoords: { row, col }});
-                       if (cursorStack.sourceCoords) markAbilityUsed(cursorStack.sourceCoords, cursorStack.isDeployAbility);
-                      if (cursorStack.count > amountToDrop) {
-                          setCursorStack(prev => prev ? ({ ...prev, count: prev.count - amountToDrop }) : null);
-                      } else {
-                          setCursorStack(null);
-                      }
-                      interactionLock.current = true;
-                      setTimeout(() => { interactionLock.current = false; }, 300);
-                  }
-              }
-          } else {
-              const isOverModal = target?.closest('.counter-modal-content');
-              if (cursorStack.isDragging) {
-                  if (isOverModal) {
-                      setCursorStack(prev => prev ? { ...prev, isDragging: false } : null);
-                  } else {
-                      setCursorStack(null);
-                  }
-              } else {
-                   if (!isOverModal) {
-                       setCursorStack(null);
-                   }
-              }
-          }
-      };
-      window.addEventListener('mouseup', handleGlobalMouseUp);
-      return () => {
-          window.removeEventListener('mouseup', handleGlobalMouseUp);
-      };
-  }, [cursorStack, handleDrop, gameState, localPlayerId, revealHandCard, requestCardReveal, markAbilityUsed]);
 
   useEffect(() => {
       const handleGlobalClickCapture = (e: MouseEvent) => {
@@ -486,6 +397,7 @@ export default function App() {
           setActionQueue([]); 
           setCommandContext({});
           setCounterSelectionData(null);
+          setSecretInformantData(null);
       };
 
       const handleKeyDown = (e: KeyboardEvent) => {
@@ -535,9 +447,17 @@ export default function App() {
           };
       }
       
-      const actorId = effectiveAction?.sourceCard?.ownerId 
-          ?? (effectiveAction?.sourceCoords ? gameState.board[effectiveAction.sourceCoords.row][effectiveAction.sourceCoords.col].card?.ownerId : null)
-          ?? (localPlayerId || gameState.activeTurnPlayerId);
+      // Effective actor logic for highlighting valid targets
+      let actorId = localPlayerId || gameState.activeTurnPlayerId;
+      if (effectiveAction?.sourceCard?.ownerId) {
+          actorId = effectiveAction.sourceCard.ownerId;
+      } else if (effectiveAction?.sourceCoords) {
+          const sourceCard = gameState.board[effectiveAction.sourceCoords.row][effectiveAction.sourceCoords.col].card;
+          if (sourceCard?.ownerId) actorId = sourceCard.ownerId;
+      } else if (gameState.activeTurnPlayerId) {
+          const activePlayer = gameState.players.find(p => p.id === gameState.activeTurnPlayerId);
+          if (activePlayer?.isDummy) actorId = activePlayer.id;
+      }
 
       const boardTargets = calculateValidTargets(effectiveAction, gameState, actorId, commandContext);
       const handTargets: {playerId: number, cardIndex: number}[] = [];
@@ -571,7 +491,7 @@ export default function App() {
                        const isValid = validateTarget(
                            { card, ownerId: p.id, location: 'hand' },
                            constraints,
-                           localPlayerId,
+                           actorId,
                            gameState.players
                        );
                        if (isValid) {
@@ -595,7 +515,7 @@ export default function App() {
 
       setValidTargets(boardTargets);
       setValidHandTargets(handTargets);
-  }, [abilityMode, cursorStack, gameState.board, gameState.players, localPlayerId, commandContext]);
+  }, [abilityMode, cursorStack, gameState.board, gameState.players, localPlayerId, commandContext, gameState.activeTurnPlayerId]);
 
   useEffect(() => {
       if (latestHighlight) {
@@ -772,7 +692,8 @@ export default function App() {
                       mustBeAdjacentToSource: nextAction.mustBeAdjacentToSource,
                       mustBeInLineWithSource: nextAction.mustBeInLineWithSource,
                       placeAllAtOnce: nextAction.placeAllAtOnce,
-                      targetOwnerId: nextAction.targetOwnerId
+                      targetOwnerId: nextAction.targetOwnerId,
+                      chainedAction: nextAction.chainedAction
                   });
               }
           } else {
@@ -790,6 +711,7 @@ export default function App() {
       setRulesModalOpen(false);
       setCommandModalCard(null);
       setCounterSelectionData(null);
+      setSecretInformantData(null);
   };
   
   const handleStartGameSequence = () => {
@@ -1112,16 +1034,6 @@ export default function App() {
     else { setTokensModalOpen(false); setTokensModalAnchor(null); const rect = event.currentTarget.getBoundingClientRect(); setCountersModalAnchor({ top: rect.top, left: rect.left }); setCountersModalOpen(true); }
   };
 
-  const handleCounterMouseDown = (type: string, e: React.MouseEvent) => {
-      lastClickPos.current = { x: e.clientX, y: e.clientY };
-      // Ensure mousePos is tracked instantly on click to avoid jump
-      mousePos.current = { x: e.clientX, y: e.clientY };
-      setCursorStack(prev => {
-          if (prev && prev.type === type) { return { type, count: prev.count + 1, isDragging: true, sourceCoords: prev.sourceCoords }; }
-          return { type, count: 1, isDragging: true };
-      });
-  };
-
   if (!isGameActive) {
     return (
       <MainMenu 
@@ -1208,6 +1120,30 @@ export default function App() {
           />
       )}
 
+      {secretInformantData && (
+          <SecretInformantModal
+              isOpen={!!secretInformantData}
+              cards={secretInformantCards}
+              onClose={handleInformantClose}
+              onMoveToBottom={handleInformantMoveToBottom}
+              onViewCard={(card) => setViewingCard({ card })}
+              playerColorMap={playerColorMap}
+              localPlayerId={localPlayerId}
+              imageRefreshVersion={imageRefreshVersion}
+          />
+      )}
+
+      {viewingCard && (
+          <CardDetailModal
+              card={viewingCard.card}
+              ownerPlayer={viewingCard.player}
+              onClose={() => setViewingCard(null)}
+              statusDescriptions={STATUS_DESCRIPTIONS}
+              allPlayers={gameState.players}
+              imageRefreshVersion={imageRefreshVersion}
+          />
+      )}
+
       {renderedContextMenu}
 
       {isListMode ? (
@@ -1251,6 +1187,8 @@ export default function App() {
                         disableActiveHighlights={isTargetingMode}
                         roundWinners={gameState.roundWinners}
                         startingPlayerId={gameState.startingPlayerId}
+                        onDeckClick={handleDeckClick}
+                        isDeckSelectable={abilityMode?.mode === 'SELECT_DECK'}
                      />
                 </div>
             )}
@@ -1333,6 +1271,8 @@ export default function App() {
                                     disableActiveHighlights={isTargetingMode}
                                     roundWinners={gameState.roundWinners}
                                     startingPlayerId={gameState.startingPlayerId}
+                                    onDeckClick={handleDeckClick}
+                                    isDeckSelectable={abilityMode?.mode === 'SELECT_DECK'}
                                 />
                             </div>
                         ))}
@@ -1375,6 +1315,8 @@ export default function App() {
                     disableActiveHighlights={isTargetingMode}
                     roundWinners={gameState.roundWinners}
                     startingPlayerId={gameState.startingPlayerId}
+                    onDeckClick={handleDeckClick}
+                    isDeckSelectable={abilityMode?.mode === 'SELECT_DECK'}
                 />
             ))}
             
@@ -1438,47 +1380,36 @@ export default function App() {
         }}
         onCardClick={(index) => {
             if (viewingDiscard?.pickConfig && viewingDiscardPlayer) {
-                const config = viewingDiscard.pickConfig;
-                const card = config.isDeck ? viewingDiscardPlayer.deck[index] : viewingDiscardPlayer.discard[index];
+                const sourceList = viewingDiscard.pickConfig.isDeck ? viewingDiscardPlayer.deck : viewingDiscardPlayer.discard;
+                const card = sourceList[index];
                 
+                const filterType = viewingDiscard.pickConfig.filterType;
                 let isValid = false;
-                if (config.filterType === 'Device') isValid = card.types?.includes('Device') || false;
-                if (config.filterType === 'Optimates') isValid = (card.types?.includes('Optimates') || card.faction === 'Optimates') && card.types?.includes('Unit') || false;
-                if (config.filterType === 'Unit') isValid = card.types?.includes('Unit') || false;
-                if (config.filterType === 'Any') isValid = true; 
+                if (filterType === 'Any') isValid = true;
+                else if (filterType === 'Unit') isValid = card.types?.includes('Unit') || false;
+                else if (filterType === 'Device') isValid = card.types?.includes('Device') || false;
+                else if (filterType === 'Optimates') isValid = (card.types?.includes('Optimates') || card.faction === 'Optimates') && card.types?.includes('Unit');
 
                 if (isValid) {
-                    if (config.action === 'recover') {
-                        if (config.isDeck) {
+                    if (viewingDiscard.pickConfig.action === 'recover') {
+                        if (viewingDiscard.pickConfig.isDeck) {
                              moveItem({ card, source: 'deck', playerId: viewingDiscardPlayer.id, cardIndex: index }, { target: 'hand', playerId: viewingDiscardPlayer.id });
                         } else {
                              recoverDiscardedCard(viewingDiscardPlayer.id, index);
                         }
-                    } else if (config.action === 'resurrect' && abilityMode && abilityMode.sourceCoords) {
-                        setAbilityMode(prev => prev ? ({
-                            ...prev,
-                            payload: { ...prev.payload, selectedCardIndex: index }
-                        }) : null);
+                        setViewingDiscard(null);
+                    } else if (viewingDiscard.pickConfig.action === 'resurrect') {
+                        if (abilityMode?.mode === 'IMMUNIS_RETRIEVE') {
+                            setAbilityMode(prev => prev ? ({
+                                ...prev,
+                                payload: { ...prev.payload, selectedCardIndex: index }
+                            }) : null);
+                            setViewingDiscard(null);
+                        }
                     }
-                    setViewingDiscard(null);
                 }
             }
         }}
-        playerColorMap={playerColorMap}
-        localPlayerId={localPlayerId}
-        imageRefreshVersion={imageRefreshVersion}
-      />
-
-      <DiscardModal
-        isOpen={!!viewingDeck}
-        onClose={() => setViewingDeck(null)}
-        title="Deck"
-        player={viewingDeckPlayer!}
-        cards={viewingDeckPlayer?.deck || []}
-        setDraggedItem={setDraggedItem}
-        canInteract={!!viewingDeckPlayer && (viewingDeckPlayer.id === localPlayerId || !!viewingDeckPlayer.isDummy)}
-        isDeckView={true}
-        onCardContextMenu={(e, index) => viewingDeckPlayer && openContextMenu(e, 'deckCard', { card: viewingDeckPlayer.deck[index], player: viewingDeckPlayer, cardIndex: index })}
         playerColorMap={playerColorMap}
         localPlayerId={localPlayerId}
         imageRefreshVersion={imageRefreshVersion}
@@ -1489,24 +1420,70 @@ export default function App() {
         onClose={() => { setTokensModalOpen(false); setTokensModalAnchor(null); }}
         setDraggedItem={setDraggedItem}
         openContextMenu={openContextMenu}
-        canInteract={!!localPlayerId}
+        canInteract={!!localPlayer}
         anchorEl={tokensModalAnchor}
         imageRefreshVersion={imageRefreshVersion}
         draggedItem={draggedItem}
       />
 
-      <CountersModal 
+      <CountersModal
         isOpen={isCountersModalOpen}
         onClose={() => { setCountersModalOpen(false); setCountersModalAnchor(null); }}
         setDraggedItem={setDraggedItem}
-        canInteract={!!localPlayerId}
+        canInteract={!!localPlayer}
         anchorEl={countersModalAnchor}
         imageRefreshVersion={imageRefreshVersion}
         onCounterMouseDown={handleCounterMouseDown}
         cursorStack={cursorStack}
       />
+      
+      {/* Follower for Cursor Stack or Ability Mode */}
+      <div 
+          ref={cursorFollowerRef}
+          className={`fixed pointer-events-none z-[1000] flex items-center justify-center transition-opacity duration-200 ${cursorStack || abilityMode ? 'opacity-100' : 'opacity-0'}`}
+          style={{ 
+              top: 0, 
+              left: 0,
+              // Initial position will be set by useEffect
+          }}
+      >
+          {cursorStack && (
+              <div className="relative">
+                  <div 
+                      className={`w-12 h-12 rounded-full shadow-lg flex items-center justify-center ${cursorStack.type.startsWith('Power') ? 'bg-gray-800 border-2 border-white' : ''}`}
+                      style={!cursorStack.type.startsWith('Power') ? {
+                          backgroundImage: `url(${COUNTER_BG_URL})`,
+                          backgroundSize: 'contain',
+                          backgroundRepeat: 'no-repeat'
+                      } : {}}
+                  >
+                      {STATUS_ICONS[cursorStack.type] ? (
+                          <img src={STATUS_ICONS[cursorStack.type]} className="w-full h-full object-contain p-2" />
+                      ) : (
+                          <div className="w-full h-full flex items-center justify-center font-bold text-white text-lg drop-shadow-md">
+                              {cursorStack.type[0]}
+                          </div>
+                      )}
+                  </div>
+                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center border border-white z-10">
+                      {cursorStack.count}
+                  </span>
+              </div>
+          )}
+          {abilityMode && !cursorStack && (
+              <div className="bg-indigo-600 text-white text-xs px-2 py-1 rounded shadow-lg font-bold whitespace-nowrap border border-white/20">
+                  {abilityMode.mode === 'SELECT_TARGET' ? 'Select Target' : 
+                   abilityMode.mode === 'SELECT_CELL' ? 'Select Cell' :
+                   abilityMode.mode === 'SELECT_LINE_START' ? 'Select Line' :
+                   abilityMode.mode === 'SELECT_LINE_END' ? 'Select End' :
+                   abilityMode.mode === 'RIOT_PUSH' ? 'Select Push' : 
+                   abilityMode.mode === 'SELECT_UNIT_FOR_MOVE' ? 'Select Unit' :
+                   abilityMode.mode.replace(/_/g, ' ')}
+              </div>
+          )}
+      </div>
 
-      {isTeamAssignOpen && gameState.gameMode !== GameMode.FreeForAll && (
+      {isTeamAssignOpen && (
           <TeamAssignmentModal
               players={gameState.players}
               gameMode={gameState.gameMode}
@@ -1515,89 +1492,31 @@ export default function App() {
           />
       )}
 
-      {gameState.isReadyCheckActive && localPlayer && (
-        <ReadyCheckModal 
-          players={gameState.players}
-          localPlayer={localPlayer}
-          onReady={playerReady}
-          onCancel={cancelReadyCheck}
-        />
-      )}
-
-      {gameState.revealRequests.filter(req => req.toPlayerId === localPlayerId).map((req, index) => {
-          const fromPlayer = gameState.players.find(p => p.id === req.fromPlayerId);
-          if (!fromPlayer) return null;
-          return (
-            <RevealRequestModal 
-                key={index}
-                fromPlayer={fromPlayer}
-                cardCount={req.cardIdentifiers.length}
-                onAccept={() => respondToRevealRequest(fromPlayer.id, true)}
-                onDecline={() => respondToRevealRequest(fromPlayer.id, false)}
-            />
-          );
-      })}
-
-      {viewingCard && (
-          <CardDetailModal 
-              card={viewingCard.card}
-              ownerPlayer={viewingCard.player}
-              onClose={() => setViewingCard(null)}
-              statusDescriptions={STATUS_DESCRIPTIONS}
-              allPlayers={gameState.players}
-              imageRefreshVersion={imageRefreshVersion}
+      {gameState.isReadyCheckActive && (
+          <ReadyCheckModal
+              players={gameState.players}
+              localPlayer={localPlayer!}
+              onReady={playerReady}
+              onCancel={cancelReadyCheck}
           />
       )}
 
-      <DeckBuilderModal
-          isOpen={isDeckBuilderOpen}
-          onClose={() => setDeckBuilderOpen(false)}
-          setViewingCard={setViewingCard}
-      />
-
-      <SettingsModal 
-          isOpen={isSettingsModalOpen}
-          onClose={() => setSettingsModalOpen(false)}
-          onSave={handleSaveSettings}
-      />
-
-      <RulesModal
-          isOpen={isRulesModalOpen}
-          onClose={() => setRulesModalOpen(false)}
-      />
-
-      <div 
-        ref={cursorFollowerRef}
-        className={`fixed pointer-events-none z-[9999] flex items-center justify-center transition-transform duration-75 ${cursorStack || abilityMode ? 'block' : 'hidden'}`}
-        style={{ top: 0, left: 0 }} 
-      >
-          {cursorStack && (
-              <div 
-                className="relative w-12 h-12 flex items-center justify-center"
-                style={{ 
-                    backgroundImage: 'url(https://res.cloudinary.com/dxxh6meej/image/upload/v1763653192/background_counter_socvss.png)',
-                    backgroundSize: 'contain',
-                    backgroundRepeat: 'no-repeat',
-                    backgroundPosition: 'center'
-                }}
-              >
-                  {STATUS_ICONS[cursorStack.type] ? (
-                      <img 
-                        src={STATUS_ICONS[cursorStack.type]} 
-                        alt={cursorStack.type} 
-                        className="w-8 h-8 object-contain drop-shadow-lg"
-                      />
-                  ) : (
-                      <span className="text-white font-bold text-lg drop-shadow-[0_0_2px_black]">
-                          {cursorStack.type.charAt(0)}
-                      </span>
-                  )}
-                  <div className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center border border-white z-10">
-                      {cursorStack.count}
-                  </div>
-              </div>
-          )}
-      </div>
+      {/* Reveal Requests */}
+      {gameState.revealRequests
+          .filter(req => req.toPlayerId === localPlayerId)
+          .map((req, index) => {
+              const fromPlayer = gameState.players.find(p => p.id === req.fromPlayerId);
+              if (!fromPlayer) return null;
+              return (
+                  <RevealRequestModal
+                      key={index}
+                      fromPlayer={fromPlayer}
+                      cardCount={req.cardIdentifiers.length}
+                      onAccept={() => respondToRevealRequest(req.fromPlayerId, true)}
+                      onDecline={() => respondToRevealRequest(req.fromPlayerId, false)}
+                  />
+              );
+          })}
     </div>
   );
 }

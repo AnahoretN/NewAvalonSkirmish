@@ -1,4 +1,3 @@
-
 /**
  * @file Renders a modal for a detailed view of a single card.
  */
@@ -73,7 +72,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({ card, ownerPla
   );
 
   return (
-    <div onClick={onClose} className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[102]">
+    <div onClick={onClose} className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[300]">
       <div onClick={e => e.stopPropagation()} className={`bg-gray-800 rounded-lg shadow-2xl w-full max-w-4xl h-[40rem] p-6 flex gap-6 border-4 ${themeColor}`}>
         {/* Left: Image */}
         <div className="w-1/2 h-full flex-shrink-0">

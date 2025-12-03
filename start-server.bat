@@ -12,7 +12,7 @@ REM 'call' гарантирует, что мы дождемся завершен
 
 echo.
 echo Launch: npm run start:local (Starting a local server)
-call npm start
+npm run server
 
 REM If the server stops, the console window will close.
 REM If you want the window to remain open, add 'pause' to the end.

@@ -217,7 +217,7 @@
       "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253305/FUS_DEVOUT_SYNTHETIC_bavg9k.png",
       "fallbackImage": "/images/cards/FUS_DEVOUT_SYNTHETIC.png",
       "power": 4,
-      "ability": "Deploy: Push an adjacent card 1 cell. May take its place.\nSupport ⇒ Setup: Destroy an adjacent card with threat or stun.",
+      "ability": "Deploy: Push an adjacent card 1 cell. May take its place.\nSetup: Destroy an adjacent card with threat or stun.",
       "flavorText": "Flesh is a bug. The Signal is the patch.",
       "types": ["Unit", "Fusion"],
       "faction": "Fusion",
@@ -386,7 +386,7 @@
       "power": 5,
       "ability": "Deploy: Shield 1. Aim a card with threat.\nSetup: Destroy a card with aim in a line.",
       "flavorText": "Protocol initiated. Threat assessment: Extreme.",
-      "types": ["Unit", "Device"],
+      "types": ["Unit", "Device", "Rarity"],
       "faction": "Neutral",
       "allowedPanels": ["DECK_BUILDER"]
     },
@@ -397,10 +397,21 @@
       "power": 5,
       "ability": "Deploy: Shield 1. Push an adjacent card 1 cell. May take its place.\nSetup: Destroy an adjacent card with threat or stun.",
       "flavorText": "Once a knight of the system, now a ghost in the machine.",
-      "types": ["Unit", "Device"],
+      "types": ["Unit", "Device", "Rarity"],
       "faction": "Neutral",
       "allowedPanels": ["DECK_BUILDER"]
     },
+    "secretInformant": {
+      "name": "Secret Informant",
+      "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1764767153/Secret_informant_eb0nkm.png",
+      "fallbackImage": "/images/cards/SYN_THREAT_ANALYST.png",
+      "power": 1,
+      "ability": "Deploy: Look at the top 3 cards of any deck. Put any number of them on the bottom of their owner's deck. Draw a card.",
+      "flavorText": "Knowledge is power. And leverage.",
+      "types": ["Unit"],
+      "faction": "Neutral",
+      "allowedPanels": ["DECK_BUILDER"]
+	},
 
     "FalkPD": {
       "name": "Michael Falk, Private Detective",
@@ -451,7 +462,7 @@
       "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1764622844/Zius_cwd92f.png",
       "fallbackImage": "/images/cards/FUS_UNWAVERING_INTEGRATOR.png",
       "power": 2,
-      "ability": "Deploy: Exploit any card.\nSetup: Exploit any card. Gain 1 point for each of your exploits in the line.",
+      "ability": "Deploy: Exploit any card.\nSupport ⇒ Setup: Exploit any card. Then select a line intersecting this unit. Gain 1 point for each of your exploits in that line.",
       "flavorText": "The truth is out there, and he's streaming it live.",
       "types": ["Unit", "Hero"],
       "faction": "Neutral",
@@ -549,6 +560,14 @@
         "allowedPanels": [],
         "allowedTargets": ["board"]
     },
+    "Resurrected": {
+        "name": "Resurrected",
+        "imageUrl": "",
+        "description": "This unit recently returned from the discard pile. It will become Stunned at the start of the next phase.",
+        "sortOrder": 8,
+        "allowedPanels": [],
+        "allowedTargets": []
+    },
     "Power+": {
         "name": "Power+",
         "imageUrl": "",
@@ -575,7 +594,8 @@
       "cards": [
 	  { "cardId": "mrPearlDoF", "quantity": 1 },
 	  { "cardId": "FalkPD", "quantity": 1 },
-	  { "cardId": "abrGawain", "quantity": 3 },
+	  { "cardId": "abrGawain", "quantity": 1 },
+	  { "cardId": "secretInformant", "quantity": 2 },
       { "cardId": "ipDeptAgent", "quantity": 3 },
       { "cardId": "tacticalAgent", "quantity": 3 },
       { "cardId": "patrolAgent", "quantity": 3 },
@@ -600,7 +620,8 @@
       "cards": [
 	  { "cardId": "finnMW", "quantity": 1 },
 	  { "cardId": "pinkunonekoSV", "quantity": 1 },
-	  { "cardId": "reclaimedGawain", "quantity": 3 },
+	  { "cardId": "reclaimedGawain", "quantity": 1 },
+	  { "cardId": "secretInformant", "quantity": 2 },
       { "cardId": "recklessProvocateur", "quantity": 3 },
       { "cardId": "dataLiberator", "quantity": 3 },
       { "cardId": "cautiousAvenger", "quantity": 3 },
@@ -625,7 +646,8 @@
       "cards": [
 	  { "cardId": "luciusTheImmortal", "quantity": 1 },
 	  { "cardId": "EleftheriaMD", "quantity": 1 },
-	  { "cardId": "abrGawain", "quantity": 3 },
+	  { "cardId": "abrGawain", "quantity": 1 },
+	  { "cardId": "secretInformant", "quantity": 2 },
       { "cardId": "faber", "quantity": 3 },
       { "cardId": "censor", "quantity": 3 },
       { "cardId": "princeps", "quantity": 3 },
@@ -650,7 +672,8 @@
       "cards": [
 	  { "cardId": "reverendOfTheChoir", "quantity": 1 },
 	  { "cardId": "ziusIJ", "quantity": 1 },
-      { "cardId": "reclaimedGawain", "quantity": 3 },
+      { "cardId": "reclaimedGawain", "quantity": 1 },
+	  { "cardId": "secretInformant", "quantity": 2 },
       { "cardId": "devoutSynthetic", "quantity": 3 },
       { "cardId": "unwaveringIntegrator", "quantity": 3 },
       { "cardId": "signalProphet", "quantity": 3 },

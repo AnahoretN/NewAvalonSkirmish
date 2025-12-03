@@ -1,3 +1,4 @@
+
 /**
  * @file Renders the main game board and its cells.
  */

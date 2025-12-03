@@ -149,19 +149,20 @@ export const DeckBuilderModal: React.FC<DeckBuilderModalProps> = ({ isOpen, onCl
       
       const cardDef = getCardDefinition(cardId);
       const isHero = cardDef?.types?.includes('Hero');
+      const isRarity = cardDef?.types?.includes('Rarity');
+      const isCommand = commandCardIds.has(cardId) || cardDef?.types?.includes('Command');
+      
+      const limit = (isHero || isRarity) ? 1 : (isCommand ? 2 : 3);
 
       setCurrentDeck(prev => {
           const newDeck = new Map(prev);
           const currentQty = newDeck.get(cardId) || 0;
           
-          if (isHero && currentQty >= 1) {
-              // Can't add more than 1 Hero
+          if (currentQty >= limit) {
               return newDeck; 
           }
 
-          if (currentQty < 3) { // Limit 3 copies per card
-               newDeck.set(cardId, currentQty + 1);
-          }
+          newDeck.set(cardId, currentQty + 1);
           return newDeck;
       });
   };
@@ -295,7 +296,7 @@ export const DeckBuilderModal: React.FC<DeckBuilderModalProps> = ({ isOpen, onCl
                <div className="flex-grow flex flex-col p-4 overflow-hidden border-r border-gray-700 bg-gray-900/50">
                    {/* Filter Bar */}
                    <div className="mb-4 flex flex-wrap items-center gap-4 bg-gray-800 p-2 rounded-lg border border-gray-700 relative z-40">
-                       {/* Filters ... (omitted for brevity, assume unchanged logic with JSX) */}
+                       {/* Filters */}
                        <div className="relative">
                            <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
                                 <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
@@ -484,6 +485,10 @@ export const DeckBuilderModal: React.FC<DeckBuilderModalProps> = ({ isOpen, onCl
                            const translation = getCardTranslation(cardId);
                            const displayName = translation ? translation.name : cardDef.name;
                            const isHero = cardDef.types?.includes('Hero');
+                           const isRarity = cardDef.types?.includes('Rarity');
+                           const isCommand = commandCardIds.has(cardId) || cardDef.types?.includes('Command');
+                           const limit = (isHero || isRarity) ? 1 : (isCommand ? 2 : 3);
+                           const limitTitle = (isHero || isRarity) ? "Max 1 (Rarity/Hero)" : (isCommand ? "Max 2 (Command)" : "Max 3");
 
                            return (
                                <div key={cardId} className="flex items-center bg-gray-700 rounded p-2 group hover:bg-gray-600 transition-colors select-none">
@@ -498,7 +503,7 @@ export const DeckBuilderModal: React.FC<DeckBuilderModalProps> = ({ isOpen, onCl
                                    </div>
                                    <div className="flex-grow min-w-0">
                                        <div className="font-bold text-sm text-white truncate">{displayName}</div>
-                                       <div className="text-xs text-gray-400 truncate">{cardDef.faction} {isHero ? '(Hero)' : ''}</div>
+                                       <div className="text-xs text-gray-400 truncate">{cardDef.faction} {(isHero || isRarity) ? '(Hero/Rarity)' : ''}</div>
                                    </div>
                                    <div className="flex items-center gap-2 ml-2">
                                        <button 
@@ -512,8 +517,8 @@ export const DeckBuilderModal: React.FC<DeckBuilderModalProps> = ({ isOpen, onCl
                                        <button 
                                           onClick={() => handleAddCard(cardId)}
                                           className="w-6 h-6 flex items-center justify-center bg-gray-800 hover:bg-green-900 text-gray-300 rounded text-sm font-bold disabled:opacity-30 disabled:cursor-not-allowed"
-                                          title={isHero ? "Hero (Max 1)" : "Add one"}
-                                          disabled={quantity >= (isHero ? 1 : 3)}
+                                          title={limitTitle}
+                                          disabled={quantity >= limit}
                                        >
                                            +
                                        </button>

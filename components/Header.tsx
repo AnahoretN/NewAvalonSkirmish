@@ -1,3 +1,4 @@
+
 /**
  * @file Renders the main header bar for the application.
  */

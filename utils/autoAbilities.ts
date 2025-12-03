@@ -297,6 +297,15 @@ const getDeployAction = (
     if (name.includes('zius')) {
         return { type: 'CREATE_STACK', tokenType: 'Exploit', count: 1 };
     }
+    if (name.includes('secret informant')) {
+        return {
+            type: 'ENTER_MODE',
+            mode: 'SELECT_DECK',
+            sourceCard: card,
+            sourceCoords: coords,
+            payload: {}
+        };
+    }
 
     // Generic fallback
     if (card.ability.toLowerCase().includes('deploy:')) {
@@ -466,13 +475,26 @@ const getPhaseAction = (
             };
         }
         if (name.includes('zius')) {
-            // Setup: Exploit any card. Gain 1 point for each of your exploits in the line.
+            if (!hasSup) return null;
+            // 1. Attach 1 Exploit token to cursor (valid target: any card)
+            // 2. Chained action: Select a line intersecting Zius (firstCoords = Zius's coords)
+            // 3. Score for own exploits in that line (handled by ZIUS_SCORING action type)
             return {
                 type: 'CREATE_STACK',
                 tokenType: 'Exploit',
                 count: 1,
                 sourceCard: card,
-                sourceCoords: coords
+                sourceCoords: coords, // Origin is Zius
+                chainedAction: {
+                    type: 'ENTER_MODE',
+                    mode: 'SELECT_LINE_END',
+                    sourceCard: card,
+                    sourceCoords: coords, // Anchors the ability to Zius
+                    payload: {
+                        actionType: 'ZIUS_SCORING',
+                        firstCoords: coords // Forces the line to intersect Zius
+                    }
+                }
             };
         }
         if (name.includes('reverend')) {

@@ -280,6 +280,7 @@ export interface CursorStackState {
     mustBeAdjacentToSource?: boolean; // Optional: target must be adjacent to sourceCoords
     mustBeInLineWithSource?: boolean; // Optional: target must be in line with sourceCoords
     placeAllAtOnce?: boolean; // Optional: if true, placing the stack puts ALL counters on one target instead of one by one
+    chainedAction?: AbilityAction; // Optional: Action to enter immediately after the stack is depleted
 }
 
 /**
@@ -322,4 +323,5 @@ export type AbilityAction = {
     mustBeAdjacentToSource?: boolean;
     mustBeInLineWithSource?: boolean;
     placeAllAtOnce?: boolean;
+    chainedAction?: AbilityAction;
 };

@@ -6,64 +6,33 @@ import { shuffleDeck, PLAYER_COLOR_NAMES, TURN_PHASES, MAX_PLAYERS } from '../co
 import { decksData, countersDatabase, rawJsonData, getCardDefinitionByName, getCardDefinition, commandCardIds } from '../contentDatabase';
 import { createInitialBoard, recalculateBoardStatuses } from '../utils/boardUtils';
 
-/**
- * Constructs the WebSocket URL based on the window's current location,
- * prioritizing a custom URL saved in localStorage.
- * @returns {string} The WebSocket server URL.
- */
+// ... getWebSocketURL, ConnectionStatus, generateGameId, syncLastPlayed kept as is ...
 const getWebSocketURL = () => {
-  // 1. Check for a user-defined custom URL.
   const customUrl = localStorage.getItem('custom_ws_url');
   if (customUrl && customUrl.trim() !== '') {
     console.log(`Using custom WebSocket URL: ${customUrl}`);
     return customUrl.trim();
   }
-
-  // 2. Fallback to default logic.
   const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
   const hostname = window.location.hostname || 'localhost';
-  // When deployed, the WebSocket server runs on the same host and default port (443 for wss, 80 for ws).
-  // For local dev, you can point to a local server or a remote one like ngrok.
   if (window.location.port && window.location.port !== '80' && window.location.port !== '443' && window.location.hostname === 'localhost') {
-    // Point to ngrok for remote testing from a local client
     return 'wss://platinocyanic-unsceptically-belia.ngrok-free.dev';
-    // return `${protocol}://${hostname}:8080`; // Or point to your local server
   }
-  // For production (including when hosted on ngrok), it connects to the same host it's served from.
   return `${protocol}://${hostname}`;
 };
 
-
-/**
- * Represents the current status of the WebSocket connection.
- */
 export type ConnectionStatus = 'Connecting' | 'Connected' | 'Disconnected';
-
-/**
- * Generates a random, URL-friendly string to be used as a unique game ID.
- * @returns {string} A new game ID.
- */
 const generateGameId = () => Math.random().toString(36).substring(2, 18).toUpperCase();
 
-/**
- * Helper to sync the 'LastPlayed' status based on the player's board history.
- * Ensures only the card at the top of the history stack has the status.
- */
 const syncLastPlayed = (board: Board, player: Player) => {
-    // 1. Remove all 'LastPlayed' by this player from the board
     board.forEach(row => row.forEach(cell => {
         if (cell.card?.statuses) {
             cell.card.statuses = cell.card.statuses.filter(s => !(s.type === 'LastPlayed' && s.addedByPlayerId === player.id));
         }
     }));
-
-    // 2. Find the top valid card ID from history
-    // We iterate backwards through history until we find a card actually on the board
     let found = false;
     while (player.boardHistory.length > 0 && !found) {
         const lastId = player.boardHistory[player.boardHistory.length - 1];
-        
-        // Find it on board
         for(let r=0; r<board.length; r++) {
             for(let c=0; c<board.length; c++) {
                 if (board[r][c].card?.id === lastId) {
@@ -75,21 +44,14 @@ const syncLastPlayed = (board: Board, player: Player) => {
             }
             if (found) break;
         }
-        
-        // If the ID in history isn't on the board (e.g. it was destroyed but history desynced), remove it and try next
         if (!found) {
             player.boardHistory.pop();
         }
     }
 };
 
-
-/**
- * Custom hook to manage all game state logic and server communication.
- * @returns An object containing the game state and functions to modify it.
- */
 export const useGameState = () => {
-  // ... (Previous logic for createDeck, createNewPlayer, createInitialState, updateState, etc. kept as is)
+  // ... state initialization logic kept as is ...
   const createDeck = useCallback((deckType: DeckType, playerId: number, playerName: string): Card[] => {
     const deck = decksData[deckType];
     if (!deck) {
@@ -114,7 +76,7 @@ export const useGameState = () => {
           color: PLAYER_COLOR_NAMES[id - 1] || 'blue',
           isDummy,
           isReady: false,
-          boardHistory: [] // Initialize empty history stack
+          boardHistory: [] 
       };
       player.deck = createDeck(initialDeckType, id, player.name);
       return player;
@@ -165,7 +127,6 @@ export const useGameState = () => {
     localPlayerIdRef.current = localPlayerId;
   }, [localPlayerId]);
 
-
   const updateState = useCallback((newStateOrFn: GameState | ((prevState: GameState) => GameState)) => {
     setGameState(prevState => {
       const newState = typeof newStateOrFn === 'function' ? newStateOrFn(prevState) : newStateOrFn;
@@ -176,7 +137,7 @@ export const useGameState = () => {
     });
   }, []);
   
-  // ... (WebSocket connection logic kept as is) ...
+  // ... WebSocket logic (connectWebSocket, forceReconnect, joinGame, etc.) kept as is ...
   const connectWebSocket = useCallback(() => {
     if (isManualExitRef.current) return;
     if (ws.current && (ws.current.readyState === WebSocket.OPEN || ws.current.readyState === WebSocket.CONNECTING)) return;
@@ -359,7 +320,7 @@ export const useGameState = () => {
 
   }, [createInitialState, connectWebSocket]);
 
-  // ... (All other existing methods: startReadyCheck, cancelReadyCheck, playerReady, assignTeams, setGameMode, setGamePrivacy, syncGame, resetGame, setActiveGridSize, setDummyPlayerCount, etc. are kept) ...
+  // ... (startReadyCheck, cancelReadyCheck, playerReady, assignTeams, setGameMode, setGamePrivacy, syncGame, resetGame, setActiveGridSize, setDummyPlayerCount methods kept as is) ...
   const startReadyCheck = useCallback(() => {
       if (ws.current?.readyState === WebSocket.OPEN && gameStateRef.current.gameId) ws.current.send(JSON.stringify({ type: 'START_READY_CHECK', gameId: gameStateRef.current.gameId }));
   }, []);
@@ -483,7 +444,6 @@ export const useGameState = () => {
     });
   }, [updateState, createNewPlayer]);
 
-  // Status updates
   const addBoardCardStatus = useCallback((boardCoords: { row: number; col: number }, status: string, addedByPlayerId: number) => {
     updateState(currentState => {
         if (!currentState.isGameStarted) return currentState;
@@ -491,8 +451,11 @@ export const useGameState = () => {
         const card = newState.board[boardCoords.row][boardCoords.col].card;
         if (card) {
             // Lucius, The Immortal Immunity: Cannot be stunned
-            if (status === 'Stun' && card.name.includes('Lucius') && card.ownerId !== undefined) {
-                return currentState;
+            // Uses strict baseId check OR Name+Hero check as a fallback
+            if (status === 'Stun') {
+                if (card.baseId === 'luciusTheImmortal') return currentState;
+                // Robust Fallback: Name + Hero Type
+                if (card.name.includes('Lucius') && card.types?.includes('Hero')) return currentState;
             }
 
             if (['Support', 'Threat', 'Revealed'].includes(status)) {
@@ -545,8 +508,7 @@ export const useGameState = () => {
     });
   }, [updateState]);
 
-  // ... (Other status/card modification methods kept as is) ...
-  // addAnnouncedCardStatus, removeAnnouncedCardStatus, modifyAnnouncedCardPower, addHandCardStatus, removeHandCardStatus, flipBoardCard, etc.
+  // ... (Other status/card modification methods kept as is: addAnnouncedCardStatus, removeAnnouncedCardStatus, modifyAnnouncedCardPower, addHandCardStatus, removeHandCardStatus, flipBoardCard, flipBoardCardFaceDown, revealHandCard, revealBoardCard, requestCardReveal, respondToRevealRequest, removeRevealedStatus) ...
   const addAnnouncedCardStatus = useCallback((playerId: number, status: string, addedByPlayerId: number) => {
     updateState(currentState => {
         if (!currentState.isGameStarted) return currentState;
@@ -982,8 +944,10 @@ export const useGameState = () => {
                             if (resurrectedIdx !== -1) {
                                 const addedBy = cell.card.statuses[resurrectedIdx].addedByPlayerId;
                                 cell.card.statuses.splice(resurrectedIdx, 1);
-                                cell.card.statuses.push({ type: 'Stun', addedByPlayerId: addedBy });
-                                cell.card.statuses.push({ type: 'Stun', addedByPlayerId: addedBy });
+                                if (cell.card.baseId !== 'luciusTheImmortal') {
+                                    cell.card.statuses.push({ type: 'Stun', addedByPlayerId: addedBy });
+                                    cell.card.statuses.push({ type: 'Stun', addedByPlayerId: addedBy });
+                                }
                             }
                         }
                     });
@@ -1006,8 +970,10 @@ export const useGameState = () => {
                             if (resurrectedIdx !== -1) {
                                 const addedBy = cell.card.statuses[resurrectedIdx].addedByPlayerId;
                                 cell.card.statuses.splice(resurrectedIdx, 1);
-                                cell.card.statuses.push({ type: 'Stun', addedByPlayerId: addedBy });
-                                cell.card.statuses.push({ type: 'Stun', addedByPlayerId: addedBy });
+                                if (cell.card.baseId !== 'luciusTheImmortal') {
+                                    cell.card.statuses.push({ type: 'Stun', addedByPlayerId: addedBy });
+                                    cell.card.statuses.push({ type: 'Stun', addedByPlayerId: addedBy });
+                                }
                             }
                         }
                     });
@@ -1119,8 +1085,9 @@ export const useGameState = () => {
             }
             if (targetCard) {
                 // Lucius Immunity Logic
-                if (item.statusType === 'Stun' && targetCard.name.includes('Lucius') && targetCard.ownerId !== undefined) {
-                    return newState; // No change
+                if (item.statusType === 'Stun') {
+                    if (targetCard.baseId === 'luciusTheImmortal') return newState;
+                    if (targetCard.name.includes('Lucius') && targetCard.types?.includes('Hero')) return newState;
                 }
 
                 const count = item.count || 1;
@@ -1424,8 +1391,9 @@ export const useGameState = () => {
               const card = newState.board[row][col].card;
               if (card) {
                   // Lucius Immunity
-                  if (tokenType === 'Stun' && card.name.includes('Lucius') && card.ownerId !== undefined) {
-                      return;
+                  if (tokenType === 'Stun') {
+                      if (card.baseId === 'luciusTheImmortal') return;
+                      if (card.name.includes('Lucius') && card.types?.includes('Hero')) return;
                   }
 
                   if (!card.statuses) card.statuses = [];
@@ -1446,6 +1414,7 @@ export const useGameState = () => {
       });
   }, [updateState]);
 
+  // ... (swapCards, transferStatus, transferAllCounters, recoverDiscardedCard, spawnToken, scoreLine, scoreDiagonal kept as is) ...
   const swapCards = useCallback((coords1: {row: number, col: number}, coords2: {row: number, col: number}) => {
       updateState(currentState => {
           if (!currentState.isGameStarted) return currentState;
@@ -1616,7 +1585,7 @@ export const useGameState = () => {
 
       const dRow = r2 > r1 ? 1 : -1;
       const dCol = c2 > c1 ? 1 : -1;
-      const steps = Math.abs(r1 - r2); // Assuming square valid diagonal
+      const steps = Math.abs(r1 - r2); 
 
       let totalScore = 0;
       let totalBonus = 0;
@@ -1646,7 +1615,6 @@ export const useGameState = () => {
                           });
                   }
                   
-                  // Logistics Chain Bonus Logic
                   if (bonusType && card.statuses?.some(s => s.type === 'Support' && s.addedByPlayerId === playerId)) {
                       totalBonus += 1;
                   }
@@ -1656,7 +1624,6 @@ export const useGameState = () => {
 
       if (bonusType === 'point_per_support' && totalBonus > 0) {
           totalScore += totalBonus;
-          // Could add visual for bonus here, but standard update is fine
       }
 
       if (scoreEvents.length > 0) {

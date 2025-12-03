@@ -154,7 +154,8 @@ export const useAppAbilities = ({
                     requiredTargetStatus: action.requiredTargetStatus,
                     mustBeAdjacentToSource: action.mustBeAdjacentToSource,
                     mustBeInLineWithSource: action.mustBeInLineWithSource,
-                    placeAllAtOnce: action.placeAllAtOnce
+                    placeAllAtOnce: action.placeAllAtOnce,
+                    chainedAction: action.chainedAction
                 });
             } else if (action.type === 'ENTER_MODE') {
                 if (action.mode === 'SHIELD_SELF_THEN_SPAWN') {
@@ -349,9 +350,36 @@ export const useAppAbilities = ({
             const { row: r2, col: c2 } = coords;
             if (r1 !== r2 && c1 !== c2) return;
             const actionType = payload.actionType;
-            const actorId = sourceCard ? sourceCard.ownerId : (localPlayerId || gameState.activeTurnPlayerId);
+            
+            // Determine Actor ID: SourceCard Owner OR Active Dummy OR Local Player
+            const actorId = sourceCard?.ownerId ?? (gameState.players.find(p => p.id === gameState.activeTurnPlayerId)?.isDummy ? gameState.activeTurnPlayerId : (localPlayerId || gameState.activeTurnPlayerId));
 
-            if (actionType === 'CENTURION_BUFF' && sourceCard && sourceCoords && actorId) {
+            if (actionType === 'ZIUS_SCORING') {
+                const gridSize = gameState.board.length;
+                let startR = 0, endR = gridSize - 1;
+                let startC = 0, endC = gridSize - 1;
+                
+                // If clicking exactly on firstCoords (Zius), logic must decide.
+                // r1===r2 implies Row. c1===c2 implies Col.
+                // Since Zius is both, we prioritize Row (or Col, user can click other cell to be specific).
+                if (r1 === r2) { startR = endR = r1; } 
+                else if (c1 === c2) { startC = endC = c1; }
+                else return; // Should be caught by validation earlier but safe to keep
+
+                let exploitCount = 0;
+                for (let r = startR; r <= endR; r++) {
+                    for (let c = startC; c <= endC; c++) {
+                        const cell = gameState.board[r][c];
+                        if (cell.card) {
+                            exploitCount += cell.card.statuses?.filter(s => s.type === 'Exploit' && s.addedByPlayerId === actorId).length || 0;
+                        }
+                    }
+                }
+                
+                if (exploitCount > 0) updatePlayerScore(actorId!, exploitCount);
+                if (sourceCoords && sourceCoords.row >= 0) markAbilityUsed(sourceCoords, isDeployAbility);
+            }
+            else if (actionType === 'CENTURION_BUFF' && sourceCard && sourceCoords && actorId) {
                 const gridSize = gameState.board.length;
                 let startR = 0, endR = gridSize - 1;
                 let startC = 0, endC = gridSize - 1;
@@ -385,7 +413,7 @@ export const useAppAbilities = ({
             setTimeout(() => setAbilityMode(null), 100);
         }
         if (mode === 'SELECT_DIAGONAL' && payload.actionType === 'SCORE_DIAGONAL') {
-            const actorId = sourceCard ? sourceCard.ownerId : (localPlayerId || gameState.activeTurnPlayerId);
+            const actorId = sourceCard?.ownerId ?? (gameState.players.find(p => p.id === gameState.activeTurnPlayerId)?.isDummy ? gameState.activeTurnPlayerId : (localPlayerId || gameState.activeTurnPlayerId));
             if (!payload.firstCoords) {
                  setAbilityMode({ ...abilityMode, payload: { ...payload, firstCoords: coords } });
                  return;
@@ -405,7 +433,7 @@ export const useAppAbilities = ({
                 setTimeout(() => setAbilityMode(null), 100);
             }
         }
-    }, [abilityMode, gameState, localPlayerId, scoreLine, nextPhase, setAbilityMode, modifyBoardCardPower, markAbilityUsed, moveItem, scoreDiagonal]);
+    }, [abilityMode, gameState, localPlayerId, scoreLine, nextPhase, setAbilityMode, modifyBoardCardPower, markAbilityUsed, moveItem, scoreDiagonal, updatePlayerScore]);
 
     const handleBoardCardClick = useCallback((card: Card, boardCoords: { row: number, col: number }) => {
         if (setPlayMode && cursorStack) return; 
@@ -421,7 +449,8 @@ export const useAppAbilities = ({
             const { mode, payload, sourceCard, sourceCoords, isDeployAbility } = abilityMode;
             if (mode === 'SELECT_LINE_START' || mode === 'SELECT_LINE_END') { handleLineSelection(boardCoords); return; }
 
-            const actorId = sourceCard ? sourceCard.ownerId : (localPlayerId || gameState.activeTurnPlayerId);
+            // Determine Actor ID: SourceCard Owner OR Active Dummy OR Local Player
+            const actorId = sourceCard?.ownerId ?? (gameState.players.find(p => p.id === gameState.activeTurnPlayerId)?.isDummy ? gameState.activeTurnPlayerId : (localPlayerId || gameState.activeTurnPlayerId));
 
             if (mode === 'SELECT_TARGET' && payload.actionType === 'OPEN_COUNTER_MODAL') {
                 if (payload.filter && !payload.filter(card)) return;
@@ -581,7 +610,13 @@ export const useAppAbilities = ({
                     sourceCoords: boardCoords,
                     isDeployAbility: isDeployAbility,
                     recordContext: abilityMode.recordContext,
-                    payload: { allowSelf: false, abilitySourceCoords: sourceCoords, range: payload.range, chainedAction: payload.chainedAction }
+                    payload: { 
+                        allowSelf: false, 
+                        abilitySourceCoords: sourceCoords, 
+                        range: payload.range, 
+                        chainedAction: payload.chainedAction,
+                        originalActorId: actorId // Pass the command/ability owner through
+                    }
                 });
                 return;
             }
@@ -593,7 +628,12 @@ export const useAppAbilities = ({
                     sourceCard: card,
                     sourceCoords: boardCoords,
                     recordContext: abilityMode.recordContext,
-                    payload: { allowSelf: false, range: payload.range, chainedAction: payload.chainedAction }
+                    payload: { 
+                        allowSelf: false, 
+                        range: payload.range, 
+                        chainedAction: payload.chainedAction,
+                        originalActorId: actorId
+                    }
                 });
                 return;
             }
@@ -642,7 +682,7 @@ export const useAppAbilities = ({
 
         if (mode === 'SELECT_LINE_START') { handleLineSelection(boardCoords); return; }
 
-        const actorId = sourceCard ? sourceCard.ownerId : (localPlayerId || gameState.activeTurnPlayerId);
+        const actorId = sourceCard?.ownerId ?? (gameState.players.find(p => p.id === gameState.activeTurnPlayerId)?.isDummy ? gameState.activeTurnPlayerId : (localPlayerId || gameState.activeTurnPlayerId));
 
         if (mode === 'PATROL_MOVE' && sourceCoords && sourceCard && sourceCoords.row >= 0) {
             const isRow = boardCoords.row === sourceCoords.row;
@@ -750,12 +790,15 @@ export const useAppAbilities = ({
                         setAbilityMode(null);
                     } else if (nextAction.type === 'GLOBAL_AUTO_APPLY') {
                         const reward = nextAction.payload.contextReward;
+                        // Use originalActorId if available (Command Owner), else actorId (Unit Owner)
+                        const effectOwnerId = payload.originalActorId !== undefined ? payload.originalActorId : actorId;
+
                         if (reward === 'STUN_MOVED_UNIT') {
-                            addBoardCardStatus(boardCoords, 'Stun', actorId!);
+                            addBoardCardStatus(boardCoords, 'Stun', effectOwnerId!);
                         } else if (reward === 'DRAW_MOVED_POWER') {
-                            for(let i=0; i<cardPower; i++) drawCard(actorId!);
+                            for(let i=0; i<cardPower; i++) drawCard(effectOwnerId!);
                         } else if (reward === 'SCORE_MOVED_POWER') {
-                            updatePlayerScore(actorId!, cardPower);
+                            updatePlayerScore(effectOwnerId!, cardPower);
                         }
                         setAbilityMode(null);
                     }

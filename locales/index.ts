@@ -86,11 +86,17 @@ const enCounters: Record<string, CounterTranslation> = {};
 
 // 1. Map Cards from Database
 cardDatabase.forEach((def, id) => {
+    // Default mapping
     enCards[id] = {
         name: def.name,
         ability: def.ability,
         flavorText: def.flavorText
     };
+
+    // Special Override for Zius to match the detailed ability logic
+    if (id === 'ziusIJ') {
+        enCards[id].ability = "Deploy: Exploit any card.\nSupport ⇒ Setup: Exploit any card. Then select a line intersecting this unit. Gain 1 point for each of your exploits in that line.";
+    }
 });
 
 // 2. Map Tokens from Database
@@ -109,6 +115,15 @@ Object.entries(countersDatabase).forEach(([id, def]) => {
         description: def.description
     };
 });
+
+// Manual entry for Secret Informant (fallback if not in database yet, but it should be)
+if (!enCards['secretInformant']) {
+    enCards['secretInformant'] = {
+      name: "Secret Informant",
+      ability: "Deploy: Look at the top 3 cards of any deck. Put any number of them on the bottom of their owner's deck. Draw a card.",
+      flavorText: "Knowledge is power. And leverage."
+    };
+}
 
 const en: TranslationResource = {
     ui: enUI,
