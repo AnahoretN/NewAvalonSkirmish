@@ -1362,6 +1362,29 @@ export const useGameState = () => {
       });
   }, [updateState]);
 
+  const reorderTopDeck = useCallback((playerId: number, newTopOrder: Card[]) => {
+      updateState(currentState => {
+          const newState: GameState = JSON.parse(JSON.stringify(currentState));
+          const player = newState.players.find(p => p.id === playerId);
+          
+          if (player && newTopOrder.length > 0) {
+              // 1. Identify which cards are being reordered (by ID)
+              const topIds = new Set(newTopOrder.map(c => c.id));
+              
+              // 2. Separate deck into [Cards to be moved] and [Rest of deck]
+              // Filter out the cards that are in the new top order from the current deck
+              const remainingDeck = player.deck.filter(c => !topIds.has(c.id));
+              
+              // 3. Prepend the new top order
+              // This effectively moves the selected cards to the top in the specified order
+              // and keeps the rest of the deck in its original relative order.
+              player.deck = [...newTopOrder, ...remainingDeck];
+          }
+          
+          return newState;
+      });
+  }, [updateState]);
+
   const triggerHighlight = useCallback((highlightData: Omit<HighlightData, 'timestamp'>) => {
       if (ws.current?.readyState === WebSocket.OPEN && gameStateRef.current.gameId) {
           const fullHighlightData: HighlightData = { ...highlightData, timestamp: Date.now() };
@@ -1770,6 +1793,7 @@ export const useGameState = () => {
     confirmRoundEnd,
     resetDeployStatus,
     scoreDiagonal,
-    removeStatusByType
+    removeStatusByType,
+    reorderTopDeck
   };
 };

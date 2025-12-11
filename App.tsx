@@ -18,7 +18,7 @@ import { CommandModal } from './components/CommandModal';
 import { MainMenu } from './components/MainMenu';
 import { RoundEndModal } from './components/RoundEndModal'; 
 import { CounterSelectionModal } from './components/CounterSelectionModal';
-import { SecretInformantModal } from './components/SecretInformantModal'; 
+import { TopDeckView } from './components/TopDeckView'; 
 import { useGameState } from './hooks/useGameState';
 import { useAppAbilities } from './hooks/useAppAbilities';
 import { useAppCommand } from './hooks/useAppCommand';
@@ -105,7 +105,8 @@ export default function App() {
     confirmRoundEnd,
     resetDeployStatus,
     scoreDiagonal,
-    removeStatusByType
+    removeStatusByType,
+    reorderTopDeck
   } = useGameState();
 
   const [isJoinModalOpen, setJoinModalOpen] = useState(false);
@@ -118,7 +119,15 @@ export default function App() {
   // Command & Ability State
   const [commandModalCard, setCommandModalCard] = useState<Card | null>(null);
   const [counterSelectionData, setCounterSelectionData] = useState<CounterSelectionData | null>(null);
-  const [secretInformantData, setSecretInformantData] = useState<{ targetPlayerId: number, sourceCard: Card | undefined, isDeployAbility?: boolean, sourceCoords?: {row: number, col: number}, snapshot?: Card[] } | null>(null); 
+  const [topDeckViewState, setTopDeckViewState] = useState<{ 
+      targetPlayerId: number;
+      isLocked: boolean;
+      initialCount: number;
+      // Info for ability handling if applicable
+      sourceCard?: Card;
+      isDeployAbility?: boolean;
+      sourceCoords?: {row: number, col: number};
+  } | null>(null);
   
   const [tokensModalAnchor, setTokensModalAnchor] = useState<{ top: number; left: number } | null>(null);
   const [countersModalAnchor, setCountersModalAnchor] = useState<{ top: number; left: number } | null>(null);
@@ -311,82 +320,69 @@ export default function App() {
 
   const isTargetingMode = !!abilityMode || !!cursorStack;
 
-  // New handler for deck clicks (Secret Informant)
+  // Handler for deck clicks (Secret Informant / Manual View)
   const handleDeckClick = (targetPlayerId: number) => {
+      // Triggered by Ability (Secret Informant)
       if (abilityMode?.mode === 'SELECT_DECK') {
-          const targetPlayer = gameState.players.find(p => p.id === targetPlayerId);
-          // Snapshot top 3 cards from current deck state
-          const snapshot = targetPlayer ? targetPlayer.deck.slice(0, 3) : [];
-          
-          setSecretInformantData({
+          setTopDeckViewState({
               targetPlayerId,
+              isLocked: true,
+              initialCount: 3,
               sourceCard: abilityMode.sourceCard,
               isDeployAbility: abilityMode.isDeployAbility,
-              sourceCoords: abilityMode.sourceCoords,
-              snapshot
+              sourceCoords: abilityMode.sourceCoords
           });
           setAbilityMode(null);
-      }
+      } 
+      // Triggered manually (e.g. from context menu, handled there)
   };
 
-  const handleInformantMoveToBottom = (cardIndex: number) => {
-      if (!secretInformantData || !secretInformantData.snapshot) return;
-      
-      const targetPlayer = gameState.players.find(p => p.id === secretInformantData.targetPlayerId);
-      if (!targetPlayer) return;
+  const handleTopDeckReorder = (playerId: number, newTopCards: Card[]) => {
+      reorderTopDeck(playerId, newTopCards);
+  };
 
-      // Re-calculate the currently visible cards based on the snapshot
-      const visibleCards = secretInformantData.snapshot.filter(snapCard => {
-          const currentIdx = targetPlayer.deck.findIndex(c => c.id === snapCard.id);
-          return currentIdx !== -1 && currentIdx < 3;
+  const handleTopDeckMoveToBottom = (cardIndex: number) => {
+      if (!topDeckViewState) return;
+      const targetPlayer = gameState.players.find(p => p.id === topDeckViewState.targetPlayerId);
+      if (!targetPlayer || targetPlayer.deck.length <= cardIndex) return;
+
+      // Card at index 'cardIndex' (which is index in the visible list, and also index in deck for TopDeckView)
+      // We know TopDeckView only shows top N cards, so cardIndex 0 is top.
+      const cardToMove = targetPlayer.deck[cardIndex];
+      
+      moveItem({
+          card: cardToMove, 
+          source: 'deck',
+          playerId: topDeckViewState.targetPlayerId,
+          cardIndex: cardIndex
+      }, {
+          target: 'deck',
+          playerId: topDeckViewState.targetPlayerId,
+          deckPosition: 'bottom'
       });
-
-      const cardToMove = visibleCards[cardIndex];
-      
-      if (cardToMove) {
-          // Find real index in current deck
-          const realIndex = targetPlayer.deck.findIndex(c => c.id === cardToMove.id);
-          if (realIndex !== -1) {
-              const realCard = targetPlayer.deck[realIndex];
-              moveItem({
-                  card: realCard, 
-                  source: 'deck',
-                  playerId: secretInformantData.targetPlayerId,
-                  cardIndex: realIndex
-              }, {
-                  target: 'deck',
-                  playerId: secretInformantData.targetPlayerId,
-                  deckPosition: 'bottom'
-              });
-          }
-      }
   };
 
-  const handleInformantClose = () => {
-      if (secretInformantData) {
-          // Draw card for the owner of the Informant
-          if (secretInformantData.sourceCard?.ownerId !== undefined) {
-              drawCard(secretInformantData.sourceCard.ownerId);
-          }
-          // Mark ability used
-          if (secretInformantData.sourceCoords) {
-              markAbilityUsed(secretInformantData.sourceCoords, secretInformantData.isDeployAbility);
+  const handleTopDeckClose = () => {
+      if (topDeckViewState) {
+          // If this was triggered by an ability (locked view), we finalize the ability usage
+          if (topDeckViewState.isLocked && topDeckViewState.sourceCard) {
+              // Secret Informant specific cleanup: Draw a card
+              if (topDeckViewState.sourceCard.ownerId !== undefined) {
+                  drawCard(topDeckViewState.sourceCard.ownerId);
+              }
+              // Mark ability used
+              if (topDeckViewState.sourceCoords) {
+                  markAbilityUsed(topDeckViewState.sourceCoords, topDeckViewState.isDeployAbility);
+              }
           }
       }
-      setSecretInformantData(null);
+      setTopDeckViewState(null);
   };
 
-  const secretInformantCards = useMemo(() => {
-      if (!secretInformantData || !secretInformantData.snapshot) return [];
-      const targetPlayer = gameState.players.find(p => p.id === secretInformantData.targetPlayerId);
-      if (!targetPlayer) return [];
-      
-      // Filter snapshot to show only cards that are still in the top 3 of the real deck
-      return secretInformantData.snapshot.filter(snapCard => {
-          const currentIdx = targetPlayer.deck.findIndex(c => c.id === snapCard.id);
-          return currentIdx !== -1 && currentIdx < 3;
-      });
-  }, [secretInformantData, gameState.players]);
+  const topDeckPlayer = useMemo(() => {
+      if (!topDeckViewState) return null;
+      return gameState.players.find(p => p.id === topDeckViewState.targetPlayerId);
+  }, [topDeckViewState, gameState.players]);
 
 
   useLayoutEffect(() => {
@@ -454,7 +450,7 @@ export default function App() {
           setActionQueue([]); 
           setCommandContext({});
           setCounterSelectionData(null);
-          setSecretInformantData(null);
+          setTopDeckViewState(null);
       };
 
       const handleKeyDown = (e: KeyboardEvent) => {
@@ -778,7 +774,7 @@ export default function App() {
       setRulesModalOpen(false);
       setCommandModalCard(null);
       setCounterSelectionData(null);
-      setSecretInformantData(null);
+      setTopDeckViewState(null);
   };
   
   const handleStartGameSequence = () => {
@@ -1126,6 +1122,7 @@ export default function App() {
         const { player } = data;
         const canControl = player.id === localPlayerId || !!player.isDummy;
         if (canControl) {
+            items.push({ label: 'View Top Cards', onClick: () => setTopDeckViewState({ targetPlayerId: player.id, isLocked: false, initialCount: 3 }) });
             items.push({ label: 'Draw Card', onClick: () => drawCard(player.id) });
             items.push({ label: 'Draw Starting Hand (6)', onClick: () => { for(let i=0; i<6; i++) drawCard(player.id); } });
             items.push({ label: 'Shuffle', onClick: () => shufflePlayerDeck(player.id) });
@@ -1282,16 +1279,19 @@ export default function App() {
           />
       )}
 
-      {secretInformantData && (
-          <SecretInformantModal
-              isOpen={!!secretInformantData}
-              cards={secretInformantCards}
-              onClose={handleInformantClose}
-              onMoveToBottom={handleInformantMoveToBottom}
+      {topDeckViewState && topDeckPlayer && (
+          <TopDeckView
+              isOpen={!!topDeckViewState}
+              player={topDeckPlayer}
+              onClose={handleTopDeckClose}
+              onReorder={handleTopDeckReorder}
+              onMoveToBottom={handleTopDeckMoveToBottom}
               onViewCard={(card) => setViewingCard({ card })}
               playerColorMap={playerColorMap}
               localPlayerId={localPlayerId}
               imageRefreshVersion={imageRefreshVersion}
+              initialCount={topDeckViewState.initialCount}
+              isLocked={topDeckViewState.isLocked}
           />
       )}
 
