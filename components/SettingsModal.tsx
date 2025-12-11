@@ -1,4 +1,3 @@
-
 /**
  * @file Renders a modal for application settings.
  */
@@ -60,7 +59,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
                     title="Language selection is currently disabled."
                 >
                     {Object.entries(LANGUAGE_NAMES).map(([code, name]) => (
-                        <option key={code} value={code}>{name}</option>
+                        <option key={code} value={code}>{name as string}</option>
                     ))}
                 </select>
             </div>

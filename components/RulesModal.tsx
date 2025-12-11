@@ -14,6 +14,30 @@ interface RulesModalProps {
   onClose: () => void;
 }
 
+const DEFAULT_RULES = {
+    title: "Game Rules: \"New Avalon: Skirmish\"",
+    conceptTitle: "I. General Concept",
+    conceptText: "**Genre & Role:** New Avalon: Skirmish is a fast-paced tactical duel card game played on a restricted grid battlefield. Players act as faction leaders, deploying Units and Commands to seize control of key lines.\n\n**Explanation:** The game focuses on positional control and the timing of ability activation rather than just direct attacks. Victory is achieved by accumulating Victory Points (VP) based on the power of your units in selected lines.",
+    winConditionTitle: "II. Victory Conditions",
+    winConditionText: "**Match Victory:** A match is played until a player wins 2 rounds. The first player to reach 2 round wins immediately wins the match.\n**Match Draw:** If multiple players reach 2 round wins simultaneously after any round, they are all declared match winners.\n\n**Round Victory (Thresholds & Limits):** A round ends as soon as one or more players reach the Victory Point (VP) threshold, or after the 5th turn is completed.\n**Turn Limit:** Each round is limited to 5 full turns per player. If the VP threshold is not met, a final scoring occurs at the end of Turn 5 to determine the winner.\n\n**Thresholds:**\n- Round 1: 20 Victory Points (VP).\n- Round 2: 30 Victory Points (VP).\n- Round 3+: Threshold increases by +10 VP from the previous round (e.g., Round 3 is 40 VP).\n\n**Determining Round Winner:** The winner is the player who hits the threshold first, or the player with the highest VP after the turn limit.\n**Round Draw:** If two or more players have the same highest score at the end of a round, they all are declared winners of that round.",
+    fieldTitle: "III. Game Board & Components",
+    fieldText: "**Battlefield (Grid):** The game takes place on a square grid, the size of which depends on the total number of participating players.\n**Sizes:**\n- 2 Players: 5x5 grid.\n- 3 Players: 6x6 grid.\n- 4 Players: 7x7 grid.\n\n**Positioning Definitions:**\n- **Line:** Refers to an entire horizontal Row or vertical Column. Used for the Scoring mechanic.\n- **Adjacency:** Cells are considered adjacent only horizontally and vertically (orthogonally). Diagonal adjacency does not count unless specified otherwise on a card.\n\n**Cards:** Two main types of cards are played from Hand:\n- **Units:** The main combat entities, possessing Power and Abilities. They remain on the battlefield until destroyed.\n- **Commands:** Instant-effect cards. They are played, execute their effect (often offering a \"Choose 1 of 2 options\" choice), and are then sent to the Discard pile.\n\n**Game Zones:**\n- **Hand:** Cards hidden from opponents.\n- **Discard:** The zone where destroyed Units and played Commands go.\n- **Showcase/Announced:** A temporary zone where a Command card is placed before it resolves.",
+    setupTitle: "IV. Game Start (Setup)",
+    setupText: "**Deck Construction:** Before the match begins, each player selects a faction or builds a deck according to construction rules (minimum 30 cards).\n**Explanation:** Decks are shuffled.\n\n**Starting Hand:** Each player draws 6 cards from their deck to form their starting hand.\n**Hidden Information:** Cards in hand are hidden from opponents.\n\n**Mulligan:** Once at the start of the game, after drawing the starting hand, a player may shuffle any number of cards from their hand back into the deck and draw the same number of new cards.\n\n**First Player Determination:** Determine the first active player by any convenient method (e.g., coin toss).\n**Explanation:** Play proceeds in turn order, starting with the first player. The first player begins their first turn directly in the Setup Phase.",
+    abilitiesTitle: "V. Card Abilities",
+    abilitiesText: "**Ability Types:**\n- **Deploy:** Triggers automatically and immediately when the card is played from hand onto the battlefield face-up.\n- **Setup:** Triggers automatically at the start of the Setup Phase of each of your turns (before drawing a card), if the card is already face-up on the battlefield.\n- **Commit:** Triggers automatically at the start of the Commit Phase of each of your turns, if the card is already face-up on the battlefield.\n- **Pas (Passive):** The effect is constantly active as long as the card is on the battlefield and face-up.\n\n**Conditions (⇒):**\nMany abilities have a requirement denoted by an arrow (e.g., **Support ⇒ Deploy:** ...).\n- This means \"CONDITION ⇒ EFFECT\".\n- If the condition to the left of the arrow (e.g., having Support status) is not met at the moment of activation, the ability **does not trigger** at all.\n\n**Important Rules:**\n- **Stun:** Stunned cards (with a Stun token) **do not activate** their abilities (neither Deploy, nor Phased, nor Passive).\n- **Face-down:** Cards played face-down have no abilities.\n- **Mandatory:** If an ability triggers (conditions met), you **must** apply its effect if there are legal targets. If there are no legal targets, the ability fizzles.",
+    statusesTitle: "VI. Dynamic Statuses (Positioning)",
+    statusesText: "Dynamic statuses are calculated automatically and constantly updated with any change on the board. Units with the Stun status cannot provide or participate in the calculation of these statuses.\n\n**Support:** A unit has the Support status if there is an allied unit in at least one adjacent cell (horizontal or vertical).\n**Stun/Support:** A unit with a Stun token is ignored when calculating Support for adjacent allies.\n**Significance:** Having Support is a condition for activating many powerful abilities, denoted by the syntax **Support ⇒ [Effect]**.\n\n**Threat:** A unit receives the Threat status if it is in a dangerous position created by enemy units.\n**Conditions:** Threat status is assigned in one of two cases:\n1. **Pinned:** The unit is sandwiched between cards of a single opponent on any two sides (two adjacent or two opposite sides).\n2. **Cornered:** The unit is on the edge of the battlefield and has at least one opponent card adjacent to it.\n**Stun/Threat:** A unit with a Stun token is ignored when calculating Threat for adjacent enemies.\n**Significance:** Units under Threat are vulnerable targets for powerful control and destruction abilities.",
+    countersTitle: "VII. Counters",
+    countersText: "Counters are persistent markers placed by card abilities. They remain on a unit until removed or the unit is destroyed.\n\n**Stun (O):**\n- **Effect:** A Stunned unit generates 0 VP during the Scoring Phase, cannot activate its abilities, and cannot be moved by its owner (but can be moved by opponents).\n- **Removal:** At the end of the Commit Phase, 1 Stun token is automatically removed from every unit owned by the active player.\n\n**Shield (S):**\n- **Effect:** If an ability attempts to Destroy this unit, the destruction effect is prevented, and 1 Shield token is removed instead. The unit remains on the field.\n\n**Revealed & Face-down:**\n- **Revealed:** Allows the player who owns the Revealed token to see the hidden information (face) of the card.\n- **Face-down Explanation:** A card played face-down has 0 Power and no Abilities. If such a card receives a Revealed token, its info becomes visible to the opponent, but it is still mechanically considered Face-down (0 Power, no abilities).\n\n**Special Tokens (Aim, Exploit):**\n- **Aim (A) & Exploit (E):** These tokens act as markers for faction interactions (e.g., Snipers or Hackers). By themselves, they have no inherent game effect.\n\n**Last Played:**\n- **Effect:** A temporary status automatically assigned to the last card played onto the battlefield by the active player this turn. This status determines the line the player must choose for Scoring.",
+    turnTitle: "VIII. Turn Structure & Timing",
+    turnText: "The turn passes from player to player. Card abilities only trigger during their owner's turn. The active player's turn consists of four sequential phases:\n\n**1. Setup Phase:**\n- **Draw Card:** The active player draws 1 card from their deck.\n- **Abilities:** Abilities of all cards on the board with the keyword **Setup:** trigger.\n**Explanation:** This phase is for replenishing the hand and initial unit positioning.\n\n**2. Main Phase (Action / Deploy):**\n- **Main Action:** The active player may perform one of the following:\n  - Play a Unit card (**Deploy:**) from hand to any empty cell. Its **Deploy:** ability triggers immediately.\n  - Play a Command card from hand.\n  - Pass.\n**Command Explanation:** Command cards can be played in any quantity during this phase — before, after, or between unit deployments.\n\n**3. Commit Phase:**\n- **Abilities:** Abilities of all cards on the board with the keyword **Commit:** trigger.\n- **Remove Stun:** At the end of this phase, 1 Stun token is automatically removed from every unit owned by the active player.\n**Explanation:** This phase is used for applying control effects and gaining resources before scoring.\n\n**4. Scoring Phase:**\n- **Line Selection:** The active player must choose one Line (Row or Column) that passes through their card with the **Last Played** status.\n- **Counting:** The Power of all units owned by the active player in the chosen line is summed up, and the total is added to the player's score.",
+    mechanicsTitle: "IX. Conflict Resolution & Key Mechanics",
+    mechanicsText: "**Stun & Scoring:**\n- **Effect:** A unit with Stun status or one that is Face-down contributes 0 points during the Scoring Phase, regardless of its base Power, permanent modifiers, or passive abilities that generate points (e.g., Spotter).\n\n**Last Played Transfer:**\n- **Destruction:** If the card with Last Played status leaves the battlefield (destroyed, returned to hand/deck) before the Scoring Phase, the status is transferred to the *previous* card played by that player (the one that was Last Played in the previous turn/action).\n- **Movement:** If the card with Last Played moves to another cell, the player chooses lines based on its new position during Scoring.\n- **Absence:** If a player has no cards on the board with Last Played status, they cannot choose a line and gain no points this turn.\n\n**Unit Movement (Push, Swap):**\n- **Push:** A unit forces another card to move to an adjacent cell. The push is blocked (does not happen) if the destination is an occupied cell or the edge of the board. Other effects of the ability still apply to the target.\n- **Swap:** Allows two cards to trade places, even if both cells are occupied.\n\n**Resurrect:**\n- **Burnout Mechanic:** A card returned to the battlefield from the Discard pile (resurrected) immediately gains the **Resurrected** status upon Deploy. At the start of the next phase (phase change), this status is removed, and the card receives two Stun tokens.",
+    creditsTitle: "X. Credits",
+    creditsText: "**Author:** Nikita Anahoret\n\n**Powered By:**\n- Google AI Studio\n- Gemini\n- ChatGPT\n\n**Special Thanks:**\n- Vasilisa Versus\n- Kirill Tomashchuk\n- Andrey Markosov\n- Mitya Shepelin\n\nFor questions and suggestions, please contact via Telegram or Discord.\nSupport game development and authors via DonationAlerts and Patreon."
+};
+
 // --- Constants for Demo ---
 const GAWAIN_IMG = "https://res.cloudinary.com/dxxh6meej/image/upload/v1764622845/Reclaimed_Gawain_sg6257.png";
 const GAWAIN_FALLBACK = "/images/cards/NEU_RECLAIMED_GAWAIN.png";
@@ -145,38 +169,57 @@ const AnatomyVisual = () => {
     );
 };
 
-// V. Dynamic Statuses Visual (4x3 Grid)
-const StatusMechanicsVisual = () => {
-    // 4 cols x 3 rows grid
-    const gridCells = Array(12).fill(null);
+// Internal Helper for Labels
+const StatusLabel = ({ text, subtext, color, top, left, subtextAbove = false }: { text: string, subtext?: React.ReactNode, color: 'green' | 'red', top: string, left: string, subtextAbove?: boolean }) => {
+    const borderColor = color === 'green' ? 'border-green-500/50' : 'border-red-500/50';
+    const textColor = color === 'green' ? 'text-green-400' : 'text-red-400';
+    
+    return (
+        <div className={`absolute ${top} ${left} text-center w-28 pointer-events-none z-20 flex flex-col items-center`}>
+            {subtext && subtextAbove && <div className="text-gray-400 text-[9px] font-semibold mb-0.5 leading-tight whitespace-nowrap">{subtext}</div>}
+            <div className={`${textColor} font-bold text-[10px] uppercase tracking-wider bg-gray-900/90 px-2 py-1 rounded shadow-sm border ${borderColor}`}>
+                {text}
+            </div>
+            {subtext && !subtextAbove && <div className="text-gray-400 text-[9px] font-semibold mt-0.5 leading-tight">{subtext}</div>}
+        </div>
+    );
+};
 
-    // Scenario 1: Support (Row 0, Cols 0-1) - Two Blue cards
+// V. Dynamic Statuses Visual (4x4 Grid)
+const StatusMechanicsVisual = () => {
+    // 4 cols x 4 rows grid
+    const gridCells = Array(16).fill(null);
+
+    // Scenario 1: Support (Row 1, Cols 0-1) - Two Blue cards
     const supportCard1 = { ...DEMO_CARDS.riot, id: 's1', statuses: [{ type: 'Support', addedByPlayerId: 1 }] };
     const supportCard2 = { ...DEMO_CARDS.riot, id: 's2', statuses: [{ type: 'Support', addedByPlayerId: 1 }] };
 
-    // Scenario 2: Threat (Row 1, Cols 1-3) - Red, Blue, Red (Pinned horizontally)
-    const enemy1 = { ...DEMO_CARDS.princeps, id: 'e1' };
-    const victim = { ...DEMO_CARDS.riot, id: 'v1', statuses: [{ type: 'Threat', addedByPlayerId: 2 }] };
-    const enemy2 = { ...DEMO_CARDS.princeps, id: 'e2' };
+    // Scenario 2: Threat (Row 2, Cols 1-3) - Red, Blue, Red
+    // Left Red: Pinned by Top Blue (Support2) and Right Blue (Victim)
+    const enemy1 = { ...DEMO_CARDS.princeps, id: 'e1', statuses: [{ type: 'Threat', addedByPlayerId: 1 }] }; 
+    // Middle Blue: Pinned by Left Red and Right Red
+    const victim = { ...DEMO_CARDS.riot, id: 'v1', statuses: [{ type: 'Threat', addedByPlayerId: 2 }] }; 
+    // Right Red: Cornered by Left Blue (Victim) and Edge
+    const enemy2 = { ...DEMO_CARDS.princeps, id: 'e2', statuses: [{ type: 'Threat', addedByPlayerId: 1 }] }; 
 
     return (
         <VisualWrapper>
             <div className="relative scale-[0.8] md:scale-100 origin-center">
-                {/* Scaled to match ~112px cards (w-28) + gaps */}
-                <div className="grid grid-cols-4 grid-rows-3 gap-1 w-[460px] h-[340px]">
+                {/* 4x4 Grid - Dimensions optimized for w-28 cards + gaps */}
+                <div className="grid grid-cols-4 grid-rows-4 gap-1 w-[460px] h-[452px]">
                     {gridCells.map((_, i) => {
                         const r = Math.floor(i / 4);
                         const c = i % 4;
                         let cardToRender: CardType | null = null;
                         
-                        // Support Placement (Top Left)
-                        if (r === 0 && c === 0) cardToRender = supportCard1;
-                        if (r === 0 && c === 1) cardToRender = supportCard2;
+                        // Support Placement (Row 1)
+                        if (r === 1 && c === 0) cardToRender = supportCard1;
+                        if (r === 1 && c === 1) cardToRender = supportCard2;
 
-                        // Threat Placement (Middle Row, Pinned)
-                        if (r === 1 && c === 1) cardToRender = enemy1; // Red
-                        if (r === 1 && c === 2) cardToRender = victim; // Blue (Victim)
-                        if (r === 1 && c === 3) cardToRender = enemy2; // Red
+                        // Threat Placement (Row 2)
+                        if (r === 2 && c === 1) cardToRender = enemy1; // Red
+                        if (r === 2 && c === 2) cardToRender = victim; // Blue
+                        if (r === 2 && c === 3) cardToRender = enemy2; // Red
 
                         return (
                             <div key={i} className="relative w-full h-full bg-board-cell/30 rounded border border-white/5 flex items-center justify-center">
@@ -197,13 +240,58 @@ const StatusMechanicsVisual = () => {
                     })}
                 </div>
                 
-                {/* Labels */}
-                <div className="absolute -top-3 left-4 text-green-400 font-bold text-[10px] uppercase tracking-widest bg-gray-900 px-2 py-0.5 rounded border border-green-500/50 shadow-md z-10">
-                    Support
-                </div>
-                <div className="absolute top-[40%] right-0 text-red-400 font-bold text-[10px] uppercase tracking-widest bg-gray-900 px-2 py-0.5 rounded border border-red-500/50 shadow-md z-10 translate-x-1/2">
-                    Threat
-                </div>
+                {/* LABELS */}
+                
+                {/* Support Labels - Above Row 1 Cards */}
+                
+                {/* Above Left Blue Card (Row 1, Col 0) */}
+                <StatusLabel 
+                    text="Support" 
+                    subtext="Adjacent Ally"
+                    color="green" 
+                    top="top-[68px]" 
+                    left="left-[0px]" 
+                    subtextAbove={true}
+                />
+
+                {/* Above Right Blue Card (Row 1, Col 1) */}
+                <StatusLabel 
+                    text="Support" 
+                    subtext="Adjacent Ally"
+                    color="green" 
+                    top="top-[68px]" 
+                    left="left-[116px]" 
+                    subtextAbove={true}
+                />
+
+                {/* Threat Labels - Under Row 2 Cards */}
+                
+                {/* Under Left Red (Row 2, Col 1) */}
+                <StatusLabel 
+                    text="Threat" 
+                    subtext="Pinned"
+                    color="red" 
+                    top="top-[345px]" 
+                    left="left-[116px]" 
+                />
+
+                {/* Under Middle Blue (Row 2, Col 2) */}
+                <StatusLabel 
+                    text="Threat" 
+                    subtext="Pinned"
+                    color="red" 
+                    top="top-[345px]" 
+                    left="left-[232px]" 
+                />
+
+                {/* Under Right Red (Row 2, Col 3) */}
+                <StatusLabel 
+                    text="Threat" 
+                    subtext={<>Cornered<br/>(Enemy + Edge)</>}
+                    color="red" 
+                    top="top-[345px]" 
+                    left="left-[348px]" 
+                />
             </div>
         </VisualWrapper>
     );
@@ -310,13 +398,17 @@ const CountersVisual = () => {
 
 export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
     const { resources, t } = useLanguage();
-    const r = resources.rules;
+    
+    // Prioritize translated rules if available (e.g. Ru), otherwise fallback to local DEFAULT_RULES constant.
+    // Note: resources.rules will likely be empty for 'en' now, but populated for 'ru'.
+    const r = (resources.rules && resources.rules.title) ? resources.rules : DEFAULT_RULES;
 
     const SECTIONS = [
         { id: 'concept', title: r.conceptTitle, text: r.conceptText, visual: <AnatomyVisual /> },
         { id: 'winCondition', title: r.winConditionTitle, text: r.winConditionText, visual: <VisualWrapper><div className="text-center text-yellow-400 font-black text-8xl font-mono bg-gray-900 p-10 rounded-3xl border-8 border-yellow-500 shadow-[0_0_50px_#eab308] scale-[1.2]">30 <div className="text-lg font-bold text-gray-400 font-sans mt-2 uppercase tracking-widest">Points</div></div></VisualWrapper> },
         { id: 'field', title: r.fieldTitle, text: r.fieldText, visual: <GridLinesVisual /> },
         { id: 'setup', title: r.setupTitle, text: r.setupText, visual: <HandVisual /> },
+        { id: 'abilities', title: r.abilitiesTitle, text: r.abilitiesText, visual: null },
         { id: 'statuses', title: r.statusesTitle, text: r.statusesText, visual: <StatusMechanicsVisual /> },
         { id: 'counters', title: r.countersTitle, text: r.countersText, visual: <CountersVisual /> },
         { id: 'turn', title: r.turnTitle, text: r.turnText, visual: null },

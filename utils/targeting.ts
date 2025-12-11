@@ -157,6 +157,14 @@ export const calculateValidTargets = (
 
     // 1. Generic TARGET selection
     if ((mode === 'SELECT_TARGET' || mode === 'CENSOR_SWAP' || mode === 'ZEALOUS_WEAKEN' || mode === 'CENTURION_BUFF' || mode === 'SELECT_UNIT_FOR_MOVE') && payload.filter) {
+         
+         // Strict Hand-Only actions check
+         if (payload.actionType === 'SELECT_HAND_FOR_DISCARD_THEN_SPAWN' || 
+             payload.actionType === 'LUCIUS_SETUP' || 
+             payload.actionType === 'SELECT_HAND_FOR_DEPLOY') {
+             return [];
+         }
+
          for(let r=0; r<gridSize; r++) {
              for(let c=0; c<gridSize; c++) {
                  const cell = board[r][c];

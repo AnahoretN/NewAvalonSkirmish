@@ -403,7 +403,7 @@ export const PlayerPanel: React.FC<PlayerPanelProps> = ({
                         <DropZone className="h-full aspect-square relative" onDrop={() => draggedItem && handleDrop(draggedItem, {target: 'announced', playerId: player.id})}>
                                 <div className="w-full h-full bg-gray-800 border border-dashed border-gray-600 rounded flex items-center justify-center relative overflow-hidden">
                                     {player.announcedCard ? (
-                                        <div className="w-full h-full" draggable={canPerformActions} onDragStart={() => canPerformActions && setDraggedItem({ card: player.announcedCard!, source: 'announced', playerId: player.id, isManual: true })} onDragEnd={() => setDraggedItem(null)} onContextMenu={(e) => canPerformActions && openContextMenu(e, 'announcedCard', { card: player.announcedCard, player })} onDoubleClick={() => onAnnouncedCardDoubleClick && onAnnouncedCardDoubleClick(player, player.announcedCard!)}>
+                                        <div className="w-full h-full" draggable={canPerformActions} onDragStart={() => canPerformActions && setDraggedItem({ card: player.announcedCard!, source: 'announced', playerId: player.id, isManual: true })} onDragEnd={() => setDraggedItem(null)} onContextMenu={(e) => openContextMenu(e, 'announcedCard', { card: player.announcedCard, player })} onDoubleClick={() => onAnnouncedCardDoubleClick && onAnnouncedCardDoubleClick(player, player.announcedCard!)}>
                                             <CardComponent card={player.announcedCard} isFaceUp={true} playerColorMap={playerColorMap} imageRefreshVersion={imageRefreshVersion} disableTooltip={false} disableActiveHighlights={disableActiveHighlights} />
                                         </div>
                                     ) : <span className="text-[9px] font-bold text-gray-500 select-none uppercase">SHOW</span>}
@@ -445,6 +445,7 @@ export const PlayerPanel: React.FC<PlayerPanelProps> = ({
                                     onContextMenu={(e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
+                                        // ALLOW context menu for opponents to support "Request Reveal"
                                         openContextMenu(e, 'handCard', { card, player, cardIndex: index });
                                     }} 
                                     onDoubleClick={() => onHandCardDoubleClick(player, card, index)} 

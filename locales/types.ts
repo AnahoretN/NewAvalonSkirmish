@@ -74,6 +74,8 @@ export interface TranslationResource {
     fieldText: string;
     setupTitle: string;
     setupText: string;
+    abilitiesTitle: string;
+    abilitiesText: string;
     statusesTitle: string;
     statusesText: string;
     countersTitle: string;

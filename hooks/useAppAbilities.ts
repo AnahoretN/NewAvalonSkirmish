@@ -307,7 +307,7 @@ export const useAppAbilities = ({
                     count: 1,
                     isDragging: false,
                     sourceCoords: sourceCoords,
-                    requiredTargetStatus: 'Threat',
+                    mustBeInLineWithSource: true, // Updated: Target must be in line with Princeps
                     isDeployAbility: action.isDeployAbility
                 });
                 return;
@@ -615,6 +615,51 @@ export const useAppAbilities = ({
                 return;
             }
 
+            if (mode === 'SELECT_TARGET' && payload.actionType === 'SACRIFICE_AND_BUFF_LINES') {
+                if (payload.filter && !payload.filter(card, boardCoords.row, boardCoords.col)) return;
+                
+                // 1. Sacrifice (Send to discard bypass shield)
+                moveItem({ 
+                    card, 
+                    source: 'board', 
+                    boardCoords, 
+                    bypassOwnershipCheck: true 
+                }, { 
+                    target: 'discard', 
+                    playerId: card.ownerId 
+                });
+
+                // 2. Buff lines
+                const gridSize = gameState.board.length;
+                const { row: r1, col: c1 } = boardCoords;
+                
+                // Row
+                for (let c = 0; c < gridSize; c++) {
+                    // Skip the cell we just sacrificed (even though it's moving, check coords to be safe)
+                    if (c === c1) continue; 
+                    
+                    const cell = gameState.board[r1][c];
+                    // Check if Ally
+                    if (cell.card && (cell.card.ownerId === actorId || (gameState.players.find(p => p.id === actorId)?.teamId !== undefined && gameState.players.find(p => p.id === cell.card.ownerId)?.teamId === gameState.players.find(p => p.id === actorId)?.teamId))) {
+                        modifyBoardCardPower({ row: r1, col: c }, 1);
+                    }
+                }
+                
+                // Col
+                for (let r = 0; r < gridSize; r++) {
+                    if (r === r1) continue;
+                    
+                    const cell = gameState.board[r][c1];
+                    if (cell.card && (cell.card.ownerId === actorId || (gameState.players.find(p => p.id === actorId)?.teamId !== undefined && gameState.players.find(p => p.id === cell.card.ownerId)?.teamId === gameState.players.find(p => p.id === actorId)?.teamId))) {
+                        modifyBoardCardPower({ row: r, col: c1 }, 1);
+                    }
+                }
+
+                if (sourceCoords && sourceCoords.row >= 0) markAbilityUsed(sourceCoords, isDeployAbility);
+                setTimeout(() => setAbilityMode(null), 100);
+                return;
+            }
+
             if (mode === 'SELECT_TARGET' && payload.actionType === 'DESTROY') {
                 if (payload.filter && !payload.filter(card, boardCoords.row, boardCoords.col)) return;
                 const hasShield = card.statuses?.some(s => s.type === 'Shield');
@@ -658,6 +703,16 @@ export const useAppAbilities = ({
                 if (payload.filter && !payload.filter(card)) return;
                 addBoardCardStatus(boardCoords, 'Shield', actorId!);
                 removeStatusByType(boardCoords, 'Aim');
+                setTimeout(() => setAbilityMode(null), 100);
+                return;
+            }
+            
+            if (mode === 'SELECT_TARGET' && payload.actionType === 'MODIFY_POWER') {
+                if (payload.filter && !payload.filter(card)) return;
+                if (payload.amount) {
+                    modifyBoardCardPower(boardCoords, payload.amount);
+                }
+                if (sourceCoords && sourceCoords.row >= 0) markAbilityUsed(sourceCoords, isDeployAbility);
                 setTimeout(() => setAbilityMode(null), 100);
                 return;
             }
@@ -1015,22 +1070,66 @@ export const useAppAbilities = ({
     const handleHandCardClick = useCallback((player: Player, card: Card, cardIndex: number) => {
         if (interactionLock.current) return;
         
-        if (abilityMode && abilityMode.type === 'ENTER_MODE' && abilityMode.mode === 'SELECT_TARGET' && abilityMode.payload.actionType === 'SELECT_HAND_FOR_DEPLOY') {
-            if (abilityMode.payload.filter && !abilityMode.payload.filter(card)) return;
-            
-            setCommandContext(prev => ({ ...prev, selectedHandCard: { playerId: player.id, cardIndex } }));
-            
-            setAbilityMode({
-                type: 'ENTER_MODE',
-                mode: 'SELECT_CELL',
-                sourceCard: card,
-                payload: { range: 'global', moveFromHand: true }
-            });
-            return;
-        }
-
         if (abilityMode && abilityMode.type === 'ENTER_MODE' && abilityMode.mode === 'SELECT_TARGET') {
             const { payload, sourceCoords, isDeployAbility, sourceCard } = abilityMode;
+            
+            // SELECT_HAND_FOR_DEPLOY (Quick Response Team)
+            if (payload.actionType === 'SELECT_HAND_FOR_DEPLOY') {
+                if (payload.filter && !payload.filter(card)) return;
+                
+                setCommandContext(prev => ({ ...prev, selectedHandCard: { playerId: player.id, cardIndex } }));
+                
+                setAbilityMode({
+                    type: 'ENTER_MODE',
+                    mode: 'SELECT_CELL',
+                    sourceCard: card,
+                    payload: { range: 'global', moveFromHand: true }
+                });
+                return;
+            }
+            
+            // SELECT_HAND_FOR_DISCARD_THEN_SPAWN (Faber)
+            if (payload.actionType === 'SELECT_HAND_FOR_DISCARD_THEN_SPAWN') {
+                if (player.id !== sourceCard?.ownerId) return; // Only discard own cards
+                
+                // 1. Discard the selected card
+                moveItem({ card, source: 'hand', playerId: player.id, cardIndex, bypassOwnershipCheck: true }, { target: 'discard', playerId: player.id });
+                
+                // 2. Chain to SPAWN_TOKEN mode
+                setAbilityMode({
+                    type: 'ENTER_MODE',
+                    mode: 'SPAWN_TOKEN',
+                    sourceCard: abilityMode.sourceCard,
+                    sourceCoords: abilityMode.sourceCoords,
+                    isDeployAbility: abilityMode.isDeployAbility,
+                    payload: { tokenName: payload.tokenName }
+                });
+                return;
+            }
+
+            // LUCIUS SETUP: Discard 1 -> Search Command
+            if (payload.actionType === 'LUCIUS_SETUP') {
+                if (player.id !== sourceCard?.ownerId) return; // Only discard own cards
+
+                // 1. Discard the selected card
+                moveItem({ card, source: 'hand', playerId: player.id, cardIndex, bypassOwnershipCheck: true }, { target: 'discard', playerId: player.id });
+
+                // 2. Open Search Modal via Execution
+                const openModalAction: AbilityAction = {
+                    type: 'OPEN_MODAL',
+                    mode: 'SEARCH_DECK',
+                    sourceCard: abilityMode.sourceCard,
+                    sourceCoords: abilityMode.sourceCoords, // This ensures ability gets marked used when modal closes
+                    isDeployAbility: abilityMode.isDeployAbility,
+                    payload: { filterType: 'Command' }
+                };
+                
+                handleActionExecution(openModalAction, abilityMode.sourceCoords || { row: -1, col: -1 });
+                setAbilityMode(null);
+                return;
+            }
+
+            // DESTROY Hand Card
             if (payload.actionType === 'DESTROY') {
                 if (payload.filter && !payload.filter(card)) return;
                 moveItem({ card, source: 'hand', playerId: player.id, cardIndex, bypassOwnershipCheck: true }, { target: 'discard', playerId: player.id });
@@ -1038,7 +1137,7 @@ export const useAppAbilities = ({
                 setTimeout(() => setAbilityMode(null), 100);
             }
         }
-    }, [interactionLock, abilityMode, moveItem, markAbilityUsed, setAbilityMode, setCommandContext]);
+    }, [interactionLock, abilityMode, moveItem, markAbilityUsed, setAbilityMode, setCommandContext, handleActionExecution]);
 
     const handleAnnouncedCardDoubleClick = useCallback((player: Player, card: Card) => {
         if (abilityMode || cursorStack) return;

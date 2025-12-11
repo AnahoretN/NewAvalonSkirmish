@@ -3,7 +3,7 @@ import { GameBoard } from './components/GameBoard';
 import { PlayerPanel } from './components/PlayerPanel';
 import { Header } from './components/Header';
 import { JoinGameModal } from './components/JoinGameModal';
-import { DiscardModal } from './components/DiscardModal';
+import { DeckViewModal } from './components/DeckViewModal';
 import { TokensModal } from './components/TokensModal';
 import { CountersModal } from './components/CountersModal';
 import { TeamAssignmentModal } from './components/TeamAssignmentModal';
@@ -212,8 +212,7 @@ export default function App() {
       handleLineSelection,
       handleBoardCardClick,
       handleEmptyCellClick,
-      handleHandCardClick,
-      handleAnnouncedCardDoubleClick
+      handleHandCardClick
   } = useAppAbilities({
       gameState,
       localPlayerId,
@@ -248,6 +247,33 @@ export default function App() {
       scoreDiagonal,
       removeStatusByType
   });
+
+  // New handler for Announced Card Double Click (Showcase)
+  // Replaces the one from useAppAbilities to allow "Playing" from showcase
+  const handleAnnouncedCardDoubleClick = (player: Player, card: Card) => {
+      if (abilityMode || cursorStack) return;
+      if (interactionLock.current) return;
+
+      const isOwner = player.id === localPlayerId;
+      const isDummy = !!player.isDummy;
+      const canControl = isOwner || isDummy;
+
+      if (canControl) {
+          if (card.deck === DeckType.Command) {
+              closeAllModals();
+              playCommandCard(card, { card, source: 'announced', playerId: player.id });
+              return;
+          }
+          
+          // For units: Enter Play Mode ( Pickup from Showcase )
+          closeAllModals();
+          const sourceItem: DragItem = { card, source: 'announced', playerId: player.id };
+          setPlayMode({ card, sourceItem, faceDown: false });
+      } else {
+          // For spectating or enemy cards: VIEW
+          setViewingCard({ card, player });
+      }
+  };
 
   // Hook for Counters Logic
   const {
@@ -878,6 +904,12 @@ export default function App() {
       if (viewingDiscard?.pickConfig?.filterType === 'Unit') {
           return (card: Card) => !!card.types?.includes('Unit');
       }
+      if (viewingDiscard?.pickConfig?.filterType === 'Command') {
+          return (card: Card) => card.deck === DeckType.Command || !!card.types?.includes('Command');
+      }
+      if (viewingDiscard?.pickConfig?.filterType === 'Optimates') {
+          return (card: Card) => !!card.types?.includes('Unit') && !!card.types?.includes('Optimates');
+      }
       return undefined;
   }, [viewingDiscard?.pickConfig?.filterType]);
 
@@ -911,6 +943,25 @@ export default function App() {
               }));
               setViewingDiscard(null);
           }
+      }
+  };
+
+  const handleDiscardContextMenu = (e: React.MouseEvent, cardIndex: number) => {
+      if (!viewingDiscard || !viewingDiscardPlayer) return;
+      
+      // Determine source type for context menu logic
+      const isDeck = viewingDiscard.isDeckView || viewingDiscard.pickConfig?.isDeck;
+      const type = isDeck ? 'deckCard' : 'discardCard';
+      
+      const pile = isDeck ? viewingDiscardPlayer.deck : viewingDiscardPlayer.discard;
+      const card = pile[cardIndex];
+      
+      if (card) {
+          openContextMenu(e, type, { 
+              card, 
+              player: viewingDiscardPlayer, 
+              cardIndex 
+          });
       }
   };
 
@@ -969,7 +1020,7 @@ export default function App() {
             items.push({ label: 'Highlight Column', onClick: () => handleTriggerHighlight({ type: 'col', col: data.boardCoords.col }) });
             items.push({ label: 'Highlight Row', onClick: () => handleTriggerHighlight({ type: 'row', row: data.boardCoords.row }) });
         }
-        if (isVisible) {
+        if (isVisible && (canControl || isBoardItem)) {
             const allStatusTypes = ['Aim', 'Exploit', 'Stun', 'Shield', 'Support', 'Threat', 'Revealed'];
             const visibleStatusItems: ContextMenuItem[] = [];
             allStatusTypes.forEach(status => {
@@ -1257,7 +1308,7 @@ export default function App() {
 
       {/* MODALS RE-ADDED TO RENDER TREE */}
       {viewingDiscard && viewingDiscardPlayer && (
-          <DiscardModal
+          <DeckViewModal
               isOpen={!!viewingDiscard}
               onClose={() => { setViewingDiscard(null); setAbilityMode(null); }}
               title={viewingDiscard.isDeckView || viewingDiscard.pickConfig?.isDeck ? (viewingDiscard.pickConfig ? "Select Card from Deck" : "Deck") : (viewingDiscard.pickConfig ? "Select Card from Discard" : "Discard Pile")}
@@ -1267,6 +1318,7 @@ export default function App() {
               canInteract={!!viewingDiscard.pickConfig || viewingDiscardPlayer.id === localPlayerId || !!viewingDiscardPlayer.isDummy}
               onCardClick={handleDiscardCardClick}
               onCardDoubleClick={handleDiscardCardClick} 
+              onCardContextMenu={handleDiscardContextMenu}
               isDeckView={viewingDiscard.isDeckView || viewingDiscard.pickConfig?.isDeck}
               playerColorMap={playerColorMap}
               localPlayerId={localPlayerId}

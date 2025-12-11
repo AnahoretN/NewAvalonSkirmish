@@ -34,6 +34,10 @@ const syncLastPlayed = (board: Board, player: Player) => {
             cell.card.statuses = cell.card.statuses.filter(s => !(s.type === 'LastPlayed' && s.addedByPlayerId === player.id));
         }
     }));
+    
+    // Safety check for boardHistory existence
+    if (!player.boardHistory) player.boardHistory = [];
+
     let found = false;
     while (player.boardHistory.length > 0 && !found) {
         const lastId = player.boardHistory[player.boardHistory.length - 1];
@@ -1187,9 +1191,9 @@ export const useGameState = () => {
                  delete cardToMove.abilityUsedInPhase;
                  
                  // Lucius, The Immortal: Bonus if entered from discard
-                 if (item.source === 'discard' && cardToMove.name.includes('Lucius')) {
+                 if (item.source === 'discard' && (cardToMove.baseId === 'luciusTheImmortal' || cardToMove.name.includes('Lucius'))) {
                      if (cardToMove.powerModifier === undefined) cardToMove.powerModifier = 0;
-                     cardToMove.powerModifier += 3;
+                     cardToMove.powerModifier += 2;
                  }
              }
         }
@@ -1219,6 +1223,8 @@ export const useGameState = () => {
                 if (item.source !== 'board' && item.isManual && cardToMove.ownerId !== undefined) {
                     const player = newState.players.find(p => p.id === cardToMove.ownerId);
                     if (player) {
+                        // FIX: Added initialization check for boardHistory to prevent crash if undefined.
+                        if (!player.boardHistory) player.boardHistory = [];
                         player.boardHistory.push(cardToMove.id);
                     }
                 }
@@ -1268,6 +1274,8 @@ export const useGameState = () => {
         if (item.source === 'board' && target.target !== 'board' && cardToMove.ownerId !== undefined) {
             const player = newState.players.find(p => p.id === cardToMove.ownerId);
             if (player) {
+                // FIX: Added initialization check for boardHistory to prevent crash if undefined.
+                if (!player.boardHistory) player.boardHistory = [];
                 player.boardHistory = player.boardHistory.filter(id => id !== cardToMove.id);
             }
         }
@@ -1326,9 +1334,9 @@ export const useGameState = () => {
               delete card.abilityUsedInPhase;
               
               // Lucius Bonus if resurrected
-              if (card.name.includes('Lucius')) {
+              if (card.baseId === 'luciusTheImmortal' || card.name.includes('Lucius')) {
                   if (card.powerModifier === undefined) card.powerModifier = 0;
-                  card.powerModifier += 3;
+                  card.powerModifier += 2;
               }
 
               if (!card.statuses) card.statuses = [];
@@ -1340,6 +1348,8 @@ export const useGameState = () => {
               }
               
               // Add to history
+              // FIX: Ensure boardHistory exists before pushing
+              if (!player.boardHistory) player.boardHistory = [];
               player.boardHistory.push(card.id);
               
               newState.board[boardCoords.row][boardCoords.col].card = card;

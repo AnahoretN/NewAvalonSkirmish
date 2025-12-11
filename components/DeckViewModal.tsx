@@ -7,9 +7,9 @@ import type { Player, Card as CardType, DragItem, PlayerColor } from '../types';
 import { Card } from './Card';
 
 /**
- * Props for the DiscardModal component.
+ * Props for the DeckViewModal component.
  */
-interface DiscardModalProps {
+interface DeckViewModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
@@ -30,10 +30,10 @@ interface DiscardModalProps {
 /**
  * A reusable modal component for displaying a collection of cards,
  * such as a player's discard pile or their deck.
- * @param {DiscardModalProps} props The properties for the component.
+ * @param {DeckViewModalProps} props The properties for the component.
  * @returns {React.ReactElement | null} The rendered modal or null if not open.
  */
-export const DiscardModal: React.FC<DiscardModalProps> = ({ isOpen, onClose, title, player, cards, setDraggedItem, onCardContextMenu, onCardDoubleClick, onCardClick, canInteract, isDeckView = false, playerColorMap, localPlayerId, imageRefreshVersion, highlightFilter }) => {
+export const DeckViewModal: React.FC<DeckViewModalProps> = ({ isOpen, onClose, title, player, cards, setDraggedItem, onCardContextMenu, onCardDoubleClick, onCardClick, canInteract, isDeckView = false, playerColorMap, localPlayerId, imageRefreshVersion, highlightFilter }) => {
   // State to track the ID of the card being dragged from the modal, for visual feedback.
   // Using ID is more robust than Index, preventing visibility bugs when lists change.
   const [draggedCardId, setDraggedCardId] = useState<string | null>(null);
@@ -66,7 +66,11 @@ export const DiscardModal: React.FC<DiscardModalProps> = ({ isOpen, onClose, tit
   const heightFor5Rows = `calc(5 * 7rem + 4 * 0.5rem + 1rem)`;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 pointer-events-auto" onClick={onClose}>
+    <div 
+        className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 pointer-events-auto" 
+        onClick={onClose}
+        onContextMenu={(e) => e.preventDefault()} // Block browser context menu on background
+    >
       <div
         ref={modalRef}
         onClick={(e) => e.stopPropagation()}
@@ -84,20 +88,23 @@ export const DiscardModal: React.FC<DiscardModalProps> = ({ isOpen, onClose, tit
         >
           <div className="grid grid-cols-5 gap-2">
             {cards.map((card, index) => {
-               const isHighlighted = highlightFilter ? highlightFilter(card) : true;
+               const isMatchingFilter = highlightFilter ? highlightFilter(card) : true;
+               const isHighlighted = isMatchingFilter;
                const isBeingDragged = draggedCardId === card.id;
+               const isInteractive = canInteract && isMatchingFilter;
                
                // Use opacity instead of visibility:hidden to ensure the element always takes up space 
                // and is visible if state glitches.
-               const opacity = isBeingDragged ? 0.3 : (isHighlighted ? 1 : 0.3);
+               // Dim cards that don't match the filter.
+               const opacity = isBeingDragged ? 0.3 : (isMatchingFilter ? 1 : 0.3);
 
                return (
                <div
                 key={card.id} // Use stable ID as key
                 style={{ opacity }}
-                draggable={canInteract && isHighlighted}
+                draggable={isInteractive}
                 onDragStart={() => {
-                  if (canInteract && isHighlighted) {
+                  if (isInteractive) {
                     setDraggedCardId(card.id);
                     setDraggedItem({
                       card,
@@ -111,11 +118,18 @@ export const DiscardModal: React.FC<DiscardModalProps> = ({ isOpen, onClose, tit
                   setDraggedCardId(null);
                   setDraggedItem(null);
                 }}
-                onContextMenu={(e) => canInteract && isHighlighted && onCardContextMenu?.(e, index)}
-                onClick={() => canInteract && isHighlighted && onCardClick?.(index)}
-                onDoubleClick={() => canInteract && isHighlighted && onCardDoubleClick?.(index)}
-                data-interactive={canInteract}
-                className={`w-28 h-28 relative ${canInteract && isHighlighted ? 'cursor-grab' : 'cursor-default'}`}
+                onContextMenu={(e) => {
+                    e.preventDefault(); // Stop browser context menu
+                    e.stopPropagation();
+                    // Allow context menu even if not interactive (e.g. to View dimmed cards)
+                    if (onCardContextMenu) {
+                        onCardContextMenu(e, index);
+                    }
+                }}
+                onClick={() => isInteractive && onCardClick?.(index)}
+                onDoubleClick={() => isInteractive && onCardDoubleClick?.(index)}
+                data-interactive={isInteractive}
+                className={`w-28 h-28 relative ${isInteractive ? 'cursor-grab' : 'cursor-default'}`}
               >
                 <div className={`w-full h-full ${isHighlighted && highlightFilter ? 'ring-4 ring-cyan-400 rounded-md shadow-[0_0_15px_#22d3ee]' : ''}`}>
                     <Card
@@ -124,6 +138,7 @@ export const DiscardModal: React.FC<DiscardModalProps> = ({ isOpen, onClose, tit
                         playerColorMap={playerColorMap}
                         localPlayerId={localPlayerId}
                         imageRefreshVersion={imageRefreshVersion}
+                        disableActiveHighlights={!isMatchingFilter} 
                     />
                 </div>
                </div>

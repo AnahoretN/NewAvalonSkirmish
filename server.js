@@ -159,6 +159,7 @@ const createNewPlayer = (id) => {
         isDisconnected: false,
         playerToken: generatePlayerToken(),
         isReady: false,
+        boardHistory: [],
     };
     newPlayer.deck = createDeck(initialDeckType, id, newPlayer.name);
     return newPlayer;

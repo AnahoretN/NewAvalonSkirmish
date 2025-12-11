@@ -1,4 +1,3 @@
-
 /**
  * @file Renders a modal displaying available counters that can be dragged onto cards.
  */
@@ -64,8 +63,10 @@ export const CountersModal: React.FC<CountersModalProps> = ({ isOpen, onClose, s
           const displayDesc = translated ? translated.description : (STATUS_DESCRIPTIONS[type] || '');
 
           // Construct a temporary card object to reuse the standard tooltip component.
+          // We append a timestamp to the ID to ensure the Tooltip component treats it as a new entity
+          // and re-runs any layout effects if needed.
           const dummyCard: CardType = {
-              id: `tooltip_${type}`,
+              id: `tooltip_${type}_${Date.now()}`,
               deck: 'counter',
               name: displayLabel,
               imageUrl: '',

@@ -171,7 +171,17 @@ const getDeployAction = (
 
     // OPTIMATES
     if (name.includes('faber')) {
-        return { type: 'ENTER_MODE', mode: 'SPAWN_TOKEN', sourceCard: card, sourceCoords: coords, payload: { tokenName: 'Walking Turret' } };
+        return {
+            type: 'ENTER_MODE',
+            mode: 'SELECT_TARGET',
+            sourceCard: card,
+            sourceCoords: coords,
+            payload: {
+                actionType: 'SELECT_HAND_FOR_DISCARD_THEN_SPAWN',
+                tokenName: 'Walking Turret',
+                filter: (c: Card) => c.ownerId === ownerId // Only discard own cards
+            }
+        };
     }
     if (name.includes('censor')) {
         return { type: 'CREATE_STACK', tokenType: 'Exploit', count: 1 };
@@ -190,9 +200,7 @@ const getDeployAction = (
             };
         }
     }
-    if (name.includes('lucius')) {
-        return { type: 'CREATE_STACK', tokenType: 'Aim', count: 1 };
-    }
+    // Lucius no longer has Deploy
 
     // FUSION
     if (name.includes('code keeper')) {
@@ -225,6 +233,18 @@ const getDeployAction = (
     }
     if (name.includes('zealous missionary')) {
         return { type: 'CREATE_STACK', tokenType: 'Exploit', count: 1 };
+    }
+
+    // TOKENS
+    if (name.includes('walking turret')) {
+        // Deploy: Aim 1 on line
+        return {
+            type: 'CREATE_STACK',
+            tokenType: 'Aim',
+            count: 1,
+            mustBeInLineWithSource: true,
+            sourceCoords: coords
+        };
     }
 
     // NEUTRAL / HEROES
@@ -362,18 +382,8 @@ const getPhaseAction = (
                 sourceCoords: coords,
                 payload: {
                     actionType: 'DESTROY',
-                    filter: (target: Card, r: number, c: number) => checkLine(r, c, coords.row, coords.col) && hasStatus(target, 'Aim', ownerId)
+                    filter: (target: Card) => hasStatus(target, 'Aim')
                 }
-            };
-        }
-        if (name.includes('centurion')) {
-            if (!hasSup) return null;
-            return {
-                type: 'ENTER_MODE',
-                mode: 'SELECT_LINE_END',
-                sourceCard: card,
-                sourceCoords: coords,
-                payload: { actionType: 'CENTURION_BUFF', firstCoords: coords }
             };
         }
         if (name.includes('devout synthetic')) {
@@ -397,6 +407,20 @@ const getPhaseAction = (
         }
         if (name.includes('recon drone')) {
             return { type: 'ENTER_MODE', mode: 'SELECT_CELL', sourceCard: card, sourceCoords: coords, payload: { allowSelf: false, range: 'global' } };
+        }
+        if (name.includes('walking turret')) {
+            // Setup: -1 Power to any card with Aim
+            return {
+                type: 'ENTER_MODE',
+                mode: 'SELECT_TARGET',
+                sourceCard: card,
+                sourceCoords: coords,
+                payload: {
+                    actionType: 'MODIFY_POWER',
+                    amount: -1,
+                    filter: (target: Card) => hasStatus(target, 'Aim')
+                }
+            };
         }
 
         // Neutral Setup Abilities
@@ -482,14 +506,15 @@ const getPhaseAction = (
             };
         }
         if (name.includes('lucius')) {
+            // Setup: Discard 1 -> Search Command
             return {
                 type: 'ENTER_MODE',
                 mode: 'SELECT_TARGET',
                 sourceCard: card,
                 sourceCoords: coords,
                 payload: {
-                    actionType: 'DESTROY',
-                    filter: (target: Card, r: number, c: number) => checkLine(r, c, coords.row, coords.col) && hasStatus(target, 'Aim')
+                    actionType: 'LUCIUS_SETUP',
+                    filter: (target: Card) => target.ownerId === ownerId // Only discard own cards
                 }
             };
         }
@@ -561,19 +586,6 @@ const getPhaseAction = (
             if (!hasSup) return null;
             return { type: 'ENTER_MODE', mode: 'CENSOR_SWAP', sourceCard: card, sourceCoords: coords, payload: { filter: (target: Card) => hasStatus(target, 'Exploit', ownerId) } };
         }
-        if (name.includes('walking turret')) {
-            if (!hasSup) return null;
-            if (hasStatus(card, 'Shield')) return null;
-            return { 
-                type: 'GLOBAL_AUTO_APPLY', 
-                payload: { 
-                    tokenType: 'Shield',
-                    filter: (target: Card) => target.id === card.id
-                },
-                sourceCard: card,
-                sourceCoords: coords
-            };
-        }
         if (name.includes('code keeper')) {
             if (!hasSup) return null;
             return {
@@ -602,7 +614,18 @@ const getPhaseAction = (
             if (!hasSup) return null;
             return { type: 'ENTER_MODE', mode: 'ZEALOUS_WEAKEN', sourceCard: card, sourceCoords: coords, payload: { filter: (target: Card) => hasStatus(target, 'Exploit', ownerId) } };
         }
-        
+        if (name.includes('centurion')) {
+            return {
+                type: 'ENTER_MODE',
+                mode: 'SELECT_TARGET',
+                sourceCard: card,
+                sourceCoords: coords,
+                payload: {
+                    actionType: 'SACRIFICE_AND_BUFF_LINES',
+                    filter: (target: Card, r?: number, c?: number) => target.ownerId === ownerId && target.types?.includes('Unit') && r !== undefined && c !== undefined
+                }
+            };
+        }
         if (name.includes('michael falk')) {
             return { type: 'CREATE_STACK', tokenType: 'Revealed', count: 1, onlyFaceDown: true, excludeOwnerId: ownerId };
         }

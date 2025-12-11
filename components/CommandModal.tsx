@@ -2,6 +2,7 @@ import React from 'react';
 import { Card } from '../types';
 import { Card as CardComponent } from './Card';
 import { useLanguage } from '../contexts/LanguageContext';
+import { formatAbilityText } from '../utils/textFormatters';
 
 interface CommandModalProps {
     isOpen: boolean;
@@ -54,9 +55,9 @@ export const CommandModal: React.FC<CommandModalProps> = ({ isOpen, card, player
                                 <div className="bg-gray-700 text-gray-400 w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-full font-bold text-xs group-hover:bg-indigo-500 group-hover:text-white transition-colors mt-1">
                                     {index + 1}
                                 </div>
-                                <p className="text-gray-200 group-hover:text-white text-base font-medium leading-snug whitespace-pre-wrap">
-                                    {optionText}
-                                </p>
+                                <div className="text-gray-200 group-hover:text-white text-base font-medium leading-snug whitespace-pre-wrap">
+                                    {formatAbilityText(optionText)}
+                                </div>
                             </button>
                         ))}
                         {parsedOptions.length === 0 && (
