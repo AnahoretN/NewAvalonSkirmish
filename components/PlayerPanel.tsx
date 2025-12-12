@@ -271,7 +271,7 @@ export const PlayerPanel: React.FC<PlayerPanelProps> = ({
                  <div className="flex justify-between items-start gap-1 bg-gray-800 p-[2px] rounded-lg mb-[3px] flex-shrink-0 flex-wrap relative z-0">
                      <div className="p-0 border border-transparent flex gap-1 flex-wrap justify-center">
                           <DropZone className="relative z-30" onDrop={() => draggedItem && handleDrop(draggedItem, {target: 'deck', playerId: player.id, deckPosition: 'top'})} onContextMenu={(e) => openContextMenu(e, 'deckPile', { player })}>
-                            <div onClick={handleDeckInteraction} className={`w-[120px] h-[120px] bg-card-back rounded flex flex-col items-center justify-center cursor-pointer hover:ring-2 ring-indigo-400 transition-all shadow-lg select-none text-white border-2 border-transparent ${shouldFlashDeck ? 'animate-deck-start' : ''} ${isDeckSelectable ? 'ring-4 ring-cyan-400 shadow-[0_0_15px_#22d3ee] animate-pulse' : ''}`}>
+                            <div onClick={handleDeckInteraction} className={`w-[120px] h-[120px] bg-card-back rounded flex flex-col items-center justify-center cursor-pointer hover:ring-2 ring-indigo-400 transition-all shadow-lg select-none text-white border-2 border-transparent ${shouldFlashDeck ? 'animate-deck-start' : ''} ${isDeckSelectable ? 'ring-4 ring-sky-400 shadow-[0_0_15px_#38bdf8] animate-pulse' : ''}`}>
                                 <span className="text-xs font-bold mb-1">DECK</span>
                                 <span className="text-lg font-bold">{player.deck.length}</span>
                             </div>
@@ -386,7 +386,7 @@ export const PlayerPanel: React.FC<PlayerPanelProps> = ({
                                 label="DECK" 
                                 count={player.deck.length} 
                                 onClick={handleDeckInteraction}
-                                className={`bg-card-back ${shouldFlashDeck ? 'animate-deck-start' : ''} ${isDeckSelectable ? 'ring-4 ring-cyan-400 shadow-[0_0_15px_#22d3ee] animate-pulse' : ''}`} 
+                                className={`bg-card-back ${shouldFlashDeck ? 'animate-deck-start' : ''} ${isDeckSelectable ? 'ring-4 ring-sky-400 shadow-[0_0_15px_#38bdf8] animate-pulse' : ''}`} 
                             />
                         </DropZone>
 
@@ -490,7 +490,7 @@ export const PlayerPanel: React.FC<PlayerPanelProps> = ({
              </div>
              
              <div className="flex gap-2 h-20">
-                 <div onClick={handleDeckInteraction} className={`flex-1 bg-gray-800 rounded flex items-center justify-center border border-gray-600 cursor-pointer hover:bg-gray-700 transition-colors ${isDeckSelectable ? 'ring-4 ring-cyan-400 shadow-[0_0_15px_#22d3ee] animate-pulse' : ''}`}>
+                 <div onClick={handleDeckInteraction} className={`flex-1 bg-gray-800 rounded flex items-center justify-center border border-gray-600 cursor-pointer hover:bg-gray-700 transition-colors ${isDeckSelectable ? 'ring-4 ring-sky-400 shadow-[0_0_15px_#38bdf8] animate-pulse' : ''}`}>
                      <span className="text-white font-bold">{player.deck.length} Cards</span>
                  </div>
                  <div className="w-20 bg-gray-800 border-dashed border border-gray-600 rounded flex items-center justify-center p-1">

@@ -145,7 +145,7 @@ export const MainMenu: React.FC<MainMenuProps> = ({
             </div>
 
             <div className="absolute bottom-4 text-gray-500 text-xs">
-                v0.1.3 alpha
+                v0.1.4 alpha
             </div>
 
             <JoinGameModal 

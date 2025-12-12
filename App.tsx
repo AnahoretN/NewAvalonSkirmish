@@ -362,6 +362,59 @@ export default function App() {
       });
   };
 
+  const handleTopDeckMoveToHand = (cardIndex: number) => {
+      if (!topDeckViewState) return;
+      const targetPlayer = gameState.players.find(p => p.id === topDeckViewState.targetPlayerId);
+      if (!targetPlayer || targetPlayer.deck.length <= cardIndex) return;
+
+      const cardToMove = targetPlayer.deck[cardIndex];
+      moveItem({
+          card: cardToMove,
+          source: 'deck',
+          playerId: topDeckViewState.targetPlayerId,
+          cardIndex: cardIndex
+      }, {
+          target: 'hand',
+          playerId: topDeckViewState.targetPlayerId
+      });
+  };
+
+  const handleTopDeckMoveToDiscard = (cardIndex: number) => {
+      if (!topDeckViewState) return;
+      const targetPlayer = gameState.players.find(p => p.id === topDeckViewState.targetPlayerId);
+      if (!targetPlayer || targetPlayer.deck.length <= cardIndex) return;
+
+      const cardToMove = targetPlayer.deck[cardIndex];
+      moveItem({
+          card: cardToMove,
+          source: 'deck',
+          playerId: topDeckViewState.targetPlayerId,
+          cardIndex: cardIndex
+      }, {
+          target: 'discard',
+          playerId: topDeckViewState.targetPlayerId
+      });
+  };
+
+  const handleTopDeckPlay = (cardIndex: number) => {
+      if (!topDeckViewState) return;
+      const targetPlayer = gameState.players.find(p => p.id === topDeckViewState.targetPlayerId);
+      if (!targetPlayer || targetPlayer.deck.length <= cardIndex) return;
+
+      const card = targetPlayer.deck[cardIndex];
+      // Close modal first
+      setTopDeckViewState(null);
+      
+      // Enter Play Mode
+      const sourceItem: DragItem = { 
+          card, 
+          source: 'deck', 
+          playerId: topDeckViewState.targetPlayerId, 
+          cardIndex 
+      };
+      setPlayMode({ card, sourceItem, faceDown: false });
+  };
+
   const handleTopDeckClose = () => {
       if (topDeckViewState) {
           // If this was triggered by an ability (locked view), we finalize the ability usage
@@ -1122,9 +1175,9 @@ export default function App() {
         const { player } = data;
         const canControl = player.id === localPlayerId || !!player.isDummy;
         if (canControl) {
-            items.push({ label: 'View Top Cards', onClick: () => setTopDeckViewState({ targetPlayerId: player.id, isLocked: false, initialCount: 3 }) });
             items.push({ label: 'Draw Card', onClick: () => drawCard(player.id) });
             items.push({ label: 'Draw Starting Hand (6)', onClick: () => { for(let i=0; i<6; i++) drawCard(player.id); } });
+            items.push({ label: 'View Top Cards', onClick: () => setTopDeckViewState({ targetPlayerId: player.id, isLocked: false, initialCount: 1 }) });
             items.push({ label: 'Shuffle', onClick: () => shufflePlayerDeck(player.id) });
         }
         items.push({ label: t('view'), onClick: () => handleViewDeck(player) });
@@ -1287,6 +1340,9 @@ export default function App() {
               onReorder={handleTopDeckReorder}
               onMoveToBottom={handleTopDeckMoveToBottom}
               onViewCard={(card) => setViewingCard({ card })}
+              onMoveToHand={handleTopDeckMoveToHand}
+              onMoveToDiscard={handleTopDeckMoveToDiscard}
+              onPlayCard={handleTopDeckPlay}
               playerColorMap={playerColorMap}
               localPlayerId={localPlayerId}
               imageRefreshVersion={imageRefreshVersion}

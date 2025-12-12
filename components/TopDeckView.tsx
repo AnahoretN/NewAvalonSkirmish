@@ -9,6 +9,9 @@ interface TopDeckViewProps {
     onClose: () => void;
     onReorder: (playerId: number, newTopCards: CardType[]) => void;
     onMoveToBottom: (cardIndex: number) => void;
+    onMoveToHand: (cardIndex: number) => void;
+    onMoveToDiscard: (cardIndex: number) => void;
+    onPlayCard: (cardIndex: number) => void;
     onViewCard: (card: CardType) => void;
     playerColorMap: Map<number, PlayerColor>;
     localPlayerId: number | null;
@@ -23,6 +26,9 @@ export const TopDeckView: React.FC<TopDeckViewProps> = ({
     onClose, 
     onReorder,
     onMoveToBottom, 
+    onMoveToHand,
+    onMoveToDiscard,
+    onPlayCard,
     onViewCard,
     playerColorMap,
     localPlayerId,
@@ -33,6 +39,7 @@ export const TopDeckView: React.FC<TopDeckViewProps> = ({
     const [viewCount, setViewCount] = useState(initialCount);
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, cardIndex: number } | null>(null);
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+    const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
     // Sync view count if it changes externally or re-opens
     useEffect(() => {
@@ -70,16 +77,25 @@ export const TopDeckView: React.FC<TopDeckViewProps> = ({
     const handleDragStart = (e: React.DragEvent, index: number) => {
         setDraggedIndex(index);
         e.dataTransfer.effectAllowed = "move";
-        // Ghost image hack if needed, or default
     };
 
     const handleDragOver = (e: React.DragEvent, index: number) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = "move";
+        if (dragOverIndex !== index) {
+            setDragOverIndex(index);
+        }
+    };
+
+    const handleDragEnd = () => {
+        setDraggedIndex(null);
+        setDragOverIndex(null);
     };
 
     const handleDrop = (e: React.DragEvent, targetIndex: number) => {
         e.preventDefault();
+        setDragOverIndex(null);
+        
         if (draggedIndex === null || draggedIndex === targetIndex) return;
 
         const newCards = [...visibleCards];
@@ -122,30 +138,39 @@ export const TopDeckView: React.FC<TopDeckViewProps> = ({
 
                 {/* Cards Container */}
                 <div className="flex justify-center flex-wrap gap-4 mb-8 min-h-[140px] px-4">
-                    {visibleCards.map((card, index) => (
-                        <div 
-                            key={card.id || index}
-                            draggable={true}
-                            onDragStart={(e) => handleDragStart(e, index)}
-                            onDragOver={(e) => handleDragOver(e, index)}
-                            onDrop={(e) => handleDrop(e, index)}
-                            className={`w-32 h-32 relative transition-transform ${draggedIndex === index ? 'opacity-50 scale-95' : 'hover:scale-105 cursor-grab active:cursor-grabbing'}`}
-                            onContextMenu={(e) => handleContextMenu(e, index)}
-                        >
-                            {/* Visual Indicator of Order */}
-                            <div className="absolute -top-3 -left-2 z-20 bg-gray-900 text-gray-400 text-xs font-bold px-2 py-0.5 rounded-full border border-gray-600 shadow-md">
-                                #{index + 1}
+                    {visibleCards.map((card, index) => {
+                        const isDragTarget = dragOverIndex === index;
+                        const isDragging = draggedIndex === index;
+                        
+                        return (
+                            <div 
+                                key={card.id || index}
+                                draggable={true}
+                                onDragStart={(e) => handleDragStart(e, index)}
+                                onDragOver={(e) => handleDragOver(e, index)}
+                                onDragEnd={handleDragEnd}
+                                onDrop={(e) => handleDrop(e, index)}
+                                className={`w-32 h-32 relative transition-all rounded-lg
+                                    ${isDragging ? 'opacity-50 scale-95' : 'hover:scale-105 cursor-grab active:cursor-grabbing'}
+                                    ${isDragTarget ? 'ring-4 ring-cyan-400 shadow-[0_0_15px_#22d3ee] scale-105 z-10' : ''}
+                                `}
+                                onContextMenu={(e) => handleContextMenu(e, index)}
+                            >
+                                {/* Visual Indicator of Order */}
+                                <div className="absolute -top-3 -left-2 z-20 bg-gray-900 text-gray-400 text-xs font-bold px-2 py-0.5 rounded-full border border-gray-600 shadow-md">
+                                    #{index + 1}
+                                </div>
+                                
+                                <Card 
+                                    card={card} 
+                                    isFaceUp={true} 
+                                    playerColorMap={playerColorMap}
+                                    localPlayerId={localPlayerId}
+                                    imageRefreshVersion={imageRefreshVersion}
+                                />
                             </div>
-                            
-                            <Card 
-                                card={card} 
-                                isFaceUp={true} 
-                                playerColorMap={playerColorMap}
-                                localPlayerId={localPlayerId}
-                                imageRefreshVersion={imageRefreshVersion}
-                            />
-                        </div>
-                    ))}
+                        );
+                    })}
                     {visibleCards.length === 0 && (
                         <p className="text-gray-500 italic">Deck is empty.</p>
                     )}
@@ -168,8 +193,21 @@ export const TopDeckView: React.FC<TopDeckViewProps> = ({
                     onClose={handleCloseMenu}
                     items={[
                         { label: 'View', isBold: true, onClick: () => onViewCard(visibleCards[contextMenu.cardIndex]) },
+                        { label: 'Play', disabled: isLocked, onClick: () => {
+                            onPlayCard(contextMenu.cardIndex);
+                            // View closes automatically because onPlayCard in App.tsx calls setTopDeckViewState(null)
+                        }},
                         { label: 'Move to Bottom', onClick: () => {
                             onMoveToBottom(contextMenu.cardIndex);
+                            setViewCount(prev => Math.max(0, prev - 1));
+                        }},
+                        { isDivider: true },
+                        { label: 'To Hand', disabled: isLocked, onClick: () => {
+                            onMoveToHand(contextMenu.cardIndex);
+                            setViewCount(prev => Math.max(0, prev - 1));
+                        }},
+                        { label: 'To Discard', disabled: isLocked, onClick: () => {
+                            onMoveToDiscard(contextMenu.cardIndex);
                             setViewCount(prev => Math.max(0, prev - 1));
                         }}
                     ]}
