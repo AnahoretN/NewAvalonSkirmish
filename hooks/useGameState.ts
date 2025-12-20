@@ -8,9 +8,9 @@ import { createInitialBoard, recalculateBoardStatuses } from '../utils/boardUtil
 
 // Helper to determine the correct WebSocket URL
 const getWebSocketURL = () => {
-  const customUrl = localStorage.getItem('custom_ws_url');
-  if (customUrl && customUrl.trim() !== '') {
-    let url = customUrl.trim();
+  const originalURL = localStorage.getItem('custom_ws_url') || window.location.href;
+  if (originalURL && originalURL.trim() !== '') {
+    let url = originalURL.trim();
     // Auto-correct protocol if user pasted http/https
     if (url.startsWith('https://')) {
         url = url.replace('https://', 'wss://');

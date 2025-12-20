@@ -18,7 +18,7 @@ interface SettingsModalProps {
  */
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave }) => {
   const { language, setLanguage, t } = useLanguage();
-  const [serverUrl, setServerUrl] = useState('');
+  const [serverUrl, setServerUrl] = useState(window.location.href);
   const [isListMode, setIsListMode] = useState(false);
 
   useEffect(() => {

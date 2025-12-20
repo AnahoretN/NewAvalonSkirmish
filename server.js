@@ -3,9 +3,9 @@
  * It manages game states, player connections, and broadcasting updates.
  */
 
-// FIX: Imported `WebSocket` to correctly check for open connections.
-import { WebSocketServer, WebSocket } from 'ws';
-import http from 'http';
+import express from 'express';
+import expressWs from 'express-ws';
+import WebSocket from 'ws';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -33,16 +33,120 @@ const playerDisconnectTimers = new Map(); // Key: `${gameId}-${playerId}` -> Nod
 const MAX_PLAYERS = 4;
 const INACTIVITY_TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes
 
+// SECURITY: Constants for rate limiting and validation
+const MAX_MESSAGE_SIZE = 1024 * 1024; // 1MB max WebSocket message
+const MAX_GAME_STATE_SIZE = 10 * 1024 * 1024; // 10MB max game state
+const MAX_ACTIVE_GAMES = 1000; // Maximum concurrent games
+const RATE_LIMIT_WINDOW = 60000; // 1 minute
+const MAX_STRING_LENGTH = 1000; // Max string length for user input
+
 let cardDatabase = {};
 let tokenDatabase = {};
 let deckFiles = [];
+
+// SECURITY: Rate limiting maps for DoS protection
+const messageCounts = new Map(); // Connection -> [timestamps]
+
+// SECURITY: Input sanitization utilities
+const sanitizeString = (input, maxLength = MAX_STRING_LENGTH) => {
+    if (typeof input !== 'string') return '';
+    // Remove dangerous characters and limit length
+    return input
+        .replace(/[<>\"'&]/g, '') // Remove HTML special chars
+        .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
+        .substring(0, maxLength);
+};
+
+const sanitizePlayerName = (name) => {
+    return sanitizeString(String(name), 50).trim() || 'Anonymous';
+};
+
+const sanitizeGameId = (gameId) => {
+    if (typeof gameId !== 'string') return null;
+    // Only allow alphanumeric, hyphens, underscores
+    const sanitized = gameId.replace(/[^a-zA-Z0-9\-_]/g, '');
+    return sanitized.length <= 50 && sanitized.length >= 1 ? sanitized : null;
+};
+
+const sanitizeForBroadcast = (data) => {
+    if (typeof data === 'string') {
+        return sanitizeString(data, 1000);
+    }
+    if (Array.isArray(data)) {
+        return data.map(sanitizeForBroadcast);
+    }
+    if (typeof data === 'object' && data !== null) {
+        const sanitized = {};
+        for (const [key, value] of Object.entries(data)) {
+            sanitized[sanitizeString(key, 100)] = sanitizeForBroadcast(value);
+        }
+        return sanitized;
+    }
+    return data;
+};
+
+const checkMessageRateLimit = (ws) => {
+    const now = Date.now();
+    const messages = messageCounts.get(ws) || [];
+
+    // Allow 60 messages per minute per connection
+    const recentMessages = messages.filter(time => now - time < RATE_LIMIT_WINDOW);
+
+    if (recentMessages.length >= 60) {
+        return false;
+    }
+
+    recentMessages.push(now);
+    messageCounts.set(ws, recentMessages);
+    return true;
+};
+
+// SECURITY: Security event logging
+const logSecurityEvent = (event, details = {}) => {
+    const timestamp = new Date().toISOString();
+    const logEntry = `${timestamp} [SECURITY] ${event}: ${JSON.stringify(details)}\n`;
+
+    try {
+        fs.appendFileSync(path.join(LOGS_DIR, 'security.log'), logEntry);
+    } catch (error) {
+        console.error('Failed to write security log:', error);
+    }
+
+    console.log(`[SECURITY] ${event}`, details);
+};
 try {
     const rawData = fs.readFileSync(DECKS_FILE_PATH, 'utf-8');
     const allDecksData = JSON.parse(rawData);
-    cardDatabase = allDecksData.cardDatabase;
-    tokenDatabase = allDecksData.tokenDatabase;
-    deckFiles = allDecksData.deckFiles;
-    console.log('Deck data loaded successfully.');
+
+    // SECURITY: Validate structure of loaded data
+    if (!allDecksData || typeof allDecksData !== 'object') {
+        throw new Error('Invalid content database format: not an object');
+    }
+
+    // SECURITY: Sanitize and validate card database
+    cardDatabase = {};
+    if (allDecksData.cardDatabase && typeof allDecksData.cardDatabase === 'object') {
+        for (const [cardId, card] of Object.entries(allDecksData.cardDatabase)) {
+            if (typeof card === 'object' && card && card.id && card.name) {
+                cardDatabase[cardId] = {
+                    id: sanitizeString(String(card.id)),
+                    name: sanitizeString(String(card.name)),
+                    // Only copy known safe properties
+                    ...(card.cost && { cost: Number(card.cost) || 0 }),
+                    ...(card.attack && { attack: Number(card.attack) || 0 }),
+                    ...(card.health && { health: Number(card.health) || 0 }),
+                    ...(card.text && { text: sanitizeString(String(card.text), 500) }),
+                    ...(card.image && { image: sanitizeString(String(card.image)) })
+                };
+            }
+        }
+    }
+
+    tokenDatabase = allDecksData.tokenDatabase || {};
+    deckFiles = Array.isArray(allDecksData.deckFiles) ?
+        allDecksData.deckFiles.filter(deck => deck && deck.id && deck.name) : [];
+
+    console.log(`Deck data loaded successfully: ${Object.keys(cardDatabase).length} cards, ${deckFiles.length} decks.`);
 } catch (error) {
     console.error('Fatal: Could not read or parse contentDatabase.json. The server cannot start.', error);
     process.exit(1);
@@ -148,7 +252,7 @@ const createNewPlayer = (id) => {
 
     const newPlayer = {
         id,
-        name: `Player ${id}`,
+        name: sanitizePlayerName(`Player ${id}`),
         score: 0,
         hand: [],
         deck: [], // Deck will be created with the correct name.
@@ -227,7 +331,8 @@ const endGame = (gameId, reason) => {
     }
     
     // 3. Disconnect any remaining clients (spectators) in that game
-    wss.clients.forEach(client => {
+    const clients = wss.clients;
+    clients.forEach(client => {
         if (client.gameId === gameId) {
             client.terminate(); // Forcefully close the connection
         }
@@ -326,83 +431,60 @@ const cancelGameTermination = (gameId) => {
 };
 
 // --- HTTP Server (for serving static files) ---
-const server = http.createServer((req, res) => {
-    // This server is now primarily for WebSocket upgrades and serving the production build.
-    // For development, use the Vite dev server (`npm run dev`).
+const app = express();
 
-    const safeUrl = path.normalize(req.url).replace(/^(\.\.[\/\\])+/, '');
-    let filePath = path.join(DIST_PATH, safeUrl);
+// Apply express-ws middleware to enable WebSocket support
+const wsInstance = expressWs(app);
 
-    // Default to index.html for root path
-    if (safeUrl === '/') {
-        filePath = path.join(DIST_PATH, 'index.html');
-    }
+// This server is now primarily for WebSocket upgrades and serving the production build.
+// For development, use the Vite dev server (`npm run dev`).
 
-    fs.readFile(filePath, (error, content) => {
-        if (error) {
-            // If the file is not found, it might be a client-side route.
-            // Serve index.html as a fallback for SPAs.
-            if (error.code === 'ENOENT') {
-                fs.readFile(path.join(DIST_PATH, 'index.html'), (fallbackError, fallbackContent) => {
-                    if (fallbackError) {
-                        res.writeHead(404, { 'Content-Type': 'text/plain' });
-                        res.end('404 Not Found. Please run "npm run build" first.');
-                    } else {
-                        // For the main HTML file, instruct browser to always re-validate.
-                        res.writeHead(200, { 
-                            'Content-Type': 'text/html',
-                            'Cache-Control': 'no-cache, must-revalidate' 
-                        });
-                        res.end(fallbackContent);
-                    }
-                });
-            } else {
-                console.error(`Server error for ${filePath}: ${error.code}`);
-                res.writeHead(500);
-                res.end(`Server Error: ${error.code}`);
-            }
-            return;
-        }
+// Health check endpoint
+app.get('/health', (req, res) => {
+    const healthData = {
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+        version: process.version,
+        activeGames: gameStates.size,
+        connectedClients: wsInstance.getWss().clients.size,
+        nodeEnv: process.env.NODE_ENV || 'development'
+    };
 
-        const extname = String(path.extname(filePath)).toLowerCase();
-        const mimeTypes = {
-            '.html': 'text/html',
-            '.js': 'application/javascript',
-            '.css': 'text/css',
-            '.json': 'application/json',
-            '.png': 'image/png',
-            '.jpg': 'image/jpeg',
-            '.svg': 'image/svg+xml',
-            '.ico': 'image/x-icon',
-        };
-        const contentType = mimeTypes[extname] || 'application/octet-stream';
-        
-        const headers = { 'Content-Type': contentType };
-        const imageExtensions = ['.png', '.jpg', '.jpeg', '.svg', '.ico'];
-        
-        if (imageExtensions.includes(extname)) {
-            // For images, tell the browser to always re-validate.
-            // This ensures users always get the latest card images.
-            headers['Cache-Control'] = 'no-cache, must-revalidate';
-        } else if (['.js', '.css'].includes(extname)) {
-            // For JS and CSS files, which Vite versions with hashes, we can cache them forever.
-            headers['Cache-Control'] = 'public, max-age=31536000, immutable';
-        }
-
-        res.writeHead(200, headers);
-        res.end(content, 'utf-8');
+    res.set({
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
     });
+    res.json(healthData);
 });
+
+// Set /docs as static root directory
+const DOCS_PATH = path.join(__dirname, 'docs');
+
+// Serve /docs as static root without validation
+app.use(express.static(DOCS_PATH, {
+    // Serve files as-is without additional validation
+    // No UGC (User Generated Content) in docs directory
+    setHeaders: (res, filePath) => {
+        const extname = String(path.extname(filePath)).toLowerCase();
+
+        if (['.png', '.jpg', '.jpeg', '.svg', '.ico'].includes(extname)) {
+            // For images, tell the browser to always re-validate
+            res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+        } else if (['.js', '.css'].includes(extname)) {
+            // For JS and CSS files with hashes, cache forever
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        } else if (extname === '.html') {
+            // For HTML files, always re-validate
+            res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+        }
+    }
+}));
 
 // --- WebSocket Server Logic ---
 
-const wss = new WebSocketServer({ noServer: true });
-
-server.on('upgrade', (request, socket, head) => {
-  wss.handleUpgrade(request, socket, head, (ws) => {
-    wss.emit('connection', ws, request);
-  });
-});
+const wss = wsInstance.getWss();
 
 /**
  * Sends the current game state to all clients connected to a specific game.
@@ -411,10 +493,23 @@ server.on('upgrade', (request, socket, head) => {
  * @param {WebSocket} [excludeClient=null] A client to exclude from the broadcast (usually the sender).
  */
 const broadcastState = (gameId, gameState, excludeClient = null) => {
-    wss.clients.forEach(client => {
+    // SECURITY: Sanitize game state before broadcasting to prevent XSS
+    const sanitizedGameState = sanitizeForBroadcast(gameState);
+    const message = JSON.stringify(sanitizedGameState);
+
+    const clients = wss.clients;
+    clients.forEach(client => {
         // FIX: Used `WebSocket.OPEN` to correctly check the client's ready state. `client.OPEN` is undefined.
         if (client !== excludeClient && client.readyState === WebSocket.OPEN && clientGameMap.get(client) === gameId) {
-            client.send(JSON.stringify(gameState));
+            try {
+                client.send(message);
+            } catch (error) {
+                logSecurityEvent('BROADCAST_ERROR', {
+                    gameId,
+                    clientIP: client.ipAddress,
+                    error: error.message
+                });
+            }
         }
     });
 };
@@ -426,14 +521,23 @@ const broadcastGamesList = () => {
     const gamesList = Array.from(gameStates.entries())
         .filter(([gameId, gameState]) => !gameState.isPrivate)
         .map(([gameId, gameState]) => ({
-            gameId,
-            playerCount: gameState.players.filter(p => !p.isDummy && !p.isDisconnected).length
+            gameId: sanitizeString(gameId, 50),
+            playerCount: Math.max(0, gameState.players ? gameState.players.filter(p => !p.isDummy && !p.isDisconnected).length : 0)
         }));
     const message = JSON.stringify({ type: 'GAMES_LIST', games: gamesList });
-    wss.clients.forEach(client => {
+
+    const clients = wss.clients;
+    clients.forEach(client => {
         // FIX: Used `WebSocket.OPEN` to correctly check the client's ready state. `client.OPEN` is undefined.
         if (client.readyState === WebSocket.OPEN) {
-            client.send(message);
+            try {
+                client.send(message);
+            } catch (error) {
+                logSecurityEvent('BROADCAST_GAMES_LIST_ERROR', {
+                    clientIP: client.ipAddress,
+                    error: error.message
+                });
+            }
         }
     });
 };
@@ -493,13 +597,84 @@ const handlePlayerLeave = (gameId, playerId, isManualExit = false) => {
     broadcastGamesList();
 };
 
-wss.on('connection', ws => {
+app.ws('/', (ws, req) => {
+    // Store IP address and connection time on the WebSocket
+    ws.ipAddress = req.ip || req.connection.remoteAddress || req.socket.remoteAddress;
+    ws.connectionTime = Date.now();
+
     console.log('Client connected via WebSocket');
+    logSecurityEvent('WEBSOCKET_CONNECTION_ESTABLISHED', {
+        ip: ws.ipAddress,
+        userAgent: req.headers['user-agent']
+    });
 
     ws.on('message', message => {
         try {
-            const data = JSON.parse(message.toString());
-            const { gameId } = data; // Most messages will have a gameId
+            // SECURITY: Rate limit messages per connection
+            if (!checkMessageRateLimit(ws)) {
+                logSecurityEvent('WEBSOCKET_MESSAGE_RATE_LIMIT_EXCEEDED', {
+                    ip: ws.ipAddress
+                });
+                ws.close(1008, 'Message rate limit exceeded');
+                return;
+            }
+
+            // SECURITY: Validate message size to prevent memory exhaustion
+            if (message.length > MAX_MESSAGE_SIZE) {
+                logSecurityEvent('WEBSOCKET_MESSAGE_TOO_LARGE', {
+                    ip: ws.ipAddress,
+                    size: message.length
+                });
+                ws.close(1009, 'Message too large');
+                return;
+            }
+
+            // SECURITY: Safe JSON parsing with validation
+            let data;
+            try {
+                const messageString = message.toString();
+                if (messageString.length > MAX_MESSAGE_SIZE) {
+                    throw new Error('Message string too large');
+                }
+                data = JSON.parse(messageString);
+            } catch (parseError) {
+                logSecurityEvent('WEBSOCKET_INVALID_JSON', {
+                    ip: ws.ipAddress,
+                    error: parseError.message
+                });
+                ws.send(JSON.stringify({
+                    type: 'ERROR',
+                    message: 'Invalid message format'
+                }));
+                return;
+            }
+
+            // SECURITY: Basic message structure validation
+            if (!data || typeof data !== 'object' || !data.type) {
+                logSecurityEvent('WEBSOCKET_INVALID_MESSAGE_STRUCTURE', {
+                    ip: ws.ipAddress,
+                    messageData: JSON.stringify(data)
+                });
+                ws.send(JSON.stringify({
+                    type: 'ERROR',
+                    message: 'Invalid message structure'
+                }));
+                return;
+            }
+
+            // SECURITY: Sanitize and validate gameId
+            let gameId = data.gameId;
+            if (gameId) {
+                gameId = sanitizeGameId(gameId);
+                if (!gameId) {
+                    ws.send(JSON.stringify({
+                        type: 'ERROR',
+                        message: 'Invalid game ID'
+                    }));
+                    return;
+                }
+            }
+
             const gameState = gameId ? gameStates.get(gameId) : null;
 
             switch(data.type) {
@@ -555,7 +730,7 @@ wss.on('connection', ws => {
                     if (playerToTakeOver) {
                         cancelGameTermination(gameId);
                         playerToTakeOver.isDisconnected = false;
-                        playerToTakeOver.name = `Player ${playerToTakeOver.id}`;
+                        playerToTakeOver.name = sanitizePlayerName(`Player ${playerToTakeOver.id}`);
                         playerToTakeOver.playerToken = generatePlayerToken();
 
                         // Clear pending dummy conversion timer for the slot being taken over
@@ -615,22 +790,78 @@ wss.on('connection', ws => {
                 }
                 case 'UPDATE_STATE': {
                     const { gameState: updatedGameState } = data;
-                    const gameIdToUpdate = updatedGameState ? updatedGameState.gameId : null;
 
-                    if (gameIdToUpdate && gameStates.has(gameIdToUpdate)) { // Only update if game exists
-                      if (!clientGameMap.has(ws) || clientGameMap.get(ws) !== gameIdToUpdate) {
-                          clientGameMap.set(ws, gameIdToUpdate);
-                          ws.gameId = gameIdToUpdate;
-                      }
-                      
-                      resetInactivityTimer(gameIdToUpdate); // Activity: Game state updated
+                    // SECURITY: Validate game state object
+                    if (!updatedGameState || typeof updatedGameState !== 'object') {
+                        ws.send(JSON.stringify({
+                            type: 'ERROR',
+                            message: 'Invalid game state data'
+                        }));
+                        logSecurityEvent('INVALID_GAME_STATE_UPDATE', {
+                            ip: ws.ipAddress,
+                            playerId: ws.playerId
+                        });
+                        break;
+                    }
 
-                      logToGame(gameIdToUpdate, `Game state updated by player ${ws.playerId || 'spectator'}.`);
-                      gameStates.set(gameIdToUpdate, updatedGameState);
-                      broadcastState(gameIdToUpdate, updatedGameState, ws);
-                    } else if (gameIdToUpdate) { // This is a new game being created
+                    const gameIdToUpdate = sanitizeGameId(updatedGameState.gameId);
+
+                    if (gameIdToUpdate && gameStates.has(gameIdToUpdate)) {
+                        // SECURITY: Validate game state size to prevent memory exhaustion
+                        const gameStateSize = JSON.stringify(updatedGameState).length;
+                        if (gameStateSize > MAX_GAME_STATE_SIZE) {
+                            ws.send(JSON.stringify({
+                                type: 'ERROR',
+                                message: 'Game state too large'
+                            }));
+                            logSecurityEvent('GAME_STATE_TOO_LARGE', {
+                                ip: ws.ipAddress,
+                                playerId: ws.playerId,
+                                size: gameStateSize
+                            });
+                            break;
+                        }
+
+                        if (!clientGameMap.has(ws) || clientGameMap.get(ws) !== gameIdToUpdate) {
+                            clientGameMap.set(ws, gameIdToUpdate);
+                            ws.gameId = gameIdToUpdate;
+                        }
+
+                        resetInactivityTimer(gameIdToUpdate); // Activity: Game state updated
+
+                        logToGame(gameIdToUpdate, `Game state updated by player ${ws.playerId || 'spectator'}.`);
                         gameStates.set(gameIdToUpdate, updatedGameState);
-                        
+                        broadcastState(gameIdToUpdate, updatedGameState, ws);
+                    } else if (gameIdToUpdate) {
+                        // SECURITY: Limit number of concurrent games
+                        if (gameStates.size >= MAX_ACTIVE_GAMES) {
+                            ws.send(JSON.stringify({
+                                type: 'ERROR',
+                                message: 'Too many active games'
+                            }));
+                            logSecurityEvent('MAX_GAMES_EXCEEDED', {
+                                ip: ws.ipAddress,
+                                totalGames: gameStates.size
+                            });
+                            break;
+                        }
+
+                        // SECURITY: Validate new game state size
+                        const gameStateSize = JSON.stringify(updatedGameState).length;
+                        if (gameStateSize > MAX_GAME_STATE_SIZE) {
+                            ws.send(JSON.stringify({
+                                type: 'ERROR',
+                                message: 'Game state too large'
+                            }));
+                            logSecurityEvent('NEW_GAME_STATE_TOO_LARGE', {
+                                ip: ws.ipAddress,
+                                size: gameStateSize
+                            });
+                            break;
+                        }
+
+                        gameStates.set(gameIdToUpdate, updatedGameState);
+
                         resetInactivityTimer(gameIdToUpdate); // Activity: Game created
 
                         gameLogs.set(gameIdToUpdate, []);
@@ -661,18 +892,91 @@ wss.on('connection', ws => {
                     break;
                 }
                 case 'UPDATE_DECK_DATA': {
-                    // Allows the host to push their local deck definitions to the server,
-                    // ensuring all players use the same card data (images, abilities, etc.)
-                    const { deckData } = data;
-                    if (deckData && deckData.cardDatabase && deckData.deckFiles) {
-                         console.log(`Received updated deck data from client ${ws.playerId}`);
-                         cardDatabase = deckData.cardDatabase;
-                         tokenDatabase = deckData.tokenDatabase || {};
-                         deckFiles = deckData.deckFiles;
-                         // Ideally, we might want to broadcast a specific 'REFRESH_ASSETS' event here,
-                         // but standard state updates usually carry the card objects anyway.
-                         // This mainly fixes new player creation logic on the server side.
+                    // SECURITY: Only allow host (player 1) to update deck data
+                    if (!ws.playerId || ws.playerId !== 1) {
+                        ws.send(JSON.stringify({
+                            type: 'ERROR',
+                            message: 'Unauthorized: Only host can update deck data'
+                        }));
+                        logSecurityEvent('UNAUTHORIZED_DECK_UPDATE', {
+                            ip: ws.ipAddress,
+                            playerId: ws.playerId,
+                            attemptedAccess: true
+                        });
+                        break;
                     }
+
+                    const { deckData } = data;
+
+                    // SECURITY: Validate deck data structure
+                    if (!deckData || typeof deckData !== 'object') {
+                        ws.send(JSON.stringify({
+                            type: 'ERROR',
+                            message: 'Invalid deck data format'
+                        }));
+                        logSecurityEvent('INVALID_DECK_DATA_FORMAT', {
+                            ip: ws.ipAddress,
+                            playerId: ws.playerId
+                        });
+                        break;
+                    }
+
+                    // SECURITY: Validate deck data size
+                    const deckDataSize = JSON.stringify(deckData).length;
+                    if (deckDataSize > 5 * 1024 * 1024) { // 5MB limit for deck data
+                        ws.send(JSON.stringify({
+                            type: 'ERROR',
+                            message: 'Deck data too large'
+                        }));
+                        logSecurityEvent('DECK_DATA_TOO_LARGE', {
+                            ip: ws.ipAddress,
+                            playerId: ws.playerId,
+                            size: deckDataSize
+                        });
+                        break;
+                    }
+
+                    // SECURITY: Sanitize and validate card database
+                    const sanitizedCardDatabase = {};
+                    if (deckData.cardDatabase && typeof deckData.cardDatabase === 'object') {
+                        for (const [cardId, card] of Object.entries(deckData.cardDatabase)) {
+                            if (typeof card === 'object' && card && card.id && card.name) {
+                                sanitizedCardDatabase[cardId] = {
+                                    id: sanitizeString(String(card.id)),
+                                    name: sanitizeString(String(card.name)),
+                                    // Only copy known safe properties
+                                    ...(card.cost !== undefined && { cost: Number(card.cost) || 0 }),
+                                    ...(card.attack !== undefined && { attack: Number(card.attack) || 0 }),
+                                    ...(card.health !== undefined && { health: Number(card.health) || 0 }),
+                                    ...(card.text && { text: sanitizeString(String(card.text), 1000) }),
+                                    ...(card.image && { image: sanitizeString(String(card.image), 500) })
+                                };
+                            }
+                        }
+                    }
+
+                    // SECURITY: Validate deck files array
+                    const sanitizedDeckFiles = Array.isArray(deckData.deckFiles) ?
+                        deckData.deckFiles.filter(deck => {
+                            if (!deck || typeof deck !== 'object') return false;
+                            return deck.id && deck.name && typeof deck.id === 'string' && typeof deck.name === 'string';
+                        }).map(deck => ({
+                            id: sanitizeString(String(deck.id), 50),
+                            name: sanitizeString(String(deck.name), 100),
+                            ...(deck.isSelectable !== undefined && { isSelectable: Boolean(deck.isSelectable) }),
+                            ...(deck.cards && Array.isArray(deck.cards) && { cards: deck.cards })
+                        })) : [];
+
+                    console.log(`Received and sanitized updated deck data from host player ${ws.playerId}`);
+                    logSecurityEvent('DECK_DATA_UPDATED', {
+                        playerId: ws.playerId,
+                        cardsCount: Object.keys(sanitizedCardDatabase).length,
+                        decksCount: sanitizedDeckFiles.length
+                    });
+
+                    cardDatabase = sanitizedCardDatabase;
+                    tokenDatabase = deckData.tokenDatabase || {};
+                    deckFiles = sanitizedDeckFiles;
                     break;
                 }
                 case 'LEAVE_GAME': {
@@ -797,7 +1101,8 @@ wss.on('connection', ws => {
                         resetInactivityTimer(gameId); // Activity: Highlight triggered
                         // Broadcast the highlight event to all clients in the game (including sender)
                         const highlightMessage = JSON.stringify({ type: 'HIGHLIGHT_TRIGGERED', highlightData });
-                        wss.clients.forEach(client => {
+                        const clients = wss.clients;
+                        clients.forEach(client => {
                             if (client.readyState === WebSocket.OPEN && clientGameMap.get(client) === gameId) {
                                 client.send(highlightMessage);
                             }
@@ -809,7 +1114,8 @@ wss.on('connection', ws => {
                     const { coords, timestamp } = data;
                     if (gameState) {
                         const message = JSON.stringify({ type: 'NO_TARGET_TRIGGERED', coords, timestamp });
-                        wss.clients.forEach(client => {
+                        const clients = wss.clients;
+                        clients.forEach(client => {
                             if (client.readyState === WebSocket.OPEN && clientGameMap.get(client) === gameId) {
                                 client.send(message);
                             }
@@ -821,7 +1127,8 @@ wss.on('connection', ws => {
                     const { floatingTextData } = data;
                     if (gameState) {
                         const message = JSON.stringify({ type: 'FLOATING_TEXT_TRIGGERED', floatingTextData });
-                        wss.clients.forEach(client => {
+                        const clients = wss.clients;
+                        clients.forEach(client => {
                             if (client.readyState === WebSocket.OPEN && clientGameMap.get(client) === gameId) {
                                 client.send(message);
                             }
@@ -833,7 +1140,8 @@ wss.on('connection', ws => {
                     const { batch } = data;
                     if (gameState) {
                         const message = JSON.stringify({ type: 'FLOATING_TEXT_BATCH_TRIGGERED', batch });
-                        wss.clients.forEach(client => {
+                        const clients = wss.clients;
+                        clients.forEach(client => {
                             if (client.readyState === WebSocket.OPEN && clientGameMap.get(client) === gameId) {
                                 client.send(message);
                             }
@@ -851,6 +1159,15 @@ wss.on('connection', ws => {
 
     ws.on('close', () => {
         console.log('Client disconnected');
+        logSecurityEvent('WEBSOCKET_CONNECTION_CLOSED', {
+            ip: ws.ipAddress,
+            playerId: ws.playerId,
+            connectionDuration: Date.now() - ws.connectionTime
+        });
+
+        // SECURITY: Clean up rate limiting data
+        messageCounts.delete(ws);
+
         const gameId = ws.gameId;
         const playerId = ws.playerId;
         if (gameId && playerId !== undefined) {
@@ -865,11 +1182,13 @@ wss.on('connection', ws => {
     });
 });
 
-const PORT = process.env.PORT || 8080;
-server.listen(PORT, () => {
+const PORT = process.env.PORT || 8822;
+const server = app.listen(PORT, () => {
     console.log(`Server started on http://localhost:${PORT}`);
     console.log('WebSocket is available on the same port (ws://).');
 });
+
+export { app, server };
 
 // --- Server Admin CLI ---
 console.log('Server admin CLI is active. Type "clear" and press Enter to reset all games.');
@@ -881,7 +1200,8 @@ process.stdin.on('data', (data) => {
         console.log('Received "clear" command. Resetting all game sessions...');
 
         // 1. Notify and disconnect all clients
-        wss.clients.forEach(client => {
+        const clients = wss.clients;
+        clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
                 client.send(JSON.stringify({ type: 'ERROR', message: 'The server administrator has reset all active games. Please create or join a new game.' }));
                 client.terminate(); // Forcefully close the connection
