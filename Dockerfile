@@ -1,11 +1,9 @@
-# Multi-stage build for Node.js application with security best practices
-FROM node:18-alpine AS base
+# Use Node.js 18 Alpine for smaller image size
+FROM node:18-alpine
 
-# Set environment variables for security
+# Set environment variables
 ENV NODE_ENV=production \
-    PORT=8822 \
-    NPM_CONFIG_LOGLEVEL=warn \
-    NPM_CONFIG_PROGRESS=false
+    PORT=8080
 
 # Install security tools and system updates
 RUN apk update && apk upgrade && \
@@ -21,61 +19,35 @@ RUN addgroup -g 1001 -S nodejs && \
 # Set working directory
 WORKDIR /app
 
-# Copy package files for dependency installation
+# Copy package files first for better caching
 COPY package*.json ./
 
-# Install production dependencies only with security checks
-RUN npm ci --only=production --no-optional && \
+# Install ALL dependencies (both production and dev) since server.js needs express-ws
+RUN npm ci && \
     npm cache clean --force && \
-    # Fix permission issues
     chown -R nodejs:nodejs /app
 
-# Development stage (for building assets)
-FROM node:18-alpine AS builder
-
-# Install additional build dependencies
-RUN apk add --no-cache python3 make g++
-
-# Set working directory
-WORKDIR /app
-
-# Copy package files for dependency installation
-COPY package*.json ./
-
-# Clear npm cache to avoid corrupted dependencies
-RUN rm -rf node_modules package-lock.json
-
-# Install all dependencies including dev dependencies
-RUN npm install
-
 # Copy source code
-COPY . .
+COPY --chown=nodejs:nodejs . .
 
-# Build the application
-RUN npm run build
+# Build the application (force output to docs folder)
+RUN npm run build && \
+    if [ -d "dist" ] && [ ! -d "docs" ]; then \
+        mv dist docs; \
+    fi
 
-# Production stage
-FROM base AS production
-
-# Copy built application from builder stage
-COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
-
-# Copy necessary runtime files
-COPY --chown=nodejs:nodejs contentDatabase.json ./
-COPY --chown=nodejs:nodejs server.js ./
-
-# Create logs directory with proper permissions
-RUN mkdir -p /app/logs && chown nodejs:nodejs /app/logs
+# Create logs directory with proper permissions before switching to non-root user
+RUN mkdir -p /app/logs && chown -R nodejs:nodejs /app/logs
 
 # Switch to non-root user
 USER nodejs
 
 # Expose port
-EXPOSE 8822
+EXPOSE 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8822/ || exit 1
+    CMD curl -f http://localhost:8080/ || exit 1
 
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]

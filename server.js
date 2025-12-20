@@ -13,14 +13,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DECKS_FILE_PATH = path.join(__dirname, 'contentDatabase.json');
-const DIST_PATH = path.join(__dirname, 'dist');
 const LOGS_DIR = path.join(__dirname, 'logs');
-
-// Create logs directory if it doesn't exist
-if (!fs.existsSync(LOGS_DIR)) {
-    fs.mkdirSync(LOGS_DIR);
-    console.log(`Created logs directory at: ${LOGS_DIR}`);
-}
 
 // In-memory storage for game states. A database would be used in a production environment.
 const gameStates = new Map(); // gameId -> gameState
@@ -1182,7 +1175,7 @@ app.ws('/', (ws, req) => {
     });
 });
 
-const PORT = process.env.PORT || 8822;
+const PORT = process.env.PORT || 8080;
 const server = app.listen(PORT, () => {
     console.log(`Server started on http://localhost:${PORT}`);
     console.log('WebSocket is available on the same port (ws://).');
