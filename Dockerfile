@@ -31,10 +31,22 @@ RUN npm ci --only=production --no-optional && \
     chown -R nodejs:nodejs /app
 
 # Development stage (for building assets)
-FROM base AS builder
+FROM node:18-alpine AS builder
+
+# Install additional build dependencies
+RUN apk add --no-cache python3 make g++
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files for dependency installation
+COPY package*.json ./
+
+# Clear npm cache to avoid corrupted dependencies
+RUN rm -rf node_modules package-lock.json
 
 # Install all dependencies including dev dependencies
-RUN npm ci --include=dev
+RUN npm install
 
 # Copy source code
 COPY . .
