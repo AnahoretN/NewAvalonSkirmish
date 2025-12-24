@@ -13,6 +13,14 @@ import { countersDatabase } from './content'
 export const MAX_PLAYERS = 4
 
 /**
+ * URLs for game-related icons and images.
+ */
+export const GAME_ICONS = {
+  FIRST_PLAYER: 'https://res.cloudinary.com/dxxh6meej/image/upload/v1763478810/LastPlayed_bfkbwb.png',
+  ROUND_WIN_MEDAL: 'https://res.cloudinary.com/dxxh6meej/image/upload/v1764252181/medal_rgbw8d.png',
+} as const
+
+/**
  * A mapping of deck types to their thematic properties, like color and ID prefix.
  */
 export const DECK_THEMES: { [key in DeckType]: { prefix: string, color: string } } = {

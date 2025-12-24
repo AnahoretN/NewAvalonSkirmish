@@ -1,12 +1,17 @@
 import React, { memo, useRef, useState, useEffect } from 'react'
 import { DeckType as DeckTypeEnum } from '@/types'
 import type { Player, PlayerColor, Card as CardType, DragItem, DropTarget, CustomDeckFile, ContextMenuParams } from '@/types'
-import { PLAYER_COLORS, PLAYER_POSITIONS } from '@/constants'
+import { PLAYER_COLORS, PLAYER_POSITIONS, GAME_ICONS } from '@/constants'
 import { getSelectableDecks } from '@/content'
 import { Card as CardComponent } from './Card'
 import { CardTooltipContent } from './Tooltip'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { validateDeckData } from '@/utils/deckValidation'
+
+type ContextMenuData =
+  | { player: Player }
+  | { card: CardType; player: Player }
+  | { card: CardType; player: Player; cardIndex: number }
 
 interface PlayerPanelProps {
   player: Player;
@@ -24,7 +29,7 @@ interface PlayerPanelProps {
   handleDrop: (item: DragItem, target: DropTarget) => void;
   draggedItem: DragItem | null;
   setDraggedItem: (item: DragItem | null) => void;
-  openContextMenu: (e: React.MouseEvent, type: ContextMenuParams['type'], data: any) => void;
+  openContextMenu: (e: React.MouseEvent, type: ContextMenuParams['type'], data: ContextMenuData) => void;
   onHandCardDoubleClick: (player: Player, card: CardType, index: number) => void;
   playerColorMap: Map<number, PlayerColor>;
   allPlayers: Player[];
@@ -116,11 +121,15 @@ const DropZone: React.FC<{ onDrop: () => void, className?: string, isOverClassNa
   return (
     <div
       onDragOver={(e) => {
-        e.preventDefault(); setIsOver(true)
+        e.preventDefault()
+        setIsOver(true)
       }}
       onDragLeave={() => setIsOver(false)}
       onDrop={(e) => {
-        e.preventDefault(); e.stopPropagation(); setIsOver(false); onDrop()
+        e.preventDefault()
+        e.stopPropagation()
+        setIsOver(false)
+        onDrop()
       }}
       onContextMenu={onContextMenu}
       className={`${className || ''} ${isOver ? (isOverClassName || '') : ''}`}
@@ -214,8 +223,8 @@ const PlayerPanel: React.FC<PlayerPanelProps> = memo(({
 
   const winCount = roundWinners ? Object.values(roundWinners).filter(winners => winners.includes(player.id)).length : 0
   const isFirstPlayer = startingPlayerId === player.id
-  const firstPlayerIconUrl = 'https://res.cloudinary.com/dxxh6meej/image/upload/v1763478810/LastPlayed_bfkbwb.png'
-  const ROUND_WIN_MEDAL_URL = 'https://res.cloudinary.com/dxxh6meej/image/upload/v1764252181/medal_rgbw8d.png'
+  const firstPlayerIconUrl = GAME_ICONS.FIRST_PLAYER
+  const ROUND_WIN_MEDAL_URL = GAME_ICONS.ROUND_WIN_MEDAL
   const shouldFlashDeck = isActiveTurn && currentPhase === 0
 
   const handleDeckSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -300,8 +309,31 @@ const PlayerPanel: React.FC<PlayerPanelProps> = memo(({
             <DropZone onDrop={() => draggedItem && handleDrop(draggedItem, { target: 'announced', playerId: player.id })}>
               <div className="aspect-square bg-gray-800 border border-dashed border-gray-600 rounded flex items-center justify-center relative overflow-hidden">
                 {player.announcedCard ? (
-                  <div className="w-full h-full p-1 cursor-pointer" draggable={canPerformActions} onDragStart={() => canPerformActions && setDraggedItem({ card: player.announcedCard!, source: 'announced', playerId: player.id, isManual: true })} onDragEnd={() => setDraggedItem(null)} onContextMenu={(e) => canPerformActions && openContextMenu(e, 'announcedCard', { card: player.announcedCard, player })} onDoubleClick={() => onAnnouncedCardDoubleClick?.(player, player.announcedCard!)}>
-                    <CardComponent card={player.announcedCard} isFaceUp={true} playerColorMap={playerColorMap} imageRefreshVersion={imageRefreshVersion} activePhaseIndex={currentPhase} activeTurnPlayerId={activeTurnPlayerId} disableActiveHighlights={disableActiveHighlights} />
+                  <div
+                    className="w-full h-full p-1 cursor-pointer"
+                    draggable={canPerformActions}
+                    onDragStart={() => canPerformActions && setDraggedItem({
+                      card: player.announcedCard!,
+                      source: 'announced',
+                      playerId: player.id,
+                      isManual: true
+                    })}
+                    onDragEnd={() => setDraggedItem(null)}
+                    onContextMenu={(e) => canPerformActions && openContextMenu(e, 'announcedCard', {
+                      card: player.announcedCard,
+                      player
+                    })}
+                    onDoubleClick={() => onAnnouncedCardDoubleClick?.(player, player.announcedCard!)}
+                  >
+                    <CardComponent
+                      card={player.announcedCard}
+                      isFaceUp={true}
+                      playerColorMap={playerColorMap}
+                      imageRefreshVersion={imageRefreshVersion}
+                      activePhaseIndex={currentPhase}
+                      activeTurnPlayerId={activeTurnPlayerId}
+                      disableActiveHighlights={disableActiveHighlights}
+                    />
                   </div>
                 ) : <span className="text-[10px] sm:text-xs font-bold text-gray-500 select-none uppercase tracking-tight">Showcase</span>}
               </div>
@@ -339,12 +371,46 @@ const PlayerPanel: React.FC<PlayerPanelProps> = memo(({
                 const targetClass = isTarget ? 'ring-4 ring-cyan-400 shadow-[0_0_15px_#22d3ee] rounded-md z-10' : ''
 
                 return (
-                  <div key={`${card.id}-${index}`} className={`flex bg-gray-900 border border-gray-700 rounded p-2 ${targetClass}`} draggable={canPerformActions} onDragStart={() => canPerformActions && setDraggedItem({ card, source: 'hand', playerId: player.id, cardIndex: index, isManual: true })} onDragEnd={() => setDraggedItem(null)} onContextMenu={(e) => canPerformActions && openContextMenu(e, 'handCard', { card, player, cardIndex: index })} onDoubleClick={() => onHandCardDoubleClick(player, card, index)} onClick={() => onCardClick?.(player, card, index)} data-hand-card={`${player.id},${index}`} data-interactive="true">
+                  <div
+                    key={`${card.id}-${index}`}
+                    className={`flex bg-gray-900 border border-gray-700 rounded p-2 ${targetClass}`}
+                    draggable={canPerformActions}
+                    onDragStart={() => canPerformActions && setDraggedItem({
+                      card,
+                      source: 'hand',
+                      playerId: player.id,
+                      cardIndex: index,
+                      isManual: true
+                    })}
+                    onDragEnd={() => setDraggedItem(null)}
+                    onContextMenu={(e) => canPerformActions && openContextMenu(e, 'handCard', {
+                      card,
+                      player,
+                      cardIndex: index
+                    })}
+                    onDoubleClick={() => onHandCardDoubleClick(player, card, index)}
+                    onClick={() => onCardClick?.(player, card, index)}
+                    data-hand-card={`${player.id},${index}`}
+                    data-interactive="true"
+                  >
                     <div className="w-[120px] h-[120px] flex-shrink-0 mr-3">
-                      <CardComponent card={card} isFaceUp={true} playerColorMap={playerColorMap} localPlayerId={localPlayerId} imageRefreshVersion={imageRefreshVersion} disableTooltip={true} disableActiveHighlights={disableActiveHighlights} />
+                      <CardComponent
+                        card={card}
+                        isFaceUp={true}
+                        playerColorMap={playerColorMap}
+                        localPlayerId={localPlayerId}
+                        imageRefreshVersion={imageRefreshVersion}
+                        disableTooltip={true}
+                        disableActiveHighlights={disableActiveHighlights}
+                      />
                     </div>
                     <div className="flex-grow min-w-0">
-                      <CardTooltipContent card={card} className="relative flex flex-col text-left w-full h-full justify-start whitespace-normal break-words" hideOwner={card.ownerId === player.id} powerPosition="inner" />
+                      <CardTooltipContent
+                        card={card}
+                        className="relative flex flex-col text-left w-full h-full justify-start whitespace-normal break-words"
+                        hideOwner={card.ownerId === player.id}
+                        powerPosition="inner"
+                      />
                     </div>
                   </div>
                 )
@@ -421,8 +487,30 @@ const PlayerPanel: React.FC<PlayerPanelProps> = memo(({
             <DropZone className="h-full aspect-square relative" onDrop={() => draggedItem && handleDrop(draggedItem, { target: 'announced', playerId: player.id })}>
               <div className="w-full h-full bg-gray-800 border border-dashed border-gray-600 rounded flex items-center justify-center relative overflow-hidden">
                 {player.announcedCard ? (
-                  <div className="w-full h-full" draggable={canPerformActions} onDragStart={() => canPerformActions && setDraggedItem({ card: player.announcedCard!, source: 'announced', playerId: player.id, isManual: true })} onDragEnd={() => setDraggedItem(null)} onContextMenu={(e) => openContextMenu(e, 'announcedCard', { card: player.announcedCard, player })} onDoubleClick={() => onAnnouncedCardDoubleClick?.(player, player.announcedCard!)}>
-                    <CardComponent card={player.announcedCard} isFaceUp={true} playerColorMap={playerColorMap} imageRefreshVersion={imageRefreshVersion} disableTooltip={false} disableActiveHighlights={disableActiveHighlights} />
+                  <div
+                    className="w-full h-full"
+                    draggable={canPerformActions}
+                    onDragStart={() => canPerformActions && setDraggedItem({
+                      card: player.announcedCard!,
+                      source: 'announced',
+                      playerId: player.id,
+                      isManual: true
+                    })}
+                    onDragEnd={() => setDraggedItem(null)}
+                    onContextMenu={(e) => openContextMenu(e, 'announcedCard', {
+                      card: player.announcedCard,
+                      player
+                    })}
+                    onDoubleClick={() => onAnnouncedCardDoubleClick?.(player, player.announcedCard!)}
+                  >
+                    <CardComponent
+                      card={player.announcedCard}
+                      isFaceUp={true}
+                      playerColorMap={playerColorMap}
+                      imageRefreshVersion={imageRefreshVersion}
+                      disableTooltip={false}
+                      disableActiveHighlights={disableActiveHighlights}
+                    />
                   </div>
                 ) : <span className="text-[9px] font-bold text-gray-500 select-none uppercase">SHOW</span>}
               </div>
