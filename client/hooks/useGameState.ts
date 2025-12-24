@@ -214,10 +214,7 @@ export const useGameState = () => {
           gameId: currentGameState.gameId,
           playerToken: playerToken,
         }))
-
-        if (localPlayerIdRef.current === 1) {
-          ws.current.send(JSON.stringify({ type: 'UPDATE_DECK_DATA', deckData: rawJsonData }))
-        }
+        // Note: Deck data will be sent after JOIN_SUCCESS confirmation if player is host
       }
     }
     ws.current.onmessage = (event) => {
