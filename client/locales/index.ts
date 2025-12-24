@@ -227,6 +227,9 @@ export const resources: Record<LanguageCode, TranslationResource> = {
   de: en, fr: en, it: en, pt: en, zh: en, hi: en, es: en, ar: en, uk: en, be: en, tt: en,
 }
 
+// Only languages with complete translations
+export const AVAILABLE_LANGUAGES: LanguageCode[] = ['en', 'ru', 'sr']
+
 export const LANGUAGE_NAMES: Record<LanguageCode, string> = {
   en: 'English',
   ru: 'Русский',

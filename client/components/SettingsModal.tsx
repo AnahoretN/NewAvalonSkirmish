@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useLanguage } from '@/contexts/LanguageContext'
-import { LANGUAGE_NAMES } from '@/locales'
+import { AVAILABLE_LANGUAGES, LANGUAGE_NAMES } from '@/locales'
 import type { LanguageCode } from '@/locales/types'
 
 interface SettingsModalProps {
@@ -51,8 +51,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
               onChange={(e) => setLanguage(e.target.value as LanguageCode)}
               className="w-full bg-gray-700 border border-gray-600 text-white font-sans rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500"
             >
-              {Object.entries(LANGUAGE_NAMES).map(([code, name]) => (
-                <option key={code} value={code}>{name}</option>
+              {AVAILABLE_LANGUAGES.map((code) => (
+                <option key={code} value={code}>{LANGUAGE_NAMES[code]}</option>
               ))}
             </select>
           </div>
