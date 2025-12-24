@@ -34,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated locale system to include Serbian translation
 - Language dropdown now functional (previously disabled)
 
-## [0.2.0] - 2024-12-22
+## [0.2.0] - 2025-12-24
 
 ### Changed
 - **BREAKING**: Complete project refactoring - split client/server architecture
@@ -50,6 +50,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Clean separation of client and server codebases
 - Modular server architecture with routes, services, and utilities
 - Vite proxy configuration for API calls during development
+- Enhanced type guards for GameState validation
+- Improved null/undefined checks in React components
+- Enhanced counter and ability utility functions
+- Visual effects handler improvements
 
 ### Removed
 - Old monolithic project structure
@@ -60,6 +64,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resolved TypeScript import paths after restructuring
 - Fixed duplicate dependency declarations
 - Cleaned up root directory to contain only configuration files
+- Improved type safety across client and server code
+- Added type guards for GameState validation
+- Enhanced counter and ability utility functions
+- Improved error handling in components
 
 ## [0.1.0] - 2024-12-20
 
