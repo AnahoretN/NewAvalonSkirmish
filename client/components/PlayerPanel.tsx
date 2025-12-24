@@ -278,33 +278,41 @@ const PlayerPanel: React.FC<PlayerPanelProps> = memo(({
           </div>
         </div>
 
-        <div className="flex justify-between items-start gap-1 bg-gray-800 p-[2px] rounded-lg mb-[3px] flex-shrink-0 flex-wrap relative z-0">
-          <div className="p-0 border border-transparent flex gap-1 flex-wrap justify-center">
-            <DropZone className="relative z-30" onDrop={() => draggedItem && handleDrop(draggedItem, { target: 'deck', playerId: player.id, deckPosition: 'top' })} onContextMenu={(e) => openContextMenu(e, 'deckPile', { player })}>
-              <div onClick={handleDeckInteraction} className={`w-[120px] h-[120px] bg-card-back rounded flex flex-col items-center justify-center cursor-pointer hover:ring-2 ring-indigo-400 transition-all shadow-lg select-none text-white border-2 border-transparent ${shouldFlashDeck ? 'animate-deck-start' : ''} ${isDeckSelectable ? 'ring-4 ring-sky-400 shadow-[0_0_15px_#38bdf8] animate-pulse' : ''}`}>
-                <span className="text-xs font-bold mb-1">DECK</span>
-                <span className="text-lg font-bold">{player.deck.length}</span>
+        <div className="bg-gray-800 p-1 rounded-lg mb-1 flex-shrink-0">
+          <div className="grid grid-cols-4 gap-1 sm:gap-2">
+            {/* Deck */}
+            <DropZone className="relative" onDrop={() => draggedItem && handleDrop(draggedItem, { target: 'deck', playerId: player.id, deckPosition: 'top' })} onContextMenu={(e) => openContextMenu(e, 'deckPile', { player })}>
+              <div onClick={handleDeckInteraction} className={`aspect-square bg-card-back rounded flex flex-col items-center justify-center cursor-pointer hover:ring-2 ring-indigo-400 transition-all shadow-md select-none text-white border-2 border-transparent ${shouldFlashDeck ? 'animate-deck-start' : ''} ${isDeckSelectable ? 'ring-4 ring-sky-400 shadow-[0_0_15px_#38bdf8] animate-pulse' : ''}`}>
+                <span className="text-[10px] sm:text-xs font-bold mb-0.5 uppercase tracking-tight">Deck</span>
+                <span className="text-base sm:text-lg font-bold">{player.deck.length}</span>
               </div>
             </DropZone>
-            <DropZone className="relative z-10" onDrop={() => draggedItem && handleDrop(draggedItem, { target: 'discard', playerId: player.id })} onContextMenu={(e) => openContextMenu(e, 'discardPile', { player })} isOverClassName="bg-indigo-600 ring-2">
-              <div className="w-[120px] h-[120px] bg-gray-700 rounded flex flex-col items-center justify-center cursor-pointer hover:bg-gray-600 transition-all shadow-lg border border-gray-600 select-none text-white">
-                <span className="text-xs font-bold mb-1 text-gray-400">DISCARD</span>
-                <span className="text-lg font-bold">{player.discard.length}</span>
-              </div>
-            </DropZone>
-            <DropZone onDrop={() => draggedItem && handleDrop(draggedItem, { target: 'announced', playerId: player.id })} className="relative z-10 w-[120px] h-[120px] bg-gray-800 border border-dashed border-gray-600 rounded flex items-center justify-center">
-              {player.announcedCard ? (
-                <div className="w-full h-full p-1 cursor-pointer" draggable={canPerformActions} onDragStart={() => canPerformActions && setDraggedItem({ card: player.announcedCard!, source: 'announced', playerId: player.id, isManual: true })} onDragEnd={() => setDraggedItem(null)} onContextMenu={(e) => canPerformActions && openContextMenu(e, 'announcedCard', { card: player.announcedCard, player })} onDoubleClick={() => onAnnouncedCardDoubleClick?.(player, player.announcedCard!)}>
-                  <CardComponent card={player.announcedCard} isFaceUp={true} playerColorMap={playerColorMap} imageRefreshVersion={imageRefreshVersion} activePhaseIndex={currentPhase} activeTurnPlayerId={activeTurnPlayerId} disableActiveHighlights={disableActiveHighlights} />
-                </div>
-              ) : <span className="text-xs font-bold text-gray-500 select-none">Showcase</span>}
-            </DropZone>
-          </div>
 
-          <div className="flex flex-col items-center justify-between h-[120px] w-12 flex-shrink-0 py-0 select-none relative text-white">
-            <button onClick={() => onScoreChange(1)} className="bg-gray-700 w-full h-10 rounded font-bold hover:bg-gray-600 flex items-center justify-center text-xl">+</button>
-            <span className="font-bold text-3xl">{player.score}</span>
-            <button onClick={() => onScoreChange(-1)} className="bg-gray-700 w-full h-10 rounded font-bold hover:bg-gray-600 flex items-center justify-center text-xl">-</button>
+            {/* Discard */}
+            <DropZone onDrop={() => draggedItem && handleDrop(draggedItem, { target: 'discard', playerId: player.id })} onContextMenu={(e) => openContextMenu(e, 'discardPile', { player })} isOverClassName="bg-indigo-600 ring-2">
+              <div className="aspect-square bg-gray-700 rounded flex flex-col items-center justify-center cursor-pointer hover:bg-gray-600 transition-all shadow-md border border-gray-600 select-none text-white">
+                <span className="text-[10px] sm:text-xs font-bold mb-0.5 text-gray-400 uppercase tracking-tight">Discard</span>
+                <span className="text-base sm:text-lg font-bold">{player.discard.length}</span>
+              </div>
+            </DropZone>
+
+            {/* Showcase */}
+            <DropZone onDrop={() => draggedItem && handleDrop(draggedItem, { target: 'announced', playerId: player.id })}>
+              <div className="aspect-square bg-gray-800 border border-dashed border-gray-600 rounded flex items-center justify-center relative overflow-hidden">
+                {player.announcedCard ? (
+                  <div className="w-full h-full p-1 cursor-pointer" draggable={canPerformActions} onDragStart={() => canPerformActions && setDraggedItem({ card: player.announcedCard!, source: 'announced', playerId: player.id, isManual: true })} onDragEnd={() => setDraggedItem(null)} onContextMenu={(e) => canPerformActions && openContextMenu(e, 'announcedCard', { card: player.announcedCard, player })} onDoubleClick={() => onAnnouncedCardDoubleClick?.(player, player.announcedCard!)}>
+                    <CardComponent card={player.announcedCard} isFaceUp={true} playerColorMap={playerColorMap} imageRefreshVersion={imageRefreshVersion} activePhaseIndex={currentPhase} activeTurnPlayerId={activeTurnPlayerId} disableActiveHighlights={disableActiveHighlights} />
+                  </div>
+                ) : <span className="text-[10px] sm:text-xs font-bold text-gray-500 select-none uppercase tracking-tight">Showcase</span>}
+              </div>
+            </DropZone>
+
+            {/* Score */}
+            <div className="flex flex-col items-center justify-between h-full select-none text-white gap-1">
+              <button onClick={() => onScoreChange(1)} className="flex-1 w-full bg-gray-700 rounded font-bold hover:bg-gray-600 flex items-center justify-center text-base sm:text-lg transition-colors">+</button>
+              <span className="font-bold text-lg sm:text-xl flex items-center justify-center flex-1">{player.score}</span>
+              <button onClick={() => onScoreChange(-1)} className="flex-1 w-full bg-gray-700 rounded font-bold hover:bg-gray-600 flex items-center justify-center text-base sm:text-lg transition-colors">−</button>
+            </div>
           </div>
         </div>
 
