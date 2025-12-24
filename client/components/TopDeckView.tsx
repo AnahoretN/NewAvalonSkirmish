@@ -109,10 +109,6 @@ const TopDeckView: React.FC<TopDeckViewProps> = memo(({
     setDraggedIndex(null)
   }, [draggedIndex, visibleCards, onReorder, player.id])
 
-  if (!isOpen) {
-    return null
-  }
-
   const contextMenuItems = useMemo(() => {
     if (!contextMenu) {
       return []
@@ -138,6 +134,10 @@ const TopDeckView: React.FC<TopDeckViewProps> = memo(({
       } },
     ]
   }, [visibleCards, isLocked, onViewCard, onPlayCard, onMoveToBottom, onMoveToHand, onMoveToDiscard, contextMenu, t])
+
+  if (!isOpen) {
+    return null
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[250] backdrop-blur-sm" onClick={onClose}>
@@ -217,16 +217,16 @@ const TopDeckView: React.FC<TopDeckViewProps> = memo(({
       </div>
 
       {contextMenu && (
+        <div className="fixed inset-0 z-[255]" onClick={handleCloseMenu} />
+      )}
+
+      {contextMenu && (
         <ContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
           onClose={handleCloseMenu}
           items={contextMenuItems}
         />
-      )}
-
-      {contextMenu && (
-        <div className="fixed inset-0 z-[255]" onClick={handleCloseMenu} />
       )}
     </div>
   )

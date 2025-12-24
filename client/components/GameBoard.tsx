@@ -20,7 +20,6 @@ interface GameBoardProps {
   onEmptyCellDoubleClick: (boardCoords: { row: number; col: number }) => void;
   imageRefreshVersion?: number;
   cursorStack: { type: string; count: number } | null;
-  setCursorStack: (stack: null) => void;
   currentPhase?: number;
   activeTurnPlayerId?: number;
   onCardClick?: (card: CardType, boardCoords: { row: number; col: number }) => void;
@@ -48,7 +47,6 @@ const GridCell = memo<{
   onEmptyCellDoubleClick: (boardCoords: { row: number; col: number }) => void;
   imageRefreshVersion?: number;
   cursorStack: GameBoardProps['cursorStack'];
-  setCursorStack: GameBoardProps['setCursorStack'];
   currentPhase?: number;
   activeTurnPlayerId?: number;
   onCardClick?: (card: CardType, boardCoords: { row: number; col: number }) => void;
@@ -60,7 +58,7 @@ const GridCell = memo<{
       row, col, cell, isGameStarted, handleDrop, draggedItem, setDraggedItem,
       openContextMenu, playMode, setPlayMode, playerColorMap, localPlayerId,
       onCardDoubleClick, onEmptyCellDoubleClick, imageRefreshVersion, cursorStack,
-      setCursorStack, currentPhase, activeTurnPlayerId, onCardClick, onEmptyCellClick,
+      currentPhase, activeTurnPlayerId, onCardClick, onEmptyCellClick,
       isValidTarget, showNoTarget, disableActiveHighlights,
     }) => {
       const [isOver, setIsOver] = useState(false)
@@ -183,7 +181,7 @@ const GridCell = memo<{
           {showNoTarget && (
             <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
               <img
-                src="https://res.cloudinary.com/dxxh6meej/image/upload/v1763978163/no_tarket_mic5sm.png"
+                src="https://res.cloudinary.com/dxxh6meej/image/upload/v1763978163/no_target_mic5sm.png"
                 alt="No Target"
                 className="w-16 h-16 object-contain animate-fade-out drop-shadow-[0_0_5px_rgba(255,0,0,0.8)]"
               />
@@ -260,7 +258,6 @@ export const GameBoard = memo<GameBoardProps>(({
   onEmptyCellDoubleClick,
   imageRefreshVersion,
   cursorStack,
-  setCursorStack,
   currentPhase,
   activeTurnPlayerId,
   onCardClick,
@@ -381,7 +378,6 @@ export const GameBoard = memo<GameBoardProps>(({
                 onEmptyCellDoubleClick={onEmptyCellDoubleClick}
                 imageRefreshVersion={imageRefreshVersion}
                 cursorStack={cursorStack}
-                setCursorStack={setCursorStack}
                 currentPhase={currentPhase}
                 activeTurnPlayerId={activeTurnPlayerId}
                 onCardClick={onCardClick}

@@ -10,12 +10,10 @@ interface UseAppCountersProps {
     setAbilityMode: (mode: AbilityAction | null) => void;
     requestCardReveal: (data: any, playerId: number) => void;
     interactionLock: React.MutableRefObject<boolean>;
-    abilityMode: AbilityAction | null;
     setCommandContext: React.Dispatch<React.SetStateAction<CommandContext>>;
     onAction: (action: AbilityAction, sourceCoords: { row: number, col: number }) => void;
     cursorStack: CursorStackState | null;
     setCursorStack: React.Dispatch<React.SetStateAction<CursorStackState | null>>;
-    imageRefreshVersion: number;
 }
 
 export const useAppCounters = ({
@@ -26,16 +24,13 @@ export const useAppCounters = ({
   setAbilityMode,
   requestCardReveal,
   interactionLock,
-  abilityMode,
   setCommandContext,
   onAction,
   cursorStack,
   setCursorStack,
-  imageRefreshVersion,
 }: UseAppCountersProps) => {
   const cursorFollowerRef = useRef<HTMLDivElement>(null)
   const mousePos = useRef({ x: 0, y: 0 })
-  const lastClickPos = useRef<{x: number, y: number} | null>(null)
 
   // Initial positioning layout effect
   useLayoutEffect(() => {
@@ -73,9 +68,18 @@ export const useAppCounters = ({
       // Determine who is performing the action (Effective Actor)
       let effectiveActorId = localPlayerId
       if (cursorStack.sourceCoords && cursorStack.sourceCoords.row >= 0) {
-        const sourceCard = gameState.board[cursorStack.sourceCoords.row][cursorStack.sourceCoords.col].card
-        if (sourceCard) {
-          effectiveActorId = sourceCard.ownerId || localPlayerId
+        const { row, col } = cursorStack.sourceCoords
+        // Validate bounds before accessing board
+        if (
+          row >= 0 &&
+          row < gameState.board.length &&
+          col >= 0 &&
+          col < gameState.board[row]?.length
+        ) {
+          const sourceCard = gameState.board[row][col].card
+          if (sourceCard) {
+            effectiveActorId = sourceCard.ownerId || localPlayerId
+          }
         }
       } else if (gameState.activeTurnPlayerId) {
         const activePlayer = gameState.players.find(p => p.id === gameState.activeTurnPlayerId)
@@ -113,6 +117,7 @@ export const useAppCounters = ({
             )
 
             if (!isValid) {
+              setCursorStack(null)
               return
             }
 
@@ -175,6 +180,7 @@ export const useAppCounters = ({
               gameState.players,
             )
             if (!isValid) {
+              setCursorStack(null)
               return
             }
 
@@ -280,7 +286,6 @@ export const useAppCounters = ({
   }, [cursorStack, handleDrop, gameState, localPlayerId, requestCardReveal, markAbilityUsed, setAbilityMode, interactionLock, setCommandContext, onAction, setCursorStack])
 
   const handleCounterMouseDown = (type: string, e: React.MouseEvent) => {
-    lastClickPos.current = { x: e.clientX, y: e.clientY }
     mousePos.current = { x: e.clientX, y: e.clientY }
     setCursorStack(prev => {
       if (prev?.type === type) {

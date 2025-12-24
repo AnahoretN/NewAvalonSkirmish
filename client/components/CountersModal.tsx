@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react'
-import type { DragItem, Card as CardType } from '@/types'
+import type { Card as CardType } from '@/types'
 import { AVAILABLE_COUNTERS, STATUS_ICONS, STATUS_DESCRIPTIONS } from '@/constants'
 import { Tooltip, CardTooltipContent } from './Tooltip'
 import { useLanguage } from '@/contexts/LanguageContext'
@@ -10,7 +10,6 @@ const COUNTER_BG_URL = 'https://res.cloudinary.com/dxxh6meej/image/upload/v17636
 interface CountersModalProps {
   isOpen: boolean;
   onClose: () => void;
-  setDraggedItem: (item: DragItem | null) => void;
   canInteract: boolean;
   anchorEl: { top: number; left: number } | null;
   imageRefreshVersion?: number;
@@ -18,7 +17,7 @@ interface CountersModalProps {
   cursorStack: { type: string; count: number } | null;
 }
 
-export const CountersModal: React.FC<CountersModalProps> = ({ isOpen, onClose, setDraggedItem, canInteract, anchorEl, imageRefreshVersion, onCounterMouseDown, cursorStack }) => {
+export const CountersModal: React.FC<CountersModalProps> = ({ isOpen, onClose, canInteract, anchorEl, imageRefreshVersion, onCounterMouseDown, cursorStack }) => {
   const { getCounterTranslation } = useLanguage()
   const [tooltipCard, setTooltipCard] = useState<CardType | null>(null)
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 })

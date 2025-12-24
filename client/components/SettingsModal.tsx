@@ -30,6 +30,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
 
   const handleSave = () => {
     localStorage.setItem('ui_list_mode', String(isListMode))
+    localStorage.setItem('custom_ws_url', serverUrl)
     window.dispatchEvent(new Event('storage'))
     onSave(serverUrl)
   }
@@ -73,9 +74,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
 
           <div className="flex items-center justify-between p-4 bg-gray-700 rounded-lg">
             <div>
-              <h3 className="text-white font-bold">List Mode Interface</h3>
+              <h3 className="text-white font-bold">{t('listModeTitle')}</h3>
               <p className="text-xs text-gray-400">
-                        Optimized layout for desktop.
+                        {t('listModeDescription')}
               </p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">

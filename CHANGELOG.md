@@ -5,7 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.3.0] - 2024-12-22
+## [0.3.0] - 2025-12-22
+
+## [0.3.1] - 2025-12-24
+
+### Fixed
+
+- Fixed CodeRabbit issues: tsconfig path alias, board bounds checking, type mismatches
+- Fixed DeckType import to use value import instead of type import
+- Added MAX_DECK_SIZE constant export and usage
+- Removed unused variables and imports across multiple files
+- Fixed player lookup in websocket to use playerId instead of ws reference
+- Fixed message type from LEAVE_GAME to EXIT_GAME
+- Fixed playerColorMap type to use PlayerColor instead of string
+- Improved type safety in GameBoard, PlayerPanel, and other components
+
+### Changed
+
+- Enhanced deck validation with proper sanitization
+- Improved error handling and type checking throughout codebase
 
 ### Added
 - Serbian (Српски) locale support with complete UI and rules translation

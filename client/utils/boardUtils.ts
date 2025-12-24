@@ -18,7 +18,7 @@ export const createInitialBoard = (): Board =>
  */
 export const recalculateBoardStatuses = (gameState: GameState): Board => {
   const { board, activeGridSize, players } = gameState
-  const newBoard = JSON.parse(JSON.stringify(board))
+  const newBoard = structuredClone(board)
   const GRID_SIZE = newBoard.length
   const offset = Math.floor((GRID_SIZE - activeGridSize) / 2)
 
@@ -145,12 +145,12 @@ export const recalculateBoardStatuses = (gameState: GameState): Board => {
       // Stunned Heroes do not emit passive auras
       const isStunned = card?.statuses?.some((s: {type: string}) => s.type === 'Stun')
 
-      if (!card?.name || card.isFaceDown || card.ownerId === undefined || isStunned) {
+      if (!card?.id || card.isFaceDown || card.ownerId === undefined || isStunned) {
         continue
       }
 
       // 3.1 Reverend of The Choir: Support to all own units in lines
-      if (card.name.includes('Reverend')) {
+      if (card.id === 'reverendOfTheChoir') {
         const ownerId = card.ownerId
         // Row
         for (let i = 0; i < GRID_SIZE; i++) {
@@ -179,20 +179,29 @@ export const recalculateBoardStatuses = (gameState: GameState): Board => {
       }
 
       // 3.2 Mr. Pearl: +1 Power to other own units in lines
-      if (card.name.includes('Mr. Pearl')) {
+      if (card.id === 'mrPearlDoF') {
         const ownerId = card.ownerId
+        // Use a Set to track cards that have already received the bonus
+        const processedCards = new Set<string>()
+
         // Row
         for (let i = 0; i < GRID_SIZE; i++) {
           const target = newBoard[r][i].card
           if (target && target.ownerId === ownerId && !target.isFaceDown && target.id !== card.id) {
-            target.bonusPower = (target.bonusPower || 0) + 1
+            if (!processedCards.has(target.id)) {
+              target.bonusPower = (target.bonusPower || 0) + 1
+              processedCards.add(target.id)
+            }
           }
         }
         // Col
         for (let i = 0; i < GRID_SIZE; i++) {
           const target = newBoard[i][c].card
           if (target && target.ownerId === ownerId && !target.isFaceDown && target.id !== card.id) {
-            target.bonusPower = (target.bonusPower || 0) + 1
+            if (!processedCards.has(target.id)) {
+              target.bonusPower = (target.bonusPower || 0) + 1
+              processedCards.add(target.id)
+            }
           }
         }
       }

@@ -1,6 +1,6 @@
 
 import React, { memo, useState, useCallback, useMemo } from 'react'
-import { GameMode as GameModeEnum } from '@/types'
+import { GameMode } from '@/types'
 import type { GridSize } from '@/types'
 import type { ConnectionStatus } from '@/hooks/useGameState'
 import { TURN_PHASES, MAX_PLAYERS } from '@/constants'
@@ -120,7 +120,6 @@ const Header = memo<HeaderProps>(({
   currentPhase,
   onNextPhase,
   onPrevPhase,
-  onSetPhase,
   isAutoAbilitiesEnabled,
   onToggleAutoAbilities,
   isScoringStep,
@@ -257,9 +256,9 @@ const Header = memo<HeaderProps>(({
             disabled={isGameStarted || !isHost}
             className="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg block w-full p-2 disabled:opacity-70"
           >
-            <option value={GameModeEnum.FreeForAll}>{t('ffa')}</option>
-            <option value={GameModeEnum.TwoVTwo}>{t('team2v2')}</option>
-            <option value={GameModeEnum.ThreeVOne}>{t('team3v1')}</option>
+            <option value={GameMode.FreeForAll}>{t('ffa')}</option>
+            <option value={GameMode.TwoVTwo}>{t('team2v2')}</option>
+            <option value={GameMode.ThreeVOne}>{t('team3v1')}</option>
           </select>
         </div>
         <div className="flex items-center space-x-2 hidden xl:flex">

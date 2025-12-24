@@ -4,7 +4,7 @@
  */
 
 import { logger } from '../utils/logger.js';
-import { getGameState, getGameIdForClient } from '../services/gameState.js';
+import { getGameState } from '../services/gameState.js';
 
 /**
  * Handle TRIGGER_HIGHLIGHT message
@@ -12,7 +12,33 @@ import { getGameState, getGameIdForClient } from '../services/gameState.js';
  */
 export function handleTriggerHighlight(ws, data) {
   try {
+    // Input validation
+    if (!data || typeof data !== 'object') {
+      ws.send(JSON.stringify({
+        type: 'ERROR',
+        message: 'Invalid data format'
+      }));
+      return;
+    }
+
     const { gameId, highlightData } = data;
+
+    if (!gameId || typeof gameId !== 'string') {
+      ws.send(JSON.stringify({
+        type: 'ERROR',
+        message: 'Invalid or missing gameId'
+      }));
+      return;
+    }
+
+    if (!highlightData || typeof highlightData !== 'object') {
+      ws.send(JSON.stringify({
+        type: 'ERROR',
+        message: 'Invalid or missing highlightData'
+      }));
+      return;
+    }
+
     const gameState = getGameState(gameId);
 
     if (!gameState) {

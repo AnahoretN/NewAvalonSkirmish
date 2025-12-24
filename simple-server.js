@@ -21,6 +21,6 @@ app.get(/(.*)/, (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Development server running on http://localhost:${PORT}`);
-  console.log(`📁 Serving files from: ${path.join(__dirname, 'dist')}`);
+  console.warn(`🚀 Development server running on http://localhost:${PORT}`);
+  console.warn(`📁 Serving files from: ${path.join(__dirname, 'dist')}`);
 });

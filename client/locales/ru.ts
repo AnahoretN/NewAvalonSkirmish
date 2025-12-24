@@ -152,6 +152,8 @@ export const ru: TranslationResource = {
     noTarget: 'Нет цели',
     confirmClearDeck: 'Подтвердите очистку колоды',
     languageDisabled: 'Язык отключен',
+    listModeTitle: 'Режим списка',
+    listModeDescription: 'Оптимизированный макет для ПК.',
   },
   rules: {
     title: 'Правила Игры "New Avalon: Skirmish"',

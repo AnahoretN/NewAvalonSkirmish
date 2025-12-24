@@ -3,6 +3,7 @@
  */
 
 import { CONFIG } from './config.js';
+import crypto from 'crypto';
 
 /**
  * Sanitize string input
@@ -29,8 +30,13 @@ export function sanitizePlayerName(name) {
  * Validate game state size
  */
 export function validateGameStateSize(gameState) {
-  const size = JSON.stringify(gameState).length;
-  return size <= CONFIG.MAX_GAME_STATE_SIZE;
+  try {
+    const size = JSON.stringify(gameState).length;
+    return size <= CONFIG.MAX_GAME_STATE_SIZE;
+  } catch {
+    // JSON.stringify can throw on circular references or other unserializable data
+    return false;
+  }
 }
 
 /**
@@ -45,6 +51,6 @@ export function validateMessageSize(message) {
  */
 export function generateSecureGameId() {
   const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).substring(2, 8);
+  const random = crypto.randomBytes(4).toString('hex').substring(0, 6);
   return `${timestamp}_${random}`.toUpperCase();
 }

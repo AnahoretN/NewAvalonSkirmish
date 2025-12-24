@@ -7,14 +7,12 @@ import express from 'express';
 import expressWs from 'express-ws';
 import { fileURLToPath } from 'url';
 import path from 'path';
-import fs from 'fs';
 
 import { setupRoutes } from './routes/index.js';
 import { setupWebSocket } from './services/websocket.js';
 import { initializeContent } from './services/content.js';
 import { logger } from './utils/logger.js';
 import { validateConfig } from './utils/config.js';
-import { WebSocket } from 'ws';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -28,11 +26,23 @@ const wss = wsInstance.getWss();
 validateConfig();
 
 // Initialize content database
-await initializeContent();
+try {
+  await initializeContent();
+} catch (error) {
+  logger.error('Failed to initialize content database:', error);
+  process.exit(1);
+}
 
 // Setup middleware
 app.use(express.json({ limit: '10mb' }));
-app.use(express.static(path.join(__dirname, '../client/dist')));
+
+// Determine static file path based on environment
+const isProduction = process.env.NODE_ENV === 'production' || __dirname.includes('dist-server');
+const staticPath = isProduction
+  ? path.join(__dirname, '../../dist')  // From dist-server/server/ to project/dist
+  : path.join(__dirname, '../client/dist'); // Development (not used, dev uses tsx)
+
+app.use(express.static(staticPath));
 
 // Setup routes
 setupRoutes(app);

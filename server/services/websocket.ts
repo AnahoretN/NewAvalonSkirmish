@@ -3,20 +3,18 @@
  */
 
 import { logger } from '../utils/logger.js';
-import { CONFIG } from '../utils/config.js';
-import { sanitizePlayerName, sanitizeString, validateMessageSize } from '../utils/security.js';
+import { validateMessageSize } from '../utils/security.js';
 import { isRateLimited, cleanupRateLimitData } from './rateLimit.js';
 import {
   getGameState,
   updateGameState,
-  associateClientWithGame,
   removeClientAssociation,
   getGameIdForClient,
   logGameAction,
   getClientGameMap,
-  getPublicGames
+  getPublicGames,
+  deleteGameState
 } from './gameState.js';
-import { getCardDefinition, getTokenDefinition, getCounterDefinition } from './content.js';
 
 // Store wss instance for broadcasting
 let wssInstance = null;
@@ -129,7 +127,7 @@ function handleWebSocketMessage(ws, message) {
     let data;
     try {
       data = JSON.parse(message.toString());
-    } catch (parseError) {
+    } catch {
       ws.send(JSON.stringify({
         type: 'ERROR',
         message: 'Invalid JSON'
@@ -235,8 +233,8 @@ function handleDisconnection(ws) {
     if (gameId) {
       const gameState = getGameState(gameId);
       if (gameState) {
-        // Find the player and handle disconnection
-        const player = gameState.players.find(p => p.ws === ws);
+        // Find the player and handle disconnection (use playerId for reliability)
+        const player = gameState.players.find(p => p.id === ws.playerId);
         if (player) {
           logGameAction(gameId, `Player ${player.name} disconnected`);
 
@@ -244,28 +242,34 @@ function handleDisconnection(ws) {
           if (gameState.isGameStarted) {
             updateGameState(gameId, {
               players: gameState.players.map(p =>
-                p.ws === ws ? { ...p, isDummy: true, ws: null } : p
+                p.id === ws.playerId ? { ...p, isDummy: true, ws: null } : p
               )
             });
           } else {
             // Remove player if game hasn't started
-            const remainingPlayers = gameState.players.filter(p => p.ws !== ws);
+            const remainingPlayers = gameState.players.filter(p => p.id !== ws.playerId);
             if (remainingPlayers.length === 0) {
               // Delete empty game
               setTimeout(() => {
                 const currentGameState = getGameState(gameId);
                 if (currentGameState && currentGameState.players.length === 0) {
-                  require('./gameState.js').deleteGameState(gameId);
+                  deleteGameState(gameId);
                 }
               }, 30000); // 30 second delay
             } else {
               updateGameState(gameId, { players: remainingPlayers });
             }
           }
+        } else {
+          logger.warn(`Player with ws.playerId ${ws.playerId} not found in game ${gameId}`);
         }
 
         // Broadcast updated state to remaining players
-        broadcastToGame(gameId, gameState, ws);
+        // Get fresh state after any updates
+        const updatedState = getGameState(gameId);
+        if (updatedState) {
+          broadcastToGame(gameId, updatedState, ws);
+        }
       }
     }
 
@@ -317,7 +321,11 @@ export function broadcastToGame(gameId, gameState, excludeClient = null) {
  */
 export function sendToClient(client, message) {
   if (client && client.readyState === 1) {
-    client.send(JSON.stringify(message));
+    try {
+      client.send(JSON.stringify(message));
+    } catch (error) {
+      logger.error('Error sending to client:', error);
+    }
   }
 }
 
@@ -340,13 +348,13 @@ function sanitizeGameState(gameState) {
 // ============================================================================
 
 // Get games list handler
-function handleGetGamesList(ws, data) {
+function handleGetGamesList(ws) {
   const publicGames = getPublicGames();
   sendToClient(ws, { type: 'GAMES_LIST', games: publicGames });
 }
 
 // Sync game handler
-function handleSyncGame(ws, data) {
+function handleSyncGame(ws) {
   const gameId = getGameIdForClient(ws);
   if (gameId) {
     const gameState = getGameState(gameId);
@@ -357,62 +365,62 @@ function handleSyncGame(ws, data) {
 }
 
 // Card action handlers - primarily client-side, logged here for tracking
-function handleCreateGame(ws: any, data: any) {
+function handleCreateGame() {
   logger.info('CREATE_GAME - handled via UPDATE_STATE');
 }
 
-function handlePlayCard(ws: any, data: any) {
+function handlePlayCard() {
   logger.info('PLAY_CARD - handled via UPDATE_STATE');
 }
 
-function handleMoveCard(ws: any, data: any) {
+function handleMoveCard() {
   logger.info('MOVE_CARD - handled via UPDATE_STATE');
 }
 
-function handleEndTurn(ws: any, data: any) {
+function handleEndTurn() {
   logger.info('END_TURN - handled via UPDATE_STATE');
 }
 
-function handleChatMessage(ws: any, data: any) {
+function handleChatMessage() {
   logger.info('CHAT_MESSAGE not yet implemented');
 }
 
-function handleDrawCard(ws: any, data: any) {
+function handleDrawCard() {
   logger.info('DRAW_CARD - handled via UPDATE_STATE');
 }
 
-function handleShuffleDeck(ws: any, data: any) {
+function handleShuffleDeck() {
   logger.info('SHUFFLE_DECK - handled via UPDATE_STATE');
 }
 
-function handleAnnounceCard(ws: any, data: any) {
+function handleAnnounceCard() {
   logger.info('ANNOUNCE_CARD - handled via UPDATE_STATE');
 }
 
-function handlePlayCounter(ws: any, data: any) {
+function handlePlayCounter() {
   logger.info('PLAY_COUNTER - handled via UPDATE_STATE');
 }
 
-function handlePlayToken(ws: any, data: any) {
+function handlePlayToken() {
   logger.info('PLAY_TOKEN - handled via UPDATE_STATE');
 }
 
-function handleDestroyCard(ws: any, data: any) {
+function handleDestroyCard() {
   logger.info('DESTROY_CARD - handled via UPDATE_STATE');
 }
 
-function handleReturnCardToHand(ws: any, data: any) {
+function handleReturnCardToHand() {
   logger.info('RETURN_CARD_TO_HAND - handled via UPDATE_STATE');
 }
 
-function handleAddCommand(ws: any, data: any) {
+function handleAddCommand() {
   logger.info('ADD_COMMAND - handled via UPDATE_STATE');
 }
 
-function handleCancelPendingCommand(ws: any, data: any) {
+function handleCancelPendingCommand() {
   logger.info('CANCEL_PENDING_COMMAND - handled via UPDATE_STATE');
 }
 
-function handleExecutePendingCommand(ws: any, data: any) {
+function handleExecutePendingCommand() {
   logger.info('EXECUTE_PENDING_COMMAND - handled via UPDATE_STATE');
 }

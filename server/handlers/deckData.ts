@@ -83,9 +83,30 @@ export function handleUpdateDeckData(ws, data) {
 
     logger.info(`Deck data updated by host: ${Object.keys(sanitizedCardDatabase).length} cards, ${sanitizedDeckFiles.length} decks`);
 
+    // Sanitize token database
+    const sanitizedTokenDatabase: Record<string, any> = {};
+    if (deckData.tokenDatabase && typeof deckData.tokenDatabase === 'object') {
+      for (const [tokenId, token] of Object.entries(deckData.tokenDatabase)) {
+        const tokenObj = token as any;
+        if (typeof token === 'object' && token && tokenObj.id && tokenObj.name) {
+          sanitizedTokenDatabase[tokenId] = {
+            id: sanitizeString(String(tokenObj.id)),
+            name: sanitizeString(String(tokenObj.name)),
+            ...(tokenObj.cost !== undefined && { cost: Number(tokenObj.cost) || 0 }),
+            ...(tokenObj.attack !== undefined && { attack: Number(tokenObj.attack) || 0 }),
+            ...(tokenObj.health !== undefined && { health: Number(tokenObj.health) || 0 }),
+            ...(tokenObj.power !== undefined && { power: Number(tokenObj.power) || 0 }),
+            ...(tokenObj.text && { text: sanitizeString(String(tokenObj.text), 1000) }),
+            ...(tokenObj.image && { image: sanitizeString(String(tokenObj.image), 500) }),
+            ...(tokenObj.types && Array.isArray(tokenObj.types) && { types: tokenObj.types }),
+          };
+        }
+      }
+    }
+
     // Update the content services
     setCardDatabase(sanitizedCardDatabase);
-    setTokenDatabase(deckData.tokenDatabase || {});
+    setTokenDatabase(sanitizedTokenDatabase);
     setDeckFiles(sanitizedDeckFiles);
 
     // Send confirmation

@@ -4,6 +4,7 @@ import type { CustomDeckFile, Player, Card } from '@/types'
 import { getAllCards, getSelectableDecks, getCardDefinition, commandCardIds } from '@/content'
 import { Card as CardComponent } from './Card'
 import { useLanguage } from '@/contexts/LanguageContext'
+import { validateDeckData, MAX_DECK_SIZE } from '@/utils/deckValidation'
 
 interface DeckBuilderModalProps {
   isOpen: boolean;
@@ -13,33 +14,6 @@ interface DeckBuilderModalProps {
 
 const allCards = getAllCards().filter(({ card }) => card.allowedPanels?.includes('DECK_BUILDER'))
 const selectableFactions = getSelectableDecks()
-const MAX_DECK_SIZE = 100
-
-const validateDeckData = (data: any): { isValid: true, deckFile: CustomDeckFile } | { isValid: false, error: string } => {
-  if (typeof data.deckName !== 'string' || !Array.isArray(data.cards)) {
-    return { isValid: false, error: 'Invalid file structure. Must have \'deckName\' (string) and \'cards\' (array).' }
-  }
-
-  let totalCards = 0
-  for (const card of data.cards) {
-    if (typeof card.cardId !== 'string' || typeof card.quantity !== 'number' || card.quantity < 1 || !Number.isInteger(card.quantity)) {
-      return { isValid: false, error: `Invalid card entry: ${JSON.stringify(card)}` }
-    }
-    if (!getCardDefinition(card.cardId)) {
-      return { isValid: false, error: `Card with ID '${card.cardId}' does not exist.` }
-    }
-    totalCards += card.quantity
-  }
-
-  if (totalCards > MAX_DECK_SIZE) {
-    return { isValid: false, error: `Deck exceeds the ${MAX_DECK_SIZE} card limit (found ${totalCards} cards).` }
-  }
-  if (totalCards === 0 && data.cards.length > 0) {
-    return { isValid: false, error: 'Deck contains cards with zero quantity.' }
-  }
-
-  return { isValid: true, deckFile: data as CustomDeckFile }
-}
 
 export const DeckBuilderModal: React.FC<DeckBuilderModalProps> = ({ isOpen, onClose, setViewingCard }) => {
   const { getCardTranslation, t } = useLanguage()

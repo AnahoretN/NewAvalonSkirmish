@@ -7,21 +7,18 @@ import { gameRoutes } from './game.js';
 import { contentRoutes } from './content.js';
 import { healthRoutes } from './health.js';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Setup all API routes
  */
 export function setupRoutes(app: any) {
-  const isDev = process.env.NODE_ENV !== 'production';
+  const isProduction = process.env.NODE_ENV === 'production' || __dirname.includes('dist-server');
 
-  // Serve static frontend files
-  if (isDev) {
-    // In development, Vite middleware handles serving static files
-    app.use(express.static(path.resolve('../client')));
-  } else {
-    // In production, serve from dist folder
-    app.use(express.static(path.resolve('../dist')));
-  }
+  // Note: Static files are served in index.ts, not here
 
   // Health check routes
   app.use('/api/health', healthRoutes);
@@ -34,10 +31,12 @@ export function setupRoutes(app: any) {
 
   // Serve frontend for all other routes (SPA routing)
   app.get(/.*/, (req, res) => {
-    if (isDev) {
-      res.sendFile('index.html', { root: '../client' });
+    if (isProduction) {
+      // From dist-server/server/routes/ -> project/dist
+      res.sendFile(path.join(__dirname, '../../../dist/index.html'));
     } else {
-      res.sendFile('index.html', { root: '../dist' });
+      // Development: from server/routes/ -> client/index.html
+      res.sendFile(path.join(__dirname, '../../client/index.html'));
     }
   });
 

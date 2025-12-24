@@ -72,7 +72,7 @@ export function createDeck(deckType: string, playerId: number, playerName: strin
         card = {
           ...cardDef,
           deck: 'Command',
-          id: `CMD_${cardKey}`,
+          id: `CMD_${cardKey}_${i + 1}`,
           baseId: deckEntry.cardId,
           ownerId: playerId,
           ownerName: playerName,
@@ -111,6 +111,10 @@ export function createNewPlayer(id: number, isDummy = false): any {
 
   const initialDeckType = initialDeck.id;
 
+  // Safe color assignment with bounds checking
+  const colorIndex = (id - 1) % PLAYER_COLORS.length;
+  const playerColor = PLAYER_COLORS[colorIndex] || PLAYER_COLORS[0];
+
   const newPlayer = {
     id,
     name: isDummy ? `Dummy ${id - 1}` : `Player ${id}`,
@@ -119,7 +123,7 @@ export function createNewPlayer(id: number, isDummy = false): any {
     deck: [], // Deck will be created below
     discard: [],
     selectedDeck: initialDeckType,
-    color: PLAYER_COLORS[id - 1] || 'blue',
+    color: playerColor,
     isDummy,
     isDisconnected: false,
     playerToken: generatePlayerToken(),

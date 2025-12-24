@@ -3,11 +3,11 @@
  * Manages game termination, player disconnection, inactivity timers, and logging
  */
 
-import fs from 'fs';
+import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { logger } from '../utils/logger.js';
-import { getGameState, deleteGameState } from './gameState.js';
+import { getGameState, deleteGameState, getPublicGames } from './gameState.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,9 +23,11 @@ export const playerDisconnectTimers = new Map(); // Key: `${gameId}-${playerId}`
 /**
  * Ensure logs directory exists
  */
-function ensureLogsDir() {
-  if (!fs.existsSync(LOGS_DIR)) {
-    fs.mkdirSync(LOGS_DIR, { recursive: true });
+async function ensureLogsDir() {
+  try {
+    await fs.access(LOGS_DIR);
+  } catch {
+    await fs.mkdir(LOGS_DIR, { recursive: true });
   }
 }
 
@@ -46,7 +48,7 @@ export function logToGame(gameId: string, message: string, gameLogs: Map<string,
 /**
  * Ends a game, saves its log, and cleans up all associated data
  */
-export function endGame(
+export async function endGame(
   gameId: string,
   reason: string,
   gameLogs: Map<string, string[]>,
@@ -56,13 +58,13 @@ export function endGame(
   logger.info(`Ending game ${gameId} due to: ${reason}.`);
 
   // 1. Save the log file
-  ensureLogsDir();
+  await ensureLogsDir();
   const logData = gameLogs.get(gameId);
   if (logData && logData.length > 0) {
     const timestamp = new Date().toISOString().replace(/:/g, '-');
     const filename = path.join(LOGS_DIR, `game-${gameId}-${timestamp}.log`);
     try {
-      fs.writeFileSync(filename, logData.join('\n'));
+      await fs.writeFile(filename, logData.join('\n'));
       logger.info(`Log for game ${gameId} saved to ${filename}`);
     } catch (error) {
       logger.error(`Failed to write log for game ${gameId}:`, error);
@@ -228,8 +230,6 @@ export function handlePlayerLeave(
     return p;
   });
 
-  const updatedGameState = { ...gameState, players: updatedPlayers };
-
   // Update the game state
   if (typeof gameState.players !== 'undefined') {
     gameState.players = updatedPlayers;
@@ -266,8 +266,7 @@ export function handlePlayerLeave(
  * Sends the list of all active games to every connected client
  */
 export function broadcastGamesList(gameLogs: Map<string, string[]>, wss: any) {
-  // This would need access to all game states - implement as needed
-  const gamesList = []; // Would be populated from gameState
+  const gamesList = getPublicGames();
 
   const message = JSON.stringify({ type: 'GAMES_LIST', games: gamesList });
 

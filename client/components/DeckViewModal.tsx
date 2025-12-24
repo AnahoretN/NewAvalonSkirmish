@@ -23,11 +23,14 @@ interface DeckViewModalProps {
 
 export const DeckViewModal: React.FC<DeckViewModalProps> = ({ isOpen, onClose, title, player, cards, setDraggedItem, onCardContextMenu, onCardDoubleClick, onCardClick, canInteract, isDeckView = false, playerColorMap, localPlayerId, imageRefreshVersion, highlightFilter }) => {
   const [draggedCardId, setDraggedCardId] = useState<string | null>(null)
+  // Track drag enter/leave events to prevent false closes when dragging over child elements
+  const dragOverCountRef = useRef(0)
   const modalRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (isOpen) {
       setDraggedCardId(null)
+      dragOverCountRef.current = 0
     }
   }, [isOpen])
 
@@ -35,9 +38,18 @@ export const DeckViewModal: React.FC<DeckViewModalProps> = ({ isOpen, onClose, t
     return null
   }
 
-  const handleDragLeave = (e: React.DragEvent) => {
-    if (draggedCardId !== null && modalRef.current && !modalRef.current.contains(e.relatedTarget as Node)) {
-      onClose()
+  const handleDragEnter = (_e: React.DragEvent) => {
+    if (draggedCardId !== null) {
+      dragOverCountRef.current++
+    }
+  }
+
+  const handleDragLeave = (_e: React.DragEvent) => {
+    if (draggedCardId !== null) {
+      dragOverCountRef.current--
+      if (dragOverCountRef.current <= 0) {
+        onClose()
+      }
     }
   }
 
@@ -54,6 +66,7 @@ export const DeckViewModal: React.FC<DeckViewModalProps> = ({ isOpen, onClose, t
       <div
         ref={modalRef}
         onClick={(e) => e.stopPropagation()}
+        onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
         className="bg-gray-800 rounded-lg p-4 shadow-xl w-auto max-w-4xl max-h-[95vh] flex flex-col">
         <div className="flex justify-between items-center mb-2 flex-shrink-0">

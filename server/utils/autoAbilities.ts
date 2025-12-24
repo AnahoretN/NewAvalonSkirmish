@@ -37,14 +37,6 @@ export const canActivateAbility = (card: Card, phaseIndex: number, activeTurnPla
 
   const abilityText = card.ability || ''
 
-  // Helper to check Support prerequisite
-  const checkSupport = (text: string): boolean => {
-    if (text.toLowerCase().includes('support ⇒')) {
-      return hasStatus(card, 'Support', activeTurnPlayerId)
-    }
-    return true
-  }
-
   // === 1. CHECK DEPLOY ABILITY ===
   if (!card.deployAbilityConsumed) {
     if (hasAbilityKeyword(abilityText, 'deploy:')) {
@@ -320,8 +312,9 @@ const getDeployAction = (
   }
 
   // Generic fallback for any unit
-  if (card.ability.toLowerCase().includes('deploy:')) {
-    if (card.ability.toLowerCase().includes('shield 1')) {
+  const abilityText = card.ability || '';
+  if (abilityText.toLowerCase().includes('deploy:')) {
+    if (abilityText.toLowerCase().includes('shield 1')) {
       return {
         type: 'GLOBAL_AUTO_APPLY',
         payload: {
@@ -332,10 +325,10 @@ const getDeployAction = (
         sourceCoords: coords,
       }
     }
-    if (card.ability.toLowerCase().includes('stun 1')) {
+    if (abilityText.toLowerCase().includes('stun 1')) {
       return { type: 'CREATE_STACK', tokenType: 'Stun', count: 1 }
     }
-    if (card.ability.toLowerCase().includes('aim 1')) {
+    if (abilityText.toLowerCase().includes('aim 1')) {
       return { type: 'CREATE_STACK', tokenType: 'Aim', count: 1 }
     }
   }

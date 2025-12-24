@@ -24,6 +24,15 @@ export function handleToggleAutoAbilities(ws, data) {
       return;
     }
 
+    // Validate that enabled is a boolean
+    if (typeof enabled !== 'boolean') {
+      ws.send(JSON.stringify({
+        type: 'ERROR',
+        message: 'Invalid enabled value: must be a boolean'
+      }));
+      return;
+    }
+
     gameState.autoAbilitiesEnabled = enabled;
     broadcastToGame(gameId, gameState);
     logger.info(`Auto-abilities ${enabled ? 'enabled' : 'disabled'} for game ${gameId}`);
@@ -135,9 +144,19 @@ export function handleSetPhase(ws, data) {
       return;
     }
 
+    // Validate phaseIndex is numeric
+    const numericPhaseIndex = Number(phaseIndex);
+    if (!Number.isInteger(numericPhaseIndex) || Number.isNaN(numericPhaseIndex)) {
+      ws.send(JSON.stringify({
+        type: 'ERROR',
+        message: 'Invalid phase index; must be an integer'
+      }));
+      return;
+    }
+
     const maxPhases = gameState.turnPhases?.length || 5;
 
-    if (phaseIndex < 0 || phaseIndex >= maxPhases) {
+    if (numericPhaseIndex < 0 || numericPhaseIndex >= maxPhases) {
       ws.send(JSON.stringify({
         type: 'ERROR',
         message: `Invalid phase index. Must be between 0 and ${maxPhases - 1}`
@@ -145,9 +164,9 @@ export function handleSetPhase(ws, data) {
       return;
     }
 
-    gameState.currentPhaseIndex = phaseIndex;
+    gameState.currentPhaseIndex = numericPhaseIndex;
     broadcastToGame(gameId, gameState);
-    logger.info(`Phase set to ${phaseIndex} in game ${gameId}`);
+    logger.info(`Phase set to ${numericPhaseIndex} in game ${gameId}`);
   } catch (error) {
     logger.error('Failed to set phase:', error);
   }

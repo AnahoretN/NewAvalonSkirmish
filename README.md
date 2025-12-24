@@ -2,19 +2,90 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# Run and deploy your AI Studio app
+# New Avalon: Skirmish
 
-This contains everything you need to run your app locally.
+A dynamic tactical duel card game played on a limited grid field. Deploy Units and Commands to capture control over key battle lines.
 
-View your app in AI Studio: https://ai.studio/apps/drive/1_U7EZ-onLGV90jKW1B2_t6tg9ZNDWz9e
+## Features
 
-## Run Locally
+- **Tactical Grid Combat**: Position-based card game on dynamic board sizes (5x5, 6x6, 7x7)
+- **Real-time Multiplayer**: WebSocket-based gameplay for 2-4 players
+- **Multiple Game Modes**: Free-for-all, 2v2 team battles, and 3v1
+- **Card Abilities**: Deploy, Setup, Commit, and Passive abilities
+- **Dynamic Status System**: Support, Threat, and tactical positioning
+- **Multi-language Support**: English, Russian, Serbian
+- **Custom Decks**: Build and customize your own decks
+- **Responsive Design**: Works on desktop and mobile
 
-**Prerequisites:**  Node.js
+## Prerequisites
 
+- Node.js 18+
+- npm or yarn
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/uz0/NewAvalonSkirmish.git
+cd NewAvalonSkirmish
+
+# Install dependencies
+npm install
+```
+
+## Running Locally
+
+```bash
+# Development mode (recommended - runs both server and client with HMR)
+npm run dev
+
+# Production build
+npm run build
+npm start
+```
+
+The game will be available at `http://localhost:8080`
+
+## Docker Deployment
+
+```bash
+# Build the image
+docker build -t newavalonskirmish .
+
+# Run the container
+docker run -d -p 8822:8080 --name newavalonskirmish newavalonskirmish
+```
+
+Access the game at `http://localhost:8822`
+
+## Development
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines and workflow.
+
+### Project Structure
+
+```
+/
+├── client/                   # React frontend
+│   ├── components/          # UI components
+│   ├── hooks/              # Custom React hooks
+│   ├── locales/            # Translation files
+│   └── utils/              # Client utilities
+├── server/                  # Node.js backend
+│   ├── handlers/           # WebSocket message handlers
+│   ├── services/           # Core services
+│   └── utils/              # Server utilities
+└── shared/                  # Shared types and utilities
+```
+
+## License
+
+[MIT License](LICENSE)
+
+## Contributing
+
+Contributions are welcome! Please read our contributing guidelines and submit pull requests to the main branch.
+
+## Support
+
+For issues and questions, please use the GitHub issue tracker.

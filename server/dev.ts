@@ -58,9 +58,9 @@ async function createDevServer() {
   });
 
   // Graceful shutdown
-  const gracefulShutdown = (signal: string) => {
+  const gracefulShutdown = async (signal: string) => {
     logger.info(`${signal} received, shutting down gracefully`);
-    vite.close();
+    await vite.close();
     server.close(() => {
       logger.info('Process terminated');
       process.exit(0);
@@ -78,5 +78,3 @@ createDevServer().catch((error) => {
   logger.error('Failed to start development server:', error);
   process.exit(1);
 });
-
-export { createDevServer };

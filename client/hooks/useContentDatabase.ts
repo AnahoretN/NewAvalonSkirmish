@@ -69,6 +69,7 @@ export function useContentDatabase() {
         const cached = loadFromCache()
         if (cached) {
           setContent(cached)
+          setError(null)
           setIsLoading(false)
           return
         }

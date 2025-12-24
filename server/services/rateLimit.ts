@@ -4,9 +4,10 @@
 
 import { CONFIG } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
+import type { WebSocket } from 'ws';
 
 // Rate limiting maps
-const messageCounts = new Map(); // Connection -> [timestamps]
+const messageCounts = new Map<WebSocket, number[]>(); // Connection -> [timestamps]
 
 /**
  * Check if connection is rate limited

@@ -5,6 +5,7 @@ import type { GameState, Player, Board, GridSize, Card, DragItem, DropTarget, Pl
 import { shuffleDeck, PLAYER_COLOR_NAMES, TURN_PHASES, MAX_PLAYERS } from '../constants'
 import { decksData, countersDatabase, rawJsonData, getCardDefinitionByName, getCardDefinition, commandCardIds } from '../content'
 import { createInitialBoard, recalculateBoardStatuses } from '../utils/boardUtils'
+import { logger } from '../utils/logger'
 
 // Helper to determine the correct WebSocket URL
 const getWebSocketURL = () => {
@@ -17,7 +18,7 @@ const getWebSocketURL = () => {
     } else if (url.startsWith('http://')) {
       url = url.replace('http://', 'ws://')
     }
-    console.log(`Using custom WebSocket URL: ${url}`)
+    logger.info(`Using custom WebSocket URL: ${url}`)
     return url
   }
 
@@ -143,14 +144,18 @@ export const useGameState = () => {
   }, [localPlayerId])
 
   const updateState = useCallback((newStateOrFn: GameState | ((prevState: GameState) => GameState)) => {
-    setGameState(prevState => {
-      const newState = typeof newStateOrFn === 'function' ? newStateOrFn(prevState) : newStateOrFn
-      return newState
-    })
-    // Send WebSocket message immediately (not inside setState callback)
+    // Compute new state once
     const currentState = typeof newStateOrFn === 'function'
       ? newStateOrFn(gameStateRef.current)
       : newStateOrFn
+
+    setGameState(prevState => {
+      // If the function was passed, apply it to prevState for consistency
+      const newState = typeof newStateOrFn === 'function' ? newStateOrFn(prevState) : newStateOrFn
+      return newState
+    })
+
+    // Send WebSocket message with the computed state
     if (ws.current && ws.current.readyState === WebSocket.OPEN) {
       ws.current.send(JSON.stringify({ type: 'UPDATE_STATE', gameState: currentState }))
     }
@@ -169,7 +174,7 @@ export const useGameState = () => {
 
     // GUARD: If no URL is configured, stop trying to connect.
     if (!WS_URL) {
-      console.log('No WebSocket URL configured in settings. Waiting for user input.')
+      logger.warn('No WebSocket URL configured in settings. Waiting for user input.')
       setConnectionStatus('Disconnected')
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current)
@@ -190,7 +195,7 @@ export const useGameState = () => {
     }
     setConnectionStatus('Connecting')
     ws.current.onopen = () => {
-      console.log('WebSocket connection established')
+      logger.info('WebSocket connection established')
       setConnectionStatus('Connected')
       const currentGameState = gameStateRef.current
       if (currentGameState && currentGameState.gameId && ws.current?.readyState === WebSocket.OPEN) {
@@ -199,11 +204,14 @@ export const useGameState = () => {
           const stored = localStorage.getItem('reconnection_data')
           if (stored) {
             const data = JSON.parse(stored)
-            if (data.gameId === currentGameState.gameId) {
+            if (data?.gameId === currentGameState.gameId && data?.playerToken) {
               playerToken = data.playerToken
             }
           }
-        } catch (e) {}
+        } catch (e) {
+          console.warn('Failed to parse reconnection data, clearing cache:', e instanceof Error ? e.message : String(e))
+          localStorage.removeItem('reconnection_data')
+        }
 
         ws.current.send(JSON.stringify({
           type: 'JOIN_GAME',
@@ -244,10 +252,10 @@ export const useGameState = () => {
           }
         } else if (data.type === 'CONNECTION_ESTABLISHED') {
           // Server acknowledging connection - no action needed
-          console.log('Connection acknowledged by server')
+          logger.info('Connection acknowledged by server')
         } else if (data.type === 'DECK_DATA_UPDATED') {
           // Deck data synced with server - no action needed
-          console.log('Deck data synced with server')
+          logger.info('Deck data synced with server')
         } else if (data.type === 'ERROR') {
           if (data.message.includes('not found') || data.message.includes('Dummy')) {
             setGameState(createInitialState())
@@ -275,7 +283,7 @@ export const useGameState = () => {
       }
     }
     ws.current.onclose = () => {
-      console.log('WebSocket connection closed. Attempting to reconnect in 3s...')
+      logger.info('WebSocket connection closed. Attempting to reconnect in 3s...')
       setConnectionStatus('Disconnected')
       if (!isManualExitRef.current) {
         if (reconnectTimeoutRef.current) {
@@ -370,7 +378,7 @@ export const useGameState = () => {
     }
 
     if (ws.current?.readyState === WebSocket.OPEN && gameIdToLeave && playerIdToLeave !== null) {
-      ws.current.send(JSON.stringify({ type: 'LEAVE_GAME', gameId: gameIdToLeave, playerId: playerIdToLeave }))
+      ws.current.send(JSON.stringify({ type: 'EXIT_GAME', gameId: gameIdToLeave, playerId: playerIdToLeave }))
     }
 
     if (ws.current) {
@@ -409,7 +417,7 @@ export const useGameState = () => {
     }
   }, [])
 
-  const setGameMode = useCallback((mode: GameMode) => {
+  const setGameMode = useCallback((mode: GameModeEnum) => {
     if (ws.current?.readyState === WebSocket.OPEN && gameStateRef.current.gameId) {
       ws.current.send(JSON.stringify({ type: 'SET_GAME_MODE', gameId: gameStateRef.current.gameId, mode }))
     }

@@ -164,6 +164,8 @@ export interface TranslationResource {
     noTarget: string;
     confirmClearDeck: string;
     languageDisabled: string;
+    listModeTitle: string;
+    listModeDescription: string;
   };
   rules: {
     title: string;

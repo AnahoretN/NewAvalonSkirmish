@@ -159,6 +159,8 @@ const enUI = {
   noTarget: 'No Target',
   confirmClearDeck: 'Are you sure you want to clear the current deck?',
   languageDisabled: 'Language selection is currently disabled.',
+  listModeTitle: 'List Mode Interface',
+  listModeDescription: 'Optimized layout for desktop.',
 }
 
 const enRules = {

@@ -320,8 +320,9 @@ const getDeployAction = (
   }
 
   // Generic fallback for any unit
-  if (card.ability.toLowerCase().includes('deploy:')) {
-    if (card.ability.toLowerCase().includes('shield 1')) {
+  const ability = (card?.ability || '').toLowerCase();
+  if (ability.includes('deploy:')) {
+    if (ability.includes('shield 1')) {
       return {
         type: 'GLOBAL_AUTO_APPLY',
         payload: {
@@ -332,10 +333,10 @@ const getDeployAction = (
         sourceCoords: coords,
       }
     }
-    if (card.ability.toLowerCase().includes('stun 1')) {
+    if (ability.includes('stun 1')) {
       return { type: 'CREATE_STACK', tokenType: 'Stun', count: 1 }
     }
-    if (card.ability.toLowerCase().includes('aim 1')) {
+    if (ability.includes('aim 1')) {
       return { type: 'CREATE_STACK', tokenType: 'Aim', count: 1 }
     }
   }

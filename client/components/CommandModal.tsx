@@ -1,5 +1,5 @@
 import React from 'react'
-import type { Card } from '@/types'
+import type { Card, PlayerColor } from '@/types'
 import { Card as CardComponent } from './Card'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { formatAbilityText } from '@/utils/textFormatters'
@@ -7,7 +7,7 @@ import { formatAbilityText } from '@/utils/textFormatters'
 interface CommandModalProps {
     isOpen: boolean;
     card: Card;
-    playerColorMap: Map<number, string>;
+    playerColorMap: Map<number, PlayerColor>;
     onConfirm: (optionIndex: number) => void;
     onCancel: () => void;
 }
@@ -38,7 +38,7 @@ export const CommandModal: React.FC<CommandModalProps> = ({ isOpen, card, player
         {/* Left: Card View */}
         <div className="w-1/3 flex flex-col items-center justify-center border-r border-gray-700 pr-6">
           <div className="w-72 h-72 relative transform hover:scale-105 transition-transform duration-300">
-            <CardComponent card={displayCard} isFaceUp={true} playerColorMap={playerColorMap as any} disableTooltip={true} />
+            <CardComponent card={displayCard} isFaceUp={true} playerColorMap={playerColorMap} disableTooltip={true} />
           </div>
           <h2 className="text-2xl font-bold text-yellow-500 mt-6 text-center leading-tight">{displayCard.name}</h2>
         </div>

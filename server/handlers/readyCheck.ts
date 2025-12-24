@@ -38,6 +38,10 @@ export function handleStartReadyCheck(ws, data) {
     logger.info(`Ready check started for game ${data.gameId}`);
   } catch (error) {
     logger.error('Failed to start ready check:', error);
+    ws.send(JSON.stringify({
+      type: 'ERROR',
+      message: 'Failed to start ready check'
+    }));
   }
 }
 
@@ -68,6 +72,10 @@ export function handleCancelReadyCheck(ws, data) {
     logger.info(`Ready check cancelled for game ${data.gameId}`);
   } catch (error) {
     logger.error('Failed to cancel ready check:', error);
+    ws.send(JSON.stringify({
+      type: 'ERROR',
+      message: 'Failed to cancel ready check'
+    }));
   }
 }
 
@@ -98,12 +106,26 @@ export function handlePlayerReady(ws, data) {
       return; // Game already started
     }
 
+    if (!data.playerId) {
+      ws.send(JSON.stringify({
+        type: 'ERROR',
+        message: 'Player ID is required'
+      }));
+      return;
+    }
+
     // Mark player as ready
     const player = gameState.players.find(p => p.id === data.playerId);
-    if (player) {
-      player.isReady = true;
-      logger.info(`Player ${data.playerId} marked as ready in game ${data.gameId}`);
+    if (!player) {
+      ws.send(JSON.stringify({
+        type: 'ERROR',
+        message: `Player with ID ${data.playerId} not found in game`
+      }));
+      return;
     }
+
+    player.isReady = true;
+    logger.info(`Player ${data.playerId} marked as ready in game ${data.gameId}`);
 
     // Check if all non-dummy, connected players are ready
     const activePlayers = gameState.players.filter(p => !p.isDummy && !p.isDisconnected);
@@ -130,5 +152,9 @@ export function handlePlayerReady(ws, data) {
     broadcastToGame(data.gameId, gameState);
   } catch (error) {
     logger.error('Failed to mark player as ready:', error);
+    ws.send(JSON.stringify({
+      type: 'ERROR',
+      message: 'Failed to mark player as ready'
+    }));
   }
 }

@@ -41,7 +41,7 @@ export const CounterSelectionModal: React.FC<CounterSelectionModalProps> = ({ is
       setRemainingCounts(newCounts)
       setInitialCounts(newCounts)
     }
-  }, [isOpen, data.card.statuses])
+  }, [isOpen, data.card])
 
   if (!isOpen) {
     return null

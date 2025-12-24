@@ -6,7 +6,6 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { logger } from '../utils/logger.js';
-import { CONFIG } from '../utils/config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,21 +21,47 @@ let countersDatabase = {};
  */
 export async function initializeContent() {
   try {
-    const contentPath = path.join(__dirname, '../../client/content/contentDatabase.json');
+    // Check if we're in a production build (dist-server)
+    const isProduction = __dirname.includes('dist-server');
 
-    if (!fs.existsSync(contentPath)) {
-      throw new Error(`Content database not found at ${contentPath}`);
+    // Try multiple possible paths for robustness in different environments
+    const possiblePaths = isProduction
+      ? [
+          // Production: from dist-server/server/services/ to project/server/content/
+          // services -> server (1) -> dist-server (2) -> project root (3) -> server/content/
+          path.join(__dirname, '../../../server/content/contentDatabase.json'),
+          path.join(process.cwd(), 'server/content/contentDatabase.json'),
+        ]
+      : [
+          // Development: from server/services/
+          path.join(__dirname, '../../client/content/contentDatabase.json'),
+          path.join(__dirname, '../content/contentDatabase.json'),
+          path.join(process.cwd(), 'client/content/contentDatabase.json'),
+          path.join(process.cwd(), 'server/content/contentDatabase.json'),
+        ];
+
+    let contentPath = null;
+    for (const testPath of possiblePaths) {
+      if (fs.existsSync(testPath)) {
+        contentPath = testPath;
+        break;
+      }
+    }
+
+    if (!contentPath) {
+      throw new Error(`Content database not found. Tried paths: ${possiblePaths.join(', ')}`);
     }
 
     const rawData = fs.readFileSync(contentPath, 'utf8');
     const data = JSON.parse(rawData);
 
-    cardDatabase = data.cards || {};
-    tokenDatabase = data.tokens || {};
+    // Support both key formats (cards/cardDatabase, tokens/tokenDatabase)
+    cardDatabase = data.cardDatabase || data.cards || {};
+    tokenDatabase = data.tokenDatabase || data.tokens || {};
     deckFiles = data.deckFiles || [];
-    countersDatabase = data.counters || {};
+    countersDatabase = data.countersDatabase || data.counters || {};
 
-    logger.info(`Loaded content: ${Object.keys(cardDatabase).length} cards, ${Object.keys(tokenDatabase).length} tokens, ${deckFiles.length} deck files`);
+    logger.info(`Loaded content from ${contentPath}: ${Object.keys(cardDatabase).length} cards, ${Object.keys(tokenDatabase).length} tokens, ${deckFiles.length} deck files`);
   } catch (error) {
     logger.error('Failed to initialize content database', error);
     throw error;

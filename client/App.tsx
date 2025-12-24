@@ -33,9 +33,8 @@ import type {
   CommandContext,
   CounterSelectionData,
   AbilityAction,
-  DeckType,
 } from './types'
-import { GameMode } from './types'
+import { GameMode, DeckType } from './types'
 import { STATUS_ICONS, STATUS_DESCRIPTIONS } from './constants'
 import { countersDatabase } from './content'
 import { validateTarget, calculateValidTargets, checkActionHasTargets } from './utils/targeting'
@@ -92,7 +91,6 @@ const App = memo(function App() {
     requestCardReveal,
     respondToRevealRequest,
     syncGame,
-    removeRevealedStatus,
     resetGame,
     toggleActiveTurnPlayer,
     forceReconnect,
@@ -224,13 +222,9 @@ const App = memo(function App() {
     drawCard,
     updatePlayerScore,
     removeBoardCardStatus,
-    setCursorStack,
-    setAbilityMode,
-    triggerNoTarget,
   })
 
   const {
-    activateAbility,
     executeAction,
     handleBoardCardClick,
     handleEmptyCellClick,
@@ -308,12 +302,10 @@ const App = memo(function App() {
     setAbilityMode,
     requestCardReveal,
     interactionLock,
-    abilityMode,
     setCommandContext, // Passed down for False Orders Step 1 recording
     onAction: executeAction, // Pass the executor here
     cursorStack,
     setCursorStack,
-    imageRefreshVersion,
   })
 
   const isSpectator = useMemo(
@@ -707,6 +699,7 @@ const App = memo(function App() {
     setValidTargets(boardTargets)
     setValidHandTargets(handTargets)
     return undefined
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [abilityMode, cursorStack, gameState.board, gameState.players, localPlayerId, commandContext, gameState.activeTurnPlayerId])
 
   useEffect(() => {
@@ -890,6 +883,7 @@ const App = memo(function App() {
         }
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actionQueue, abilityMode, cursorStack, localPlayerId, drawCard, updatePlayerScore, gameState.activeTurnPlayerId, gameState.board, moveItem, commandContext, addBoardCardStatus, gameState.players, executeAction, triggerNoTarget])
 
   const closeAllModals = useCallback(() => {
@@ -1374,7 +1368,7 @@ const App = memo(function App() {
       return true
     })
     return <ContextMenu x={x} y={y} items={items} onClose={closeContextMenu} />
-  }, [gameState, localPlayerId, moveItem, handleTriggerHighlight, addBoardCardStatus, removeBoardCardStatus, modifyBoardCardPower, addAnnouncedCardStatus, removeAnnouncedCardStatus, modifyAnnouncedCardPower, addHandCardStatus, removeHandCardStatus, drawCard, shufflePlayerDeck, flipBoardCard, flipBoardCardFaceDown, revealHandCard, revealBoardCard, requestCardReveal, removeRevealedStatus, activateAbility, t, viewingDiscardPlayer, playCommandCard, contextMenuProps])
+  }, [gameState, localPlayerId, moveItem, handleTriggerHighlight, addBoardCardStatus, removeBoardCardStatus, modifyBoardCardPower, addAnnouncedCardStatus, removeAnnouncedCardStatus, modifyAnnouncedCardPower, addHandCardStatus, removeHandCardStatus, drawCard, shufflePlayerDeck, flipBoardCard, flipBoardCardFaceDown, revealHandCard, revealBoardCard, requestCardReveal, t, playCommandCard, contextMenuProps, closeAllModals, closeContextMenu, handleViewDeck, handleViewDiscard])
 
   useEffect(() => {
     window.addEventListener('click', closeContextMenu)
@@ -1394,7 +1388,7 @@ const App = memo(function App() {
     if (draggedItem) {
       closeContextMenu()
     }
-  }, [draggedItem])
+  }, [draggedItem, closeContextMenu])
 
   const handleOpenTokensModal = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
     if (modalsState.isTokensModalOpen) {
@@ -1486,7 +1480,6 @@ const App = memo(function App() {
         <RoundEndModal
           gameState={gameState}
           onConfirm={confirmRoundEnd}
-          localPlayerId={localPlayerId}
           onExit={exitGame}
         />
       )}
@@ -1609,7 +1602,6 @@ const App = memo(function App() {
       <CountersModal
         isOpen={modalsState.isCountersModalOpen}
         onClose={() => setModalsState(prev => ({ ...prev, isCountersModalOpen: false }))}
-        setDraggedItem={setDraggedItem}
         canInteract={!!localPlayerId && !isSpectator}
         anchorEl={modalAnchors.countersModalAnchor}
         imageRefreshVersion={imageRefreshVersion}
@@ -1727,7 +1719,6 @@ const App = memo(function App() {
                 onEmptyCellDoubleClick={handleDoubleClickEmptyCell}
                 imageRefreshVersion={imageRefreshVersion}
                 cursorStack={cursorStack}
-                setCursorStack={setCursorStack}
                 currentPhase={gameState.currentPhase}
                 activeTurnPlayerId={gameState.activeTurnPlayerId}
                 onCardClick={handleBoardCardClick}
@@ -1810,7 +1801,6 @@ const App = memo(function App() {
                 onEmptyCellDoubleClick={handleDoubleClickEmptyCell}
                 imageRefreshVersion={imageRefreshVersion}
                 cursorStack={cursorStack}
-                setCursorStack={setCursorStack}
                 currentPhase={gameState.currentPhase}
                 activeTurnPlayerId={gameState.activeTurnPlayerId}
                 onCardClick={handleBoardCardClick}

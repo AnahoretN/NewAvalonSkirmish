@@ -26,11 +26,19 @@ export function handleUpdatePlayerName(ws, data) {
     }
 
     const player = gameState.players.find(p => p.id === playerId);
-    if (player) {
-      player.name = sanitizePlayerName(playerName);
-      broadcastToGame(gameId, gameState);
-      logger.info(`Player ${playerId} name updated to '${playerName}' in game ${gameId}`);
+    if (!player) {
+      logger.warn(`Player ${playerId} not found in game ${gameId}`);
+      ws.send(JSON.stringify({
+        type: 'ERROR',
+        message: 'Player not found'
+      }));
+      return;
     }
+
+    const sanitizedName = sanitizePlayerName(playerName);
+    player.name = sanitizedName;
+    broadcastToGame(gameId, gameState);
+    logger.info(`Player ${playerId} name updated to '${sanitizedName}' in game ${gameId}`);
   } catch (error) {
     logger.error('Failed to update player name:', error);
   }
@@ -54,11 +62,29 @@ export function handleChangePlayerColor(ws, data) {
     }
 
     const player = gameState.players.find(p => p.id === playerId);
-    if (player) {
-      player.color = color;
-      broadcastToGame(gameId, gameState);
-      logger.info(`Player ${playerId} color changed to '${color}' in game ${gameId}`);
+    if (!player) {
+      logger.warn(`Player ${playerId} not found in game ${gameId}`);
+      ws.send(JSON.stringify({
+        type: 'ERROR',
+        message: 'Player not found'
+      }));
+      return;
     }
+
+    // Check if color is already used by another player
+    const colorInUse = gameState.players.some(p => p.id !== playerId && p.color === color);
+    if (colorInUse) {
+      logger.warn(`Color '${color}' already in use in game ${gameId}`);
+      ws.send(JSON.stringify({
+        type: 'ERROR',
+        message: 'Color already in use'
+      }));
+      return;
+    }
+
+    player.color = color;
+    broadcastToGame(gameId, gameState);
+    logger.info(`Player ${playerId} color changed to '${color}' in game ${gameId}`);
   } catch (error) {
     logger.error('Failed to change player color:', error);
   }
@@ -82,11 +108,29 @@ export function handleUpdatePlayerScore(ws, data) {
     }
 
     const player = gameState.players.find(p => p.id === playerId);
-    if (player) {
-      player.score = score;
-      broadcastToGame(gameId, gameState);
-      logger.info(`Player ${playerId} score updated to ${score} in game ${gameId}`);
+    if (!player) {
+      logger.warn(`Player ${playerId} not found in game ${gameId}`);
+      ws.send(JSON.stringify({
+        type: 'ERROR',
+        message: 'Player not found'
+      }));
+      return;
     }
+
+    // Validate score is a finite number and non-negative
+    const numericScore = Number(score);
+    if (!Number.isFinite(numericScore) || numericScore < 0) {
+      logger.warn(`Invalid score value ${score} for player ${playerId} in game ${gameId}`);
+      ws.send(JSON.stringify({
+        type: 'ERROR',
+        message: 'Invalid score value'
+      }));
+      return;
+    }
+
+    player.score = numericScore;
+    broadcastToGame(gameId, gameState);
+    logger.info(`Player ${playerId} score updated to ${numericScore} in game ${gameId}`);
   } catch (error) {
     logger.error('Failed to update player score:', error);
   }
@@ -118,12 +162,28 @@ export function handleChangePlayerDeck(ws, data) {
     }
 
     const player = gameState.players.find(p => p.id === playerId);
-    if (player) {
-      player.selectedDeck = deckType;
-      // Note: deck rebuilding happens on the client side
-      broadcastToGame(gameId, gameState);
-      logger.info(`Player ${playerId} deck changed to '${deckType}' in game ${gameId}`);
+    if (!player) {
+      logger.warn(`Player ${playerId} not found in game ${gameId}`);
+      ws.send(JSON.stringify({
+        type: 'ERROR',
+        message: 'Player not found'
+      }));
+      return;
     }
+
+    // Validate deckType against available decks
+    if (!deckType || typeof deckType !== 'string') {
+      logger.warn(`Invalid deckType '${deckType}' for player ${playerId} in game ${gameId}`);
+      ws.send(JSON.stringify({
+        type: 'ERROR',
+        message: 'Invalid deck type'
+      }));
+      return;
+    }
+
+    player.selectedDeck = deckType;
+    broadcastToGame(gameId, gameState);
+    logger.info(`Player ${playerId} deck changed to '${deckType}' in game ${gameId}`);
   } catch (error) {
     logger.error('Failed to change player deck:', error);
   }
@@ -135,7 +195,7 @@ export function handleChangePlayerDeck(ws, data) {
  */
 export function handleLoadCustomDeck(ws, data) {
   try {
-    const { gameId, playerId, customDeck } = data;
+    const { gameId, playerId } = data;
     const gameState = getGameState(gameId);
 
     if (!gameState) {
@@ -196,9 +256,19 @@ export function handleSetDummyPlayerCount(ws, data) {
       return;
     }
 
-    // This is handled primarily on the client side
-    // The server just logs and broadcasts
-    logger.info(`Dummy player count set to ${count} for game ${gameId}`);
+    // Validate and sanitize count
+    const numericCount = Number(count);
+    if (!Number.isFinite(numericCount) || numericCount < 0 || numericCount > 3) {
+      logger.warn(`Invalid dummy player count ${count} for game ${gameId}`);
+      ws.send(JSON.stringify({
+        type: 'ERROR',
+        message: 'Invalid dummy player count (must be 0-3)'
+      }));
+      return;
+    }
+
+    gameState.dummyPlayerCount = numericCount;
+    logger.info(`Dummy player count set to ${numericCount} for game ${gameId}`);
     broadcastToGame(gameId, gameState);
   } catch (error) {
     logger.error('Failed to set dummy player count:', error);
@@ -227,6 +297,11 @@ export function handleLogGameAction(ws, data) {
       timestamp: Date.now(),
       action
     });
+
+    // Keep only last 1000 log entries to prevent unbounded memory growth
+    if (gameState.gameLog.length > 1000) {
+      gameState.gameLog = gameState.gameLog.slice(-1000);
+    }
 
     broadcastToGame(gameId, gameState);
   } catch (error) {

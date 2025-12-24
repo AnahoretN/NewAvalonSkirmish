@@ -1,4 +1,4 @@
-import React, { memo, useRef, useState, useEffect, useCallback } from 'react'
+import React, { memo, useRef, useState, useEffect } from 'react'
 import { DeckType as DeckTypeEnum } from '@/types'
 import type { Player, PlayerColor, Card as CardType, DragItem, DropTarget, CustomDeckFile, ContextMenuParams } from '@/types'
 import { PLAYER_COLORS, PLAYER_POSITIONS } from '@/constants'
@@ -6,6 +6,7 @@ import { getSelectableDecks } from '@/content'
 import { Card as CardComponent } from './Card'
 import { CardTooltipContent } from './Tooltip'
 import { useLanguage } from '@/contexts/LanguageContext'
+import { validateDeckData } from '@/utils/deckValidation'
 
 interface PlayerPanelProps {
   player: Player;
@@ -203,7 +204,6 @@ const PlayerPanel: React.FC<PlayerPanelProps> = memo(({
   const { t } = useLanguage()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const canEditSettings = !isGameStarted && (isLocalPlayer || isSpectator)
   const canPerformActions = isLocalPlayer || player.isDummy
 
   const isActiveTurn = activeTurnPlayerId === player.id
@@ -233,9 +233,17 @@ const PlayerPanel: React.FC<PlayerPanelProps> = memo(({
     reader.onload = (event) => {
       try {
         const deckData = JSON.parse(event.target?.result as string)
-        onLoadCustomDeck(deckData)
+        const validation = validateDeckData(deckData)
+
+        if (!validation.isValid) {
+          console.error('Failed to load deck:', validation.error)
+          return
+        }
+
+        const { deckFile } = validation
+        onLoadCustomDeck(deckFile)
       } catch (err) {
-        console.error('Failed to load deck', err)
+        console.error('Failed to parse deck file', err)
       }
     }
     reader.readAsText(file)

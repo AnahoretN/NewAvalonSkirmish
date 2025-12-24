@@ -5,14 +5,16 @@ import React from 'react'
 import type { GameState, Player } from '@/types'
 import { PLAYER_COLORS } from '@/constants'
 
+// Maximum number of rounds in a match
+const MAX_ROUNDS = 5
+
 interface RoundEndModalProps {
     gameState: GameState;
     onConfirm: () => void;
-    localPlayerId: number | null;
     onExit: () => void;
 }
 
-export const RoundEndModal: React.FC<RoundEndModalProps> = ({ gameState, onConfirm, localPlayerId, onExit }) => {
+export const RoundEndModal: React.FC<RoundEndModalProps> = ({ gameState, onConfirm, onExit }) => {
   if (!gameState.isRoundEndModalOpen) {
     return null
   }
@@ -112,8 +114,8 @@ export const RoundEndModal: React.FC<RoundEndModalProps> = ({ gameState, onConfi
                 <span className="font-bold text-yellow-400">{nextTarget} Points</span>
               </div>
               <div className="text-xs text-gray-500 italic mt-2 text-center">
-                                * Win 2 rounds to win the match. <br/>
-                {nextRound === 5 ? 'Final Round! Max 10 Turns.' : 'Max 5 Rounds.'}
+                * Win 2 rounds to win the match. <br/>
+                {nextRound === MAX_ROUNDS ? 'Final Round! Max 10 Turns.' : `Max ${MAX_ROUNDS} Rounds.`}
               </div>
             </>
           ) : (
@@ -132,13 +134,13 @@ export const RoundEndModal: React.FC<RoundEndModalProps> = ({ gameState, onConfi
                 onClick={onExit}
                 className="flex-1 bg-red-900 hover:bg-red-800 text-white font-bold py-2 px-4 rounded border border-red-700 text-sm transition-colors"
               >
-                                Return to Menu
+                Return to Menu
               </button>
               <button
                 onClick={onConfirm}
                 className="flex-1 bg-green-800 hover:bg-green-700 text-white font-bold py-2 px-4 rounded border border-green-600 text-sm transition-colors"
               >
-                                Continue Game
+                Continue Game
               </button>
             </>
           ) : (
@@ -146,7 +148,7 @@ export const RoundEndModal: React.FC<RoundEndModalProps> = ({ gameState, onConfi
               onClick={onConfirm}
               className="bg-green-800 hover:bg-green-700 text-white font-bold py-2 px-6 rounded border border-green-600 text-sm transition-colors w-full"
             >
-                            Start Round {nextRound}
+              Start Round {nextRound}
             </button>
           )}
         </div>

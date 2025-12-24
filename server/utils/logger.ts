@@ -9,7 +9,17 @@ class Logger {
   public logFile: string;
 
   constructor() {
-    this.logFile = path.join(process.cwd(), 'logs', 'server.log');
+    const logDir = path.join(process.cwd(), 'logs');
+    this.logFile = path.join(logDir, 'server.log');
+
+    // Create logs directory if it doesn't exist
+    if (!fs.existsSync(logDir)) {
+      try {
+        fs.mkdirSync(logDir, { recursive: true });
+      } catch (error) {
+        console.error('Failed to create logs directory:', error);
+      }
+    }
   }
 
   info(message: string): void {

@@ -40,10 +40,11 @@ router.get('/detailed', (req, res) => {
       version: process.env.npm_package_version || '1.0.0'
     });
   } catch (error) {
-    logger.error('Health check failed:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('Health check failed:', error instanceof Error ? error : null);
     res.status(500).json({
       status: 'unhealthy',
-      error: error.message
+      error: errorMessage
     });
   }
 });
@@ -52,21 +53,31 @@ router.get('/detailed', (req, res) => {
  * Readiness check (for container orchestration)
  */
 router.get('/ready', (req, res) => {
-  // Check if critical services are ready
-  const gameStats = getGameStats();
+  try {
+    // Check if critical services are ready
+    const gameStats = getGameStats();
 
-  if (gameStats.activeGames > 1000) { // Example threshold
+    if (gameStats.activeGames > 1000) { // Example threshold
+      res.status(503).json({
+        status: 'not ready',
+        reason: 'Too many active games'
+      });
+      return;
+    }
+
+    res.json({
+      status: 'ready',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('Readiness check failed:', error instanceof Error ? error : null);
     res.status(503).json({
       status: 'not ready',
-      reason: 'Too many active games'
+      reason: 'Error retrieving game stats',
+      error: errorMessage
     });
-    return;
   }
-
-  res.json({
-    status: 'ready',
-    timestamp: new Date().toISOString()
-  });
 });
 
 export { router as healthRoutes };

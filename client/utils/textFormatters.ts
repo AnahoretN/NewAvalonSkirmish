@@ -12,11 +12,11 @@ import React from 'react'
  */
 const formatLine = (line: string): (React.ReactNode | string | null)[] => {
   const keywords = {
-    // All keywords are now bold for emphasis, and matching is case-insensitive.
-    bold: ['Deploy', 'Setup', 'Commit', 'Support', 'support', 'Pas'],
-    italic: ['Threat', 'threat', 'threaten',
-      'Aim', 'aim', 'Exploit', 'exploit', 'exploits', 'Stun', 'Shield',
-      'Gain', 'gain', 'points', 'point', 'Points', 'Point', 'Reveal', 'reveal', 'Move', 'move', 'Draw', 'draw', 'Push', 'push', 'Sacrifice', 'sacrifice', 'Discard', 'discard'],
+    // Keywords are formatted: one group bold, another group italic, matching is case-insensitive.
+    // All lowercase since matching is case-insensitive
+    bold: ['deploy', 'setup', 'commit', 'support', 'pas'],
+    italic: ['threat', 'aim', 'exploit', 'stun', 'shield',
+      'gain', 'point', 'points', 'reveal', 'move', 'draw', 'push', 'sacrifice', 'discard'],
   }
 
   // Prepare lowercase versions for case-insensitive matching.

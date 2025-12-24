@@ -41,7 +41,7 @@
   },
   "include": [
     "client/**/*",
-    "shared/**/*"
+    "server/types/**/*"
   ],
   "exclude": [
     "node_modules",

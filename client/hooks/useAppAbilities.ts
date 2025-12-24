@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useCallback, useEffect } from 'react'
 import type { Card, GameState, AbilityAction, CommandContext, DragItem, Player, CounterSelectionData, CursorStackState } from '@/types'
 import { getCardAbilityAction, canActivateAbility } from '@/utils/autoAbilities'
 import { checkActionHasTargets } from '@/utils/targeting'
@@ -160,7 +160,11 @@ export const useAppAbilities = ({
           }
 
           if (amount > 0) {
-            const playerId = action.sourceCard.ownerId!
+            const playerId = action.sourceCard.ownerId
+            if (playerId === undefined) {
+              console.error('Cannot apply reward: sourceCard has no ownerId')
+              return
+            }
             const rewardType = action.payload.contextReward
             if (rewardType === 'DRAW_MOVED_POWER' || rewardType === 'DRAW_EQUAL_POWER') {
               for (let i = 0; i < amount; i++) {
@@ -172,7 +176,12 @@ export const useAppAbilities = ({
           }
 
           if (action.payload.contextReward === 'STUN_MOVED_UNIT' && coords) {
-            addBoardCardStatus(coords, 'Stun', action.sourceCard.ownerId!)
+            const playerId = action.sourceCard.ownerId
+            if (playerId !== undefined) {
+              addBoardCardStatus(coords, 'Stun', playerId)
+            } else {
+              console.error('Cannot apply stun: sourceCard has no ownerId')
+            }
           }
           return
         }
@@ -428,7 +437,7 @@ export const useAppAbilities = ({
         }
       }
     }
-  }, [gameState, localPlayerId, commandContext, markAbilityUsed, setAbilityMode, setCursorStack, triggerNoTarget, applyGlobalEffect, setViewingDiscard, addBoardCardStatus, updatePlayerScore, drawCard, removeBoardCardStatus, removeStatusByType])
+  }, [gameState, localPlayerId, commandContext, markAbilityUsed, setAbilityMode, setCursorStack, triggerNoTarget, applyGlobalEffect, setViewingDiscard, addBoardCardStatus, updatePlayerScore, drawCard, removeStatusByType])
 
   // Auto-Execute GLOBAL_AUTO_APPLY actions when they appear in abilityMode
   useEffect(() => {
@@ -586,7 +595,7 @@ export const useAppAbilities = ({
         setTimeout(() => setAbilityMode(null), 100)
       }
     }
-  }, [abilityMode, gameState, localPlayerId, scoreLine, nextPhase, setAbilityMode, modifyBoardCardPower, markAbilityUsed, moveItem, scoreDiagonal, updatePlayerScore])
+  }, [abilityMode, gameState, localPlayerId, scoreLine, nextPhase, setAbilityMode, modifyBoardCardPower, markAbilityUsed, scoreDiagonal, updatePlayerScore])
 
   const handleBoardCardClick = useCallback((card: Card, boardCoords: { row: number, col: number }) => {
     if (setPlayMode && cursorStack) {
@@ -997,7 +1006,7 @@ export const useAppAbilities = ({
     if (!abilityMode && !cursorStack) {
       activateAbility(card, boardCoords)
     }
-  }, [abilityMode, cursorStack, gameState, localPlayerId, interactionLock, handleLineSelection, moveItem, markAbilityUsed, setAbilityMode, setCursorStack, removeBoardCardStatus, removeBoardCardStatusByOwner, addBoardCardStatus, modifyBoardCardPower, swapCards, transferStatus, transferAllCounters, updatePlayerScore, drawCard, activateAbility, setCounterSelectionData, resetDeployStatus, removeStatusByType, handleActionExecution, setCommandContext, commandContext])
+  }, [abilityMode, cursorStack, gameState, localPlayerId, interactionLock, handleLineSelection, moveItem, markAbilityUsed, setAbilityMode, setCursorStack, setPlayMode, removeBoardCardStatus, removeBoardCardStatusByOwner, addBoardCardStatus, modifyBoardCardPower, swapCards, transferStatus, transferAllCounters, updatePlayerScore, drawCard, activateAbility, setCounterSelectionData, resetDeployStatus, removeStatusByType, handleActionExecution, setCommandContext])
 
   const handleEmptyCellClick = useCallback((boardCoords: { row: number, col: number }) => {
     if (interactionLock.current) {
@@ -1213,7 +1222,7 @@ export const useAppAbilities = ({
       setTimeout(() => setAbilityMode(null), 100)
       return
     }
-  }, [interactionLock, abilityMode, gameState, localPlayerId, handleLineSelection, moveItem, markAbilityUsed, setAbilityMode, spawnToken, setCommandContext, resurrectDiscardedCard, updatePlayerScore, addBoardCardStatus, setCursorStack, drawCard, commandContext, handleActionExecution])
+  }, [interactionLock, abilityMode, gameState, localPlayerId, handleLineSelection, moveItem, markAbilityUsed, setAbilityMode, spawnToken, setCommandContext, resurrectDiscardedCard, updatePlayerScore, commandContext, handleActionExecution])
 
   const handleHandCardClick = useCallback((player: Player, card: Card, cardIndex: number) => {
     if (interactionLock.current) {

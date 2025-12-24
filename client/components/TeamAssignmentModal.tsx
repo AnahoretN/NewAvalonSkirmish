@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react'
-import { GameMode as GameModeEnum } from '@/types'
+import { GameMode } from '@/types'
 import type { Player } from '@/types'
 import { PLAYER_COLORS } from '@/constants'
 import { useLanguage } from '@/contexts/LanguageContext'
@@ -58,10 +58,10 @@ export const TeamAssignmentModal: React.FC<TeamAssignmentModalProps> = ({ player
   const [dragOverTarget, setDragOverTarget] = useState<number | 'unassigned' | null>(null)
 
   const { team1Capacity, team2Capacity } = useMemo(() => {
-    if (gameMode === GameModeEnum.TwoVTwo) {
+    if (gameMode === GameMode.TwoVTwo) {
       return { team1Capacity: 2, team2Capacity: 2 }
     }
-    if (gameMode === GameModeEnum.ThreeVOne) {
+    if (gameMode === GameMode.ThreeVOne) {
       return { team1Capacity: 3, team2Capacity: 1 }
     }
     return { team1Capacity: 0, team2Capacity: 0 } // Should not happen

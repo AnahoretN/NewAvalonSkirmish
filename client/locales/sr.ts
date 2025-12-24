@@ -154,6 +154,8 @@ export const sr: TranslationResource = {
     noTarget: 'Nema cilja',
     confirmClearDeck: 'Da li ste sigurni da želite da obrišete trenutni špil?',
     languageDisabled: 'Izbor jezika je trenutno onemogućen.',
+    listModeTitle: 'Režim liste',
+    listModeDescription: 'Optimizovan raspored za desktop.',
   },
   rules: {
     title: 'Pravila igre "New Avalon: Skirmish"',

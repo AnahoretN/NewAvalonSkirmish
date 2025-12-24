@@ -2,7 +2,7 @@
  * @file Renders a modal for a detailed view of a single card.
  */
 import React, { useMemo, useState, useEffect } from 'react'
-import type { Card as CardType, Player, CardStatus } from '@/types'
+import type { Card as CardType, Player } from '@/types'
 import { PLAYER_COLORS, DECK_THEMES } from '@/constants'
 import { formatAbilityText } from '@/utils/textFormatters'
 import { useLanguage } from '@/contexts/LanguageContext'

@@ -99,8 +99,8 @@ const CardCore: React.FC<CardCoreProps & CardInteractionProps> = memo(({
       return
     }
 
-    let shineTimer: number
-    let resetTimer: number
+    let shineTimer: number | undefined
+    let resetTimer: number | undefined
 
     const scheduleShine = () => {
       const delay = 3000 + Math.random() * 500
@@ -118,8 +118,12 @@ const CardCore: React.FC<CardCoreProps & CardInteractionProps> = memo(({
     scheduleShine()
 
     return () => {
-      window.clearTimeout(shineTimer)
-      window.clearTimeout(resetTimer)
+      if (shineTimer !== undefined) {
+        window.clearTimeout(shineTimer)
+      }
+      if (resetTimer !== undefined) {
+        window.clearTimeout(resetTimer)
+      }
     }
   }, [isHero, isFaceUp])
 
@@ -199,12 +203,12 @@ const CardCore: React.FC<CardCoreProps & CardInteractionProps> = memo(({
 
     const iconUrl = useMemo(() => {
       let url = STATUS_ICONS[type]
-      if (url && imageRefreshVersion) {
+      if (url) {
         const separator = url.includes('?') ? '&' : '?'
         url = `${url}${separator}v=${imageRefreshVersion}`
       }
       return url
-    }, [type, imageRefreshVersion])
+    }, [type])
 
     const isSingleInstance = ['Support', 'Threat', 'Revealed', 'LastPlayed'].includes(type)
     const showCount = !isSingleInstance && count > 1
@@ -249,17 +253,7 @@ const CardCore: React.FC<CardCoreProps & CardInteractionProps> = memo(({
     )
   })
 
-  // Special rendering for 'counter' type cards.
-  if (card.deck === 'counter') {
-    return (
-      <div
-        title={displayCard.name}
-        className={`w-full h-full ${card.color} shadow-md`}
-        style={{ clipPath: 'polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)' }}
-      ></div>
-    )
-  }
-
+  // Memoized values (must be called before any conditional returns)
   const ownerColorData = useMemo(() => {
     const ownerColorName = card.ownerId ? playerColorMap.get(card.ownerId) : null
     return (ownerColorName && PLAYER_COLORS[ownerColorName]) ? PLAYER_COLORS[ownerColorName] : null
@@ -291,6 +285,17 @@ const CardCore: React.FC<CardCoreProps & CardInteractionProps> = memo(({
     tooltipVisible && isFaceUp && !disableTooltip && (tooltipPos.x > 0 && tooltipPos.y > 0),
   [tooltipVisible, isFaceUp, disableTooltip, tooltipPos.x, tooltipPos.y],
   )
+
+  // Special rendering for 'counter' type cards.
+  if (card.deck === 'counter') {
+    return (
+      <div
+        title={displayCard.name}
+        className={`w-full h-full ${card.color} shadow-md`}
+        style={{ clipPath: 'polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)' }}
+      ></div>
+    )
+  }
 
   const powerPositionClass = extraPowerSpacing ? 'bottom-[10px] right-[10px]' : 'bottom-[5px] right-[5px]'
 
@@ -501,7 +506,12 @@ const arePropsEqual = (prevProps: CardCoreProps & CardInteractionProps, nextProp
     return false
   }
 
-  // Only check player color map if card has an owner
+  // Check ownerId changes (including to/from undefined)
+  if (prevProps.card.ownerId !== nextProps.card.ownerId) {
+    return false
+  }
+
+  // Check player color map changes if both have owners
   if (prevProps.card.ownerId && nextProps.card.ownerId && prevProps.playerColorMap.get(prevProps.card.ownerId) !== nextProps.playerColorMap.get(nextProps.card.ownerId)) {
     return false
   }

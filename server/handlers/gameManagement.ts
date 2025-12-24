@@ -7,15 +7,23 @@ import { logger } from '../utils/logger.js';
 import {
   getGameState,
   createGameState,
-  removePlayerFromGame,
   associateClientWithGame,
   removeClientAssociation,
   getGameIdForClient,
-  getAllGameStates
+  getAllGameLogs,
+  updateGameState,
+  logGameAction
 } from '../services/gameState.js';
 import { broadcastToGame } from '../services/websocket.js';
-import { createNewPlayer, generatePlayerToken, createDeck } from '../utils/deckUtils.js';
-import { handlePlayerLeave, cancelGameTermination } from '../services/gameLifecycle.js';
+import { createNewPlayer, generatePlayerToken } from '../utils/deckUtils.js';
+import {
+  handlePlayerLeave,
+  cancelGameTermination,
+  endGame,
+  resetInactivityTimer,
+  playerDisconnectTimers,
+  broadcastGamesList
+} from '../services/gameLifecycle.js';
 
 const MAX_PLAYERS = 4;
 
@@ -128,13 +136,13 @@ export function handleJoinGame(ws, data) {
         ws.playerId = playerToReconnect.id;
 
         // Cancel any game termination timer
-        cancelGameTermination(gameId, new Map());
+        cancelGameTermination(gameId, getAllGameLogs());
 
         // Clear pending dummy conversion timer
         const timerKey = `${gameId}-${playerToReconnect.id}`;
-        if (require('../services/gameLifecycle.js').playerDisconnectTimers.has(timerKey)) {
-          clearTimeout(require('../services/gameLifecycle.js').playerDisconnectTimers.get(timerKey));
-          require('../services/gameLifecycle.js').playerDisconnectTimers.delete(timerKey);
+        if (playerDisconnectTimers.has(timerKey)) {
+          clearTimeout(playerDisconnectTimers.get(timerKey));
+          playerDisconnectTimers.delete(timerKey);
         }
 
         ws.send(JSON.stringify({
@@ -156,13 +164,13 @@ export function handleJoinGame(ws, data) {
       playerToTakeOver.playerToken = generatePlayerToken();
 
       // Cancel any game termination timer
-      cancelGameTermination(gameId, new Map());
+      cancelGameTermination(gameId, getAllGameLogs());
 
       // Clear pending dummy conversion timer for the slot being taken over
       const timerKey = `${gameId}-${playerToTakeOver.id}`;
-      if (require('../services/gameLifecycle.js').playerDisconnectTimers.has(timerKey)) {
-        clearTimeout(require('../services/gameLifecycle.js').playerDisconnectTimers.get(timerKey));
-        require('../services/gameLifecycle.js').playerDisconnectTimers.delete(timerKey);
+      if (playerDisconnectTimers.has(timerKey)) {
+        clearTimeout(playerDisconnectTimers.get(timerKey));
+        playerDisconnectTimers.delete(timerKey);
       }
 
       ws.playerId = playerToTakeOver.id;
@@ -221,7 +229,7 @@ export function handleJoinGame(ws, data) {
  * Handle EXIT_GAME message
  * Removes a player from the game
  */
-export function handleExitGame(ws, data) {
+export async function handleExitGame(ws, data) {
   try {
     const gameId = getGameIdForClient(ws);
     if (!gameId) {
@@ -244,24 +252,20 @@ export function handleExitGame(ws, data) {
 
     if (isLeavingPlayerActive && activePlayers.length === 1) {
       // This was the last active human player - end the game immediately
-      const { endGame } = require('../services/gameLifecycle.js');
-      const { getGameLogs } = require('../services/gameState.js');
-      const gameLogs = getGameLogs();
-      endGame(gameId, 'last player left', gameLogs, ws.server?.clients?.wss);
+      const gameLogs = getAllGameLogs();
+      await endGame(gameId, 'last player left', gameLogs, ws.server?.clients?.wss);
       logger.info(`Player ${playerId} exited - was last active player, ending game ${gameId}`);
     } else {
       // Other active players remain, mark as disconnected
       // Pass TRUE for manual exit to prevent dummy conversion timer
-      const { handlePlayerLeave } = require('../services/gameLifecycle.js');
-      const { broadcastGamesListFn } = require('../services/websocket.js');
       handlePlayerLeave(
         gameId,
         playerId,
         true, // isManualExit - prevents dummy conversion timer
-        require('../services/gameState.js').getGameLogs(),
+        getAllGameLogs(),
         ws.server?.clients?.wss,
         broadcastToGame,
-        broadcastGamesListFn || (() => {})
+        () => broadcastGamesList(getAllGameLogs(), ws.server?.clients?.wss)
       );
       logger.info(`Player ${playerId} manually exited game ${gameId}`);
     }
@@ -300,11 +304,9 @@ export function handleForceSync(ws, data) {
     }
 
     // Reset inactivity timer
-    const { resetInactivityTimer } = require('../services/gameLifecycle.js');
-    resetInactivityTimer(gameIdToSync, require('../services/gameState.js').getGameLogs(), ws.server?.clients?.wss);
+    resetInactivityTimer(gameIdToSync, getAllGameLogs(), ws.server?.clients?.wss);
 
     // Update game state
-    const { updateGameState, logGameAction } = require('../services/gameState.js');
     updateGameState(gameIdToSync, hostGameState);
     logGameAction(gameIdToSync, `Host (Player 1) forced a game state synchronization.`);
 

@@ -76,8 +76,8 @@ export default [
       // React rules (relaxed)
       'react/prop-types': 'off',
       'react/react-in-jsx-scope': 'off',
-      'react-hooks/rules-of-hooks': 'off',
-      'react-hooks/exhaustive-deps': 'off',
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
       'react-refresh/only-export-components': [
         'warn',
         { allowConstantExport: true },

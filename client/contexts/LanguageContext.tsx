@@ -1,9 +1,8 @@
 
 import React, { createContext, useState, useContext, useEffect } from 'react'
 import type { ReactNode } from 'react'
-import { resources, LANGUAGE_NAMES } from '@/locales'
+import { resources } from '@/locales'
 import type { LanguageCode, TranslationResource, CardTranslation } from '@/locales/types'
-import { Card } from '@/types'
 
 interface LanguageContextType {
   language: LanguageCode;
@@ -72,6 +71,7 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
   )
 }
 
+/* eslint-disable react-refresh/only-export-components */
 export const useLanguage = () => {
   const context = useContext(LanguageContext)
   if (!context) {

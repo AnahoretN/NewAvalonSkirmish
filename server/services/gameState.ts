@@ -5,20 +5,70 @@
 import { logger } from '../utils/logger.js';
 import { CONFIG } from '../utils/config.js';
 import { validateGameStateSize } from '../utils/security.js';
+import type { WebSocket } from 'ws';
+
+// Type definitions
+interface Player {
+  id: number;
+  name: string;
+  deck?: any[];
+  discard?: any[];
+  announcedCard?: any;
+  isDummy?: boolean;
+  isConnected?: boolean;
+  score?: number;
+  color?: string;
+  [key: string]: any;
+}
+
+interface Board {
+  row: number;
+  col: number;
+  card: any | null;
+}
+
+interface GridSize {
+  rows: number;
+  cols: number;
+}
+
+interface GameState {
+  id: string;
+  players: Player[];
+  board: Board[][];
+  isGameStarted: boolean;
+  activeTurnPlayerId: number | null;
+  currentPhase: number;
+  turnNumber: number;
+  currentRound: number;
+  isPrivate: boolean;
+  gameMode: string;
+  activeGridSize: GridSize;
+  isReadyCheckActive: boolean;
+  created: number;
+  lastActivity: number;
+  [key: string]: any;
+}
+
+interface GameOptions {
+  isPrivate?: boolean;
+  gameMode?: string;
+  [key: string]: any;
+}
 
 // In-memory storage for game states
-const gameStates = new Map(); // gameId -> gameState
-const clientGameMap = new Map(); // ws_client -> gameId
-const gameLogs = new Map(); // gameId -> string[]
-const gameTerminationTimers = new Map(); // gameId -> NodeJS.Timeout
-const gameInactivityTimers = new Map(); // gameId -> NodeJS.Timeout
-const playerDisconnectTimers = new Map(); // Key: `${gameId}-${playerId}` -> NodeJS.Timeout
+const gameStates = new Map<string, GameState>();
+const clientGameMap = new Map<WebSocket, string>();
+const gameLogs = new Map<string, string[]>();
+const gameTerminationTimers = new Map<string, NodeJS.Timeout>();
+const gameInactivityTimers = new Map<string, NodeJS.Timeout>();
+const playerDisconnectTimers = new Map<string, NodeJS.Timeout>();
 
 /**
  * Create new game state
  */
-export function createGameState(gameId: string, options: any = {}) {
-  const gameState: any = {
+export function createGameState(gameId: string, options: GameOptions = {}): GameState {
+  const gameState: GameState = {
     id: gameId,
     players: [],
     board: Array(8).fill(null).map(() => Array(8).fill(null)),
@@ -46,14 +96,14 @@ export function createGameState(gameId: string, options: any = {}) {
 /**
  * Get game state by ID
  */
-export function getGameState(gameId) {
+export function getGameState(gameId: string): GameState | undefined {
   return gameStates.get(gameId);
 }
 
 /**
  * Update game state
  */
-export function updateGameState(gameId, updates) {
+export function updateGameState(gameId: string, updates: Partial<GameState>): GameState {
   const gameState = gameStates.get(gameId);
   if (!gameState) {
     throw new Error(`Game ${gameId} not found`);
@@ -72,7 +122,7 @@ export function updateGameState(gameId, updates) {
 /**
  * Delete game state
  */
-export function deleteGameState(gameId) {
+export function deleteGameState(gameId: string): void {
   const gameState = gameStates.get(gameId);
   if (gameState) {
     // Clear all timers
@@ -95,7 +145,7 @@ export function deleteGameState(gameId) {
 /**
  * Add player to game
  */
-export function addPlayerToGame(gameId, player) {
+export function addPlayerToGame(gameId: string, player: Player): Player {
   const gameState = gameStates.get(gameId);
   if (!gameState) {
     throw new Error(`Game ${gameId} not found`);
@@ -110,8 +160,9 @@ export function addPlayerToGame(gameId, player) {
     throw new Error('Player name already taken');
   }
 
-  gameState.players.push(player);
-  updateGameState(gameId, { players: gameState.players });
+  // Create new players array instead of mutating
+  const newPlayers = [...gameState.players, player];
+  updateGameState(gameId, { players: newPlayers });
 
   logGameAction(gameId, `Player ${player.name} joined`);
   return player;
@@ -120,7 +171,7 @@ export function addPlayerToGame(gameId, player) {
 /**
  * Remove player from game
  */
-export function removePlayerFromGame(gameId, playerId) {
+export function removePlayerFromGame(gameId: string, playerId: number): Player {
   const gameState = gameStates.get(gameId);
   if (!gameState) {
     throw new Error(`Game ${gameId} not found`);
@@ -131,8 +182,10 @@ export function removePlayerFromGame(gameId, playerId) {
     throw new Error('Player not found in game');
   }
 
-  const [removedPlayer] = gameState.players.splice(playerIndex, 1);
-  updateGameState(gameId, { players: gameState.players });
+  const removedPlayer = gameState.players[playerIndex];
+  // Create new players array instead of mutating
+  const newPlayers = gameState.players.filter(p => p.id !== playerId);
+  updateGameState(gameId, { players: newPlayers });
 
   logGameAction(gameId, `Player ${removedPlayer.name} left`);
   return removedPlayer;
@@ -141,14 +194,14 @@ export function removePlayerFromGame(gameId, playerId) {
 /**
  * Get all game states
  */
-export function getAllGameStates() {
+export function getAllGameStates(): GameState[] {
   return Array.from(gameStates.values());
 }
 
 /**
  * Get public games list
  */
-export function getPublicGames() {
+export function getPublicGames(): Array<{gameId: string, playerCount: number, maxPlayers: number, isGameStarted: boolean, gameMode: string}> {
   return Array.from(gameStates.values())
     .filter(game => !game.isPrivate)
     .map(game => ({
@@ -163,21 +216,21 @@ export function getPublicGames() {
 /**
  * Associate client with game
  */
-export function associateClientWithGame(client, gameId) {
+export function associateClientWithGame(client: WebSocket, gameId: string): void {
   clientGameMap.set(client, gameId);
 }
 
 /**
  * Get game ID for client
  */
-export function getGameIdForClient(client) {
+export function getGameIdForClient(client: WebSocket): string | undefined {
   return clientGameMap.get(client);
 }
 
 /**
  * Remove client association
  */
-export function removeClientAssociation(client) {
+export function removeClientAssociation(client: WebSocket): void {
   clientGameMap.delete(client);
 }
 
@@ -191,7 +244,7 @@ export function getClientGameMap() {
 /**
  * Log game action
  */
-export function logGameAction(gameId, action) {
+export function logGameAction(gameId: string, action: string): void {
   const timestamp = new Date().toISOString();
   const logEntry = `[${timestamp}] ${action}`;
 
@@ -208,18 +261,24 @@ export function logGameAction(gameId, action) {
 /**
  * Get game logs
  */
-export function getGameLogs(gameId) {
+export function getGameLogs(gameId: string): string[] {
   return gameLogs.get(gameId) || [];
+}
+
+/**
+ * Get all game logs (for use by lifecycle functions)
+ */
+export function getAllGameLogs(): Map<string, string[]> {
+  return gameLogs;
 }
 
 /**
  * Clear game timers
  */
-export function clearGameTimers(gameId) {
+export function clearGameTimers(gameId: string): void {
   const timers = [
     gameTerminationTimers.get(gameId),
-    gameInactivityTimers.get(gameId),
-    playerDisconnectTimers.get(`${gameId}-disconnect`)
+    gameInactivityTimers.get(gameId)
   ].filter(Boolean);
 
   timers.forEach(timer => clearTimeout(timer));
@@ -239,7 +298,7 @@ export function clearGameTimers(gameId) {
 /**
  * Get game statistics
  */
-export function getGameStats() {
+export function getGameStats(): {activeGames: number, totalPlayers: number, maxGames: number} {
   const activeGames = gameStates.size;
   const totalPlayers = Array.from(gameStates.values())
     .reduce((sum, game) => sum + game.players.length, 0);

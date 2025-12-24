@@ -7,7 +7,7 @@ import { CardTooltipContent } from './Tooltip'
 import { DeckType } from '@/types'
 import type { Card as CardType, PlayerColor } from '@/types'
 import { useLanguage } from '@/contexts/LanguageContext'
-import { PLAYER_COLORS, STATUS_ICONS } from '@/constants'
+import { STATUS_ICONS } from '@/constants'
 
 interface RulesModalProps {
   isOpen: boolean;
@@ -331,7 +331,7 @@ const GridLinesVisual = () => {
 }
 
 // IV. Setup Visual (Hand - Matches Game Session Appearance)
-const HandVisual = () => {
+const HandVisual = ({ demoImageRefreshVersion }: { demoImageRefreshVersion: number }) => {
   const handCards = [DEMO_CARDS.gawain, DEMO_CARDS.riot, DEMO_CARDS.gawain]
   return (
     <VisualWrapper>
@@ -420,14 +420,14 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
     { id: 'concept', title: r.conceptTitle, text: r.conceptText, visual: <AnatomyVisual /> },
     { id: 'winCondition', title: r.winConditionTitle, text: r.winConditionText, visual: <VisualWrapper><div className="text-center text-yellow-400 font-black text-8xl font-mono bg-gray-900 p-10 rounded-3xl border-8 border-yellow-500 shadow-[0_0_50px_#eab308] scale-[1.2]">30 <div className="text-lg font-bold text-gray-400 font-sans mt-2 uppercase tracking-widest">Points</div></div></VisualWrapper> },
     { id: 'field', title: r.fieldTitle, text: r.fieldText, visual: <GridLinesVisual /> },
-    { id: 'setup', title: r.setupTitle, text: r.setupText, visual: <HandVisual /> },
+    { id: 'setup', title: r.setupTitle, text: r.setupText, visual: <HandVisual demoImageRefreshVersion={demoImageRefreshVersion} /> },
     { id: 'abilities', title: r.abilitiesTitle, text: r.abilitiesText, visual: null },
     { id: 'statuses', title: r.statusesTitle, text: r.statusesText, visual: <StatusMechanicsVisual /> },
     { id: 'counters', title: r.countersTitle, text: r.countersText, visual: <CountersVisual /> },
     { id: 'turn', title: r.turnTitle, text: r.turnText, visual: null },
     { id: 'mechanics', title: r.mechanicsTitle, text: r.mechanicsText, visual: null },
     { id: 'credits', title: r.creditsTitle, text: r.creditsText, visual: null },
-  ], [r])
+  ], [r, demoImageRefreshVersion])
 
   const [activeSectionId, setActiveSectionId] = useState<string>(SECTIONS[0].id)
   const activeSection = useMemo(() => SECTIONS.find(s => s.id === activeSectionId) || SECTIONS[0], [activeSectionId, SECTIONS])

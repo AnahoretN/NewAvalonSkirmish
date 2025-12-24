@@ -1,9 +1,6 @@
-import { useState, useCallback } from 'react'
-import { Player } from '@/types'
+import { useCallback } from 'react'
 import type { Card, GameState, AbilityAction, CommandContext, DragItem, CounterSelectionData, CursorStackState } from '@/types'
 import { getCommandAction } from '@/utils/commandLogic'
-import { commandCardIds } from '@/content'
-import { checkActionHasTargets } from '@/utils/targeting'
 
 interface UseAppCommandProps {
     gameState: GameState;
@@ -16,9 +13,6 @@ interface UseAppCommandProps {
     drawCard: (playerId: number) => void;
     updatePlayerScore: (playerId: number, delta: number) => void;
     removeBoardCardStatus: (coords: any, status: string) => void;
-    setCursorStack: React.Dispatch<React.SetStateAction<CursorStackState | null>>;
-    setAbilityMode: React.Dispatch<React.SetStateAction<AbilityAction | null>>;
-    triggerNoTarget: (coords: { row: number, col: number }) => void;
 }
 
 export const useAppCommand = ({
@@ -32,9 +26,6 @@ export const useAppCommand = ({
   drawCard,
   updatePlayerScore,
   removeBoardCardStatus,
-  setCursorStack,
-  setAbilityMode,
-  triggerNoTarget,
 }: UseAppCommandProps) => {
 
   const playCommandCard = useCallback((card: Card, source: DragItem) => {
@@ -164,25 +155,30 @@ export const useAppCommand = ({
       }
     }
 
-    if (boardCoords) {
-      // 2. Remove Counters
-      let totalRemoved = 0
-      Object.entries(countsToRemove).forEach(([type, count]) => {
-        for (let i = 0; i < count; i++) {
-          removeBoardCardStatus(boardCoords, type)
-          totalRemoved++
-        }
-      })
+    // If card was not found on board, log and cleanup only
+    if (!boardCoords) {
+      console.warn(`Card ${data.card.id} not found on board during counter removal`)
+      setCounterSelectionData(null)
+      return
+    }
 
-      // 3. Apply Reward
-      if (totalRemoved > 0) {
-        if (data.callbackAction === 'DRAW_REMOVED') {
-          for (let i = 0; i < totalRemoved; i++) {
-            drawCard(ownerId)
-          }
-        } else if (data.callbackAction === 'SCORE_REMOVED') {
-          updatePlayerScore(ownerId, totalRemoved)
+    // 2. Remove Counters
+    let totalRemoved = 0
+    Object.entries(countsToRemove).forEach(([type, count]) => {
+      for (let i = 0; i < count; i++) {
+        removeBoardCardStatus(boardCoords, type)
+        totalRemoved++
+      }
+    })
+
+    // 3. Apply Reward
+    if (totalRemoved > 0) {
+      if (data.callbackAction === 'DRAW_REMOVED') {
+        for (let i = 0; i < totalRemoved; i++) {
+          drawCard(ownerId)
         }
+      } else if (data.callbackAction === 'SCORE_REMOVED') {
+        updatePlayerScore(ownerId, totalRemoved)
       }
     }
 

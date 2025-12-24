@@ -156,8 +156,12 @@ export const calculateValidTargets = (
 
     for (let r = 0; r < gridSize; r++) {
       for (let c = 0; c < gridSize; c++) {
+        // Skip cells that are out of visible grid bounds
+        if (!isInBounds(r, c)) {
+          continue
+        }
         const cell = board[r][c]
-        if (cell.card) { // Tokens generally apply to existing cards
+        if (cell.card && cell.card.ownerId !== undefined) { // Tokens generally apply to existing cards
           const isValid = validateTarget(
             { card: cell.card, ownerId: cell.card.ownerId, location: 'board', boardCoords: { row: r, col: c } },
             constraints,

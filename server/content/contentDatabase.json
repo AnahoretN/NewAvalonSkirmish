@@ -55,7 +55,7 @@
       "faction": "SynchroTech",
       "allowedPanels": ["DECK_BUILDER"]
     },
-	"mrPearlDoF": {
+    "mrPearlDoF": {
       "name": "Mr. Pearl, Director of BioSynch",
       "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1764678622/Mr._Pearl_Director_of_BioSynch_mo0cil.png",
       "fallbackImage": "/images/cards/SYN_IP_DEPT_AGENT.png",
@@ -65,7 +65,7 @@
       "types": ["Unit", "Hero", "SynchroTech"],
       "faction": "SynchroTech",
       "allowedPanels": ["DECK_BUILDER"]
-	},
+    },
 
     "recklessProvocateur": {
       "name": "Reckless Provocateur",
@@ -189,7 +189,7 @@
       "faction": "Optimates",
       "allowedPanels": ["DECK_BUILDER"]
     },
-	"luciusTheImmortal": {
+    "luciusTheImmortal": {
       "name": "Lucius, The Immortal",
       "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1764678954/Lucius_The_Immortal_z0lemw.png",
       "fallbackImage": "/images/cards/OPT_PRINCEPS.png",
@@ -255,7 +255,7 @@
       "types": ["Unit", "Fusion"],
       "faction": "Fusion",
       "allowedPanels": ["DECK_BUILDER"]
-	},
+    },
     "reverendOfTheChoir": {
       "name": "Reverend of The Choir",
       "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1764678937/Reverend_of_The_Choir_vts8im.png",
@@ -368,7 +368,7 @@
       "faction": "Command",
       "allowedPanels": ["DECK_BUILDER"]
     },
-	  "mobilization1": {
+    "mobilization1": {
       "name": "Line Breach",
       "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763894862/line_ocsoyj.png",
       "fallbackImage": "/images/cards/CMD_MOBILIZATION.png",
@@ -536,7 +536,7 @@
         "allowedPanels": ["COUNTER_PANEL"],
         "allowedTargets": ["board"]
     },
-	"Shield": {
+    "Shield": {
         "name": "Shield",
         "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763478810/Shield_z9sjr1.png",
         "description": "If an effect attempts to destroy this card, remove 1 shield counter from it instead.",

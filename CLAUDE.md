@@ -40,7 +40,7 @@ Before commit **MANDATORY**:
    - Update CHANGELOG.md with new version
 - **Commit & Push**: `git add . && git commit -m "{{VERSION}} {{CHANGES}}" && git push`
 - **Code Review**: Wait 2-5 mins, read GitHub PR comments from coderabbit
-- **Merge**: If OK, squash merge to master
+- **Merge**: If OK, squash merge to main
 - **Deploy**: Ask user to manual deploy after merge
 
 ## Project Structure
