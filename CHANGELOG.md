@@ -12,10 +12,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed Faber and Lucius discard abilities validation - no longer incorrectly show "no target" when player has cards in hand
 - Fixed target validation for hand-only actions that require discarding (SELECT_HAND_FOR_DISCARD_THEN_SPAWN, LUCIUS_SETUP, SELECT_HAND_FOR_DEPLOY)
 - Fixed Zius ability - now correctly targets only cells in the same row or column as the Exploit target card
+- Fixed floating score numbers not displaying - added immediate local state update in triggerFloatingText
+- Fixed visual effect broadcasting to prevent duplicates by excluding sender from broadcast
 
 ### Changed
 - **Zius ability rework**: Now works like Unwavering Integrator - single-click line selection through the Exploit target card
 - Updated Zius ability description in all languages to reflect simplified mechanic
+- Auto-phase transition now applies to both Units and Command cards when played from hand during Setup phase
+- Floating score numbers display duration set to 2 seconds
   - English: "Deploy: Exploit any card.\nSupport ⇒ Setup: Exploit any card. Gain 1 point for each of your exploits in that line."
   - Russian: "Deploy: Exploit на любую карту.\nSupport ⇒ Setup: Exploit на любую карту. Получите 1 очко за каждый ваш Exploit в этой линии."
   - Serbian: "Deploy: Exploit na bilo koju kartu.\nSupport ⇒ Setup: Exploit na bilo koju kartu. Dobij 1 bod za svaki tvoj Exploit u ovoj liniji."

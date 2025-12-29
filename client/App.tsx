@@ -840,7 +840,7 @@ const App = memo(function App() {
 
       const timer = setTimeout(() => {
         setActiveFloatingTexts(prev => prev.filter(item => !newTexts.find(nt => nt.id === item.id)))
-      }, 1500)
+      }, 2000)
 
       return () => clearTimeout(timer)
     }

@@ -1298,7 +1298,7 @@ export const useGameState = () => {
         }
       }
 
-      // Auto-phase transition: Setup -> Main when playing a unit from hand
+      // Auto-phase transition: Setup -> Main when playing a unit or command card from hand
       // Only if auto-abilities is enabled (check localStorage for client-side setting)
       let autoAbilitiesEnabled = false
       try {
@@ -1312,7 +1312,7 @@ export const useGameState = () => {
         currentState.currentPhase === 0 && // Setup phase
         item.source === 'hand' &&
         target.target === 'board' &&
-        item.card.types?.includes('Unit')
+        (item.card.types?.includes('Unit') || item.card.types?.includes('Command'))
 
       const newState: GameState = JSON.parse(JSON.stringify(currentState))
 
@@ -1639,7 +1639,7 @@ export const useGameState = () => {
         newState.board = recalculateBoardStatuses(newState)
       }
 
-      // Apply auto-phase transition: Setup -> Main when playing a unit from hand
+      // Apply auto-phase transition: Setup -> Main when playing a unit or command card from hand
       if (shouldAutoTransitionToMain) {
         newState.currentPhase = 1 // Main phase
       }
@@ -1741,17 +1741,27 @@ export const useGameState = () => {
   }, [updateState])
 
   const triggerHighlight = useCallback((highlightData: Omit<HighlightData, 'timestamp'>) => {
+    const fullHighlightData: HighlightData = { ...highlightData, timestamp: Date.now() }
+
+    // Immediately update local state so the acting player sees the effect without waiting for round-trip
+    setLatestHighlight(fullHighlightData)
+
+    // Also broadcast to other players via WebSocket
     if (ws.current?.readyState === WebSocket.OPEN && gameStateRef.current.gameId) {
-      const fullHighlightData: HighlightData = { ...highlightData, timestamp: Date.now() }
       ws.current.send(JSON.stringify({ type: 'TRIGGER_HIGHLIGHT', gameId: gameStateRef.current.gameId, highlightData: fullHighlightData }))
     }
   }, [])
 
   const triggerFloatingText = useCallback((data: Omit<FloatingTextData, 'timestamp'> | Omit<FloatingTextData, 'timestamp'>[]) => {
+    const items = Array.isArray(data) ? data : [data]
+    const timestamp = Date.now()
+    const batch = items.map((item, i) => ({ ...item, timestamp: timestamp + i }))
+
+    // Immediately update local state so the acting player sees the effect without waiting for round-trip
+    setLatestFloatingTexts(batch)
+
+    // Also broadcast to other players via WebSocket
     if (ws.current?.readyState === WebSocket.OPEN && gameStateRef.current.gameId) {
-      const items = Array.isArray(data) ? data : [data]
-      const timestamp = Date.now()
-      const batch = items.map((item, i) => ({ ...item, timestamp: timestamp + i }))
       ws.current.send(JSON.stringify({
         type: 'TRIGGER_FLOATING_TEXT_BATCH',
         gameId: gameStateRef.current.gameId,

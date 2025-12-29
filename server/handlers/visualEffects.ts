@@ -57,7 +57,7 @@ export function handleTriggerHighlight(ws: ExtendedWebSocket, data: any) {
       return;
     }
 
-    // Broadcast the highlight event to all clients in the game
+    // Broadcast the highlight event to all OTHER clients in the game (exclude sender)
     const highlightMessage = JSON.stringify({
       type: 'HIGHLIGHT_TRIGGERED',
       highlightData
@@ -67,7 +67,8 @@ export function handleTriggerHighlight(ws: ExtendedWebSocket, data: any) {
     const wss = ws.server;
     if (wss && wss.clients) {
       wss.clients.forEach((client: ExtendedWebSocket) => {
-        if (client.readyState === 1 && wss.clientGameMap && wss.clientGameMap.get(client) === gameId) {
+        // Send to all clients in the game EXCEPT the sender (who already shows the effect locally)
+        if (client !== ws && client.readyState === 1 && wss.clientGameMap && wss.clientGameMap.get(client) === gameId) {
           try {
             client.send(highlightMessage);
           } catch (err: any) {
@@ -126,7 +127,7 @@ export function handleTriggerNoTarget(ws: ExtendedWebSocket, data: any) {
       return;
     }
 
-    // Broadcast the no-target event to all clients in the game
+    // Broadcast the no-target event to all OTHER clients in the game (exclude sender)
     const message = JSON.stringify({
       type: 'NO_TARGET_TRIGGERED',
       coords,
@@ -137,7 +138,8 @@ export function handleTriggerNoTarget(ws: ExtendedWebSocket, data: any) {
     const wss = ws.server;
     if (wss && wss.clients) {
       wss.clients.forEach((client: ExtendedWebSocket) => {
-        if (client.readyState === 1 && wss.clientGameMap && wss.clientGameMap.get(client) === gameId) {
+        // Send to all clients in the game EXCEPT the sender (who already shows the effect locally)
+        if (client !== ws && client.readyState === 1 && wss.clientGameMap && wss.clientGameMap.get(client) === gameId) {
           try {
             client.send(message);
           } catch (err: any) {
@@ -196,7 +198,7 @@ export function handleTriggerFloatingText(ws: ExtendedWebSocket, data: any) {
       return;
     }
 
-    // Broadcast the floating text event to all clients in the game
+    // Broadcast the floating text event to all OTHER clients in the game (exclude sender)
     const message = JSON.stringify({
       type: 'FLOATING_TEXT_TRIGGERED',
       floatingTextData
@@ -205,7 +207,8 @@ export function handleTriggerFloatingText(ws: ExtendedWebSocket, data: any) {
     const wss = ws.server;
     if (wss && wss.clients) {
       wss.clients.forEach((client: ExtendedWebSocket) => {
-        if (client.readyState === 1 && wss.clientGameMap && wss.clientGameMap.get(client) === gameId) {
+        // Send to all clients in the game EXCEPT the sender (who already shows the effect locally)
+        if (client !== ws && client.readyState === 1 && wss.clientGameMap && wss.clientGameMap.get(client) === gameId) {
           try {
             client.send(message);
           } catch (err: any) {
@@ -264,7 +267,7 @@ export function handleTriggerFloatingTextBatch(ws: ExtendedWebSocket, data: any)
       return;
     }
 
-    // Broadcast the floating text batch event to all clients in the game
+    // Broadcast the floating text batch event to all OTHER clients in the game (exclude sender)
     const message = JSON.stringify({
       type: 'FLOATING_TEXT_BATCH_TRIGGERED',
       batch
@@ -273,7 +276,8 @@ export function handleTriggerFloatingTextBatch(ws: ExtendedWebSocket, data: any)
     const wss = ws.server;
     if (wss && wss.clients) {
       wss.clients.forEach((client: ExtendedWebSocket) => {
-        if (client.readyState === 1 && wss.clientGameMap && wss.clientGameMap.get(client) === gameId) {
+        // Send to all clients in the game EXCEPT the sender (who already shows the effect locally)
+        if (client !== ws && client.readyState === 1 && wss.clientGameMap && wss.clientGameMap.get(client) === gameId) {
           try {
             client.send(message);
           } catch (err: any) {
