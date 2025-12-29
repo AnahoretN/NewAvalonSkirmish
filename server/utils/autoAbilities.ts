@@ -1059,19 +1059,30 @@ export const getCardAbilityAction = (
   coords: { row: number, col: number },
 ): AbilityAction | null => {
   if (localPlayerId !== card.ownerId) {
-    return null
+    // Check if the card belongs to a dummy player - if so, local player can control it
+    if (card.ownerId !== undefined) {
+      const cardOwner = gameState.players.find(p => p.id === card.ownerId)
+      if (!cardOwner?.isDummy) {
+        return null
+      }
+    } else {
+      return null
+    }
   }
 
   const abilities = getAbilitiesForCard(card)
+
+  // Use card owner for ability actions (dummy's cards use dummy as actor)
+  const actorId = card.ownerId ?? localPlayerId ?? 0
 
   // Priority 1: Deploy (if ready)
   if (hasReadyStatus(card, READY_STATUS_DEPLOY)) {
     const deployAbility = abilities.find(a => a.activationType === 'deploy')
     if (deployAbility) {
-      if (deployAbility.supportRequired && !hasStatus(card, 'Support', localPlayerId)) {
+      if (deployAbility.supportRequired && !hasStatus(card, 'Support', actorId)) {
         return null
       }
-      const action = deployAbility.getAction(card, gameState, localPlayerId, coords)
+      const action = deployAbility.getAction(card, gameState, actorId, coords)
       if (action) {
         return { ...action, isDeployAbility: true, readyStatusToRemove: READY_STATUS_DEPLOY }
       }
@@ -1097,10 +1108,10 @@ export const getCardAbilityAction = (
   if (readyStatusType && phaseAbilityType && hasReadyStatus(card, readyStatusType)) {
     const phaseAbility = abilities.find(a => a.activationType === phaseAbilityType)
     if (phaseAbility) {
-      if (phaseAbility.supportRequired && !hasStatus(card, 'Support', localPlayerId)) {
+      if (phaseAbility.supportRequired && !hasStatus(card, 'Support', actorId)) {
         return null
       }
-      const action = phaseAbility.getAction(card, gameState, localPlayerId, coords)
+      const action = phaseAbility.getAction(card, gameState, actorId, coords)
       if (action) {
         return { ...action, readyStatusToRemove: readyStatusType }
       }

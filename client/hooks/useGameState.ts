@@ -1676,7 +1676,10 @@ export const useGameState = () => {
       if (player && player.discard.length > cardIndex) {
         const [card] = player.discard.splice(cardIndex, 1)
         card.enteredThisTurn = true
-        // Ready statuses will be initialized when card enters board
+
+        // Initialize ready statuses for the resurrected card
+        // This allows abilities to be used when card returns from discard
+        initializeReadyStatuses(card, playerId)
 
         // Lucius Bonus if resurrected
         if (card.baseId === 'luciusTheImmortal' || card.name.includes('Lucius')) {
@@ -2001,10 +2004,12 @@ export const useGameState = () => {
           id: `TKN_${tokenName.toUpperCase().replace(/\s/g, '_')}_${Date.now()}`,
           deck: DeckType.Tokens,
           name: tokenName,
+          baseId: tokenDef.baseId || tokenDefKey,
           imageUrl: tokenDef.imageUrl,
           fallbackImage: tokenDef.fallbackImage,
           power: tokenDef.power,
           ability: tokenDef.ability,
+          flavorText: tokenDef.flavorText,
           color: tokenDef.color,
           types: tokenDef.types || ['Unit'],
           faction: 'Tokens',
