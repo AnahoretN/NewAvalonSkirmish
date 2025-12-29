@@ -1,9 +1,9 @@
 import React, { memo, useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { DeckType } from '@/types'
 import type { Card as CardType, PlayerColor } from '@/types'
-import { DECK_THEMES, PLAYER_COLORS, STATUS_ICONS } from '@/constants'
+import { DECK_THEMES, PLAYER_COLORS, STATUS_ICONS, PLAYER_COLOR_RGB } from '@/constants'
 import { Tooltip, CardTooltipContent } from './Tooltip'
-import { canActivateAbility } from '@/utils/autoAbilities'
+import { hasReadyAbilityInCurrentPhase } from '@/utils/autoAbilities'
 import { useLanguage } from '@/contexts/LanguageContext'
 
 
@@ -22,8 +22,12 @@ interface CardInteractionProps {
   localPlayerId?: number | null;
   disableTooltip?: boolean;
   activePhaseIndex?: number;
-  activeTurnPlayerId?: number;
+  activePlayerId?: number;
   disableActiveHighlights?: boolean;
+  preserveDeployAbilities?: boolean;
+  activeAbilitySourceCoords?: { row: number, col: number } | null; // Source of currently active ability
+  boardCoords?: { row: number, col: number } | null; // This card's position on board
+  abilityCheckKey?: number; // Incremented to recheck ability readiness after ability completion
 }
 
 const CardCore: React.FC<CardCoreProps & CardInteractionProps> = memo(({
@@ -35,10 +39,14 @@ const CardCore: React.FC<CardCoreProps & CardInteractionProps> = memo(({
   disableTooltip = false,
   smallStatusIcons = false,
   activePhaseIndex,
-  activeTurnPlayerId,
+  activePlayerId, // Used for ability highlighting and arePropsEqual comparison
   disableActiveHighlights = false,
   extraPowerSpacing = false,
   hidePower = false,
+  preserveDeployAbilities: _preserveDeployAbilities = false, // Used in arePropsEqual comparison
+  activeAbilitySourceCoords = null,
+  boardCoords = null,
+  abilityCheckKey,
 }) => {
   const { getCardTranslation } = useLanguage()
   const [tooltipVisible, setTooltipVisible] = useState(false)
@@ -53,7 +61,7 @@ const CardCore: React.FC<CardCoreProps & CardInteractionProps> = memo(({
 
   useEffect(() => {
     setHighlightDismissed(false)
-  }, [activePhaseIndex])
+  }, [activePhaseIndex, abilityCheckKey])
 
   useEffect(() => {
     if (!disableActiveHighlights) {
@@ -172,11 +180,25 @@ const CardCore: React.FC<CardCoreProps & CardInteractionProps> = memo(({
     setTooltipVisible(false)
   }, [])
 
-  const canActivate = (activePhaseIndex !== undefined && activeTurnPlayerId !== undefined)
-    ? canActivateAbility(card, activePhaseIndex, activeTurnPlayerId)
-    : false
+  // Check if card should show ready ability highlighting based on:
+  // 1. Card's owner is the active player
+  // 2. Card has a ready status that matches the current phase
+  const hasReadyAbility = hasReadyAbilityInCurrentPhase(
+    card,
+    activePhaseIndex ?? 0,
+    activePlayerId
+  )
 
-  const shouldHighlight = !disableActiveHighlights && !highlightDismissed && canActivate
+  // Check if this card is currently executing an ability
+  const isExecutingAbility = boardCoords && activeAbilitySourceCoords &&
+    boardCoords.row === activeAbilitySourceCoords.row &&
+    boardCoords.col === activeAbilitySourceCoords.col
+
+  // Highlight if:
+  // 1. Has a ready ability usable in current phase and by active player
+  // 2. NOT currently executing an ability
+  // 3. Not dismissed and not disabled
+  const shouldHighlight = !disableActiveHighlights && !highlightDismissed && hasReadyAbility && !isExecutingAbility
 
   const handleCardClick = useCallback(() => {
     if (shouldHighlight && localPlayerId === card.ownerId) {
@@ -185,8 +207,14 @@ const CardCore: React.FC<CardCoreProps & CardInteractionProps> = memo(({
   }, [shouldHighlight, localPlayerId, card.ownerId])
 
   // Aggregate statuses by TYPE and PLAYER ID to allow separate icons for different players.
+  // Filter out readiness statuses (readyDeploy, readySetup, readyCommit) - they are invisible to players
   const statusGroups = useMemo(() => {
+    const hiddenStatusTypes = ['readyDeploy', 'readySetup', 'readyCommit']
     return (card.statuses ?? []).reduce((acc, status) => {
+      // Skip readiness statuses - they should not be displayed
+      if (hiddenStatusTypes.includes(status.type)) {
+        return acc
+      }
       const key = `${status.type}_${status.addedByPlayerId}`
       if (!acc[key]) {
         acc[key] = { type: status.type, playerId: status.addedByPlayerId, count: 0 }
@@ -314,7 +342,7 @@ const CardCore: React.FC<CardCoreProps & CardInteractionProps> = memo(({
               onMouseLeave={handleMouseLeave}
               onMouseMove={handleMouseMove}
               onMouseDown={handleMouseDown}
-              className={`relative w-full h-full ${backColorClass} rounded-md shadow-md border-2 ${borderColorClass} flex-shrink-0 transition-transform duration-300 ${shouldHighlight ? 'scale-[1.15] z-10' : ''}`}
+              className={`relative w-full h-full ${backColorClass} rounded-md shadow-md border-2 ${borderColorClass} flex-shrink-0 transition-transform duration-300 ${shouldHighlight ? 'scale-[1.10] z-10' : ''}`}
             >
               {lastPlayedGroup && (
                 <div className="absolute bottom-[3px] left-[3px] pointer-events-none">
@@ -343,9 +371,18 @@ const CardCore: React.FC<CardCoreProps & CardInteractionProps> = memo(({
             : positiveGroups
 
           const ownerGlowClass = ownerColorData ? ownerColorData.glow : 'shadow-[0_0_15px_#ffffff]'
+          // Border: 4px normal, 5px when ready (1px thicker)
           const borderClass = shouldHighlight
-            ? `border-[6px] shadow-2xl ${ownerGlowClass}`
+            ? `border-[5px] shadow-2xl ${ownerGlowClass}`
             : 'border-4'
+
+          // Inner glow effect with owner's color when ready
+          const ownerColorName = card.ownerId ? playerColorMap.get(card.ownerId) : null
+          const colorRgb = ownerColorName ? PLAYER_COLOR_RGB[ownerColorName] : null
+          const innerGlowStyle = shouldHighlight && colorRgb ? {
+            background: `radial-gradient(circle at center, transparent 20%, rgba(${colorRgb.r}, ${colorRgb.g}, ${colorRgb.b}, 0.7) 100%)`,
+            boxShadow: `inset 0 0 20px rgba(${colorRgb.r}, ${colorRgb.g}, ${colorRgb.b}, 0.6)`,
+          } : {}
 
           return (
             <div
@@ -354,7 +391,8 @@ const CardCore: React.FC<CardCoreProps & CardInteractionProps> = memo(({
               onMouseMove={handleMouseMove}
               onMouseDown={handleMouseDown}
               onClick={handleCardClick}
-              className={`relative w-full h-full ${cardBg} rounded-md shadow-md ${borderClass} ${themeColor} ${textColor} flex-shrink-0 select-none overflow-hidden transition-all duration-300 ${shouldHighlight ? 'scale-[1.15] z-10' : ''}`}
+              style={innerGlowStyle}
+              className={`relative w-full h-full ${cardBg} rounded-md shadow-md ${borderClass} ${themeColor} ${textColor} flex-shrink-0 select-none overflow-hidden transition-all duration-300 ${shouldHighlight ? 'scale-[1.10] z-10' : ''}`}
             >
               {currentImageSrc ? (
                 <>
@@ -467,15 +505,30 @@ const arePropsEqual = (prevProps: CardCoreProps & CardInteractionProps, nextProp
   if (prevProps.disableActiveHighlights !== nextProps.disableActiveHighlights) {
     return false
   }
+  if (prevProps.preserveDeployAbilities !== nextProps.preserveDeployAbilities) {
+    return false
+  }
 
   // Context props that affect ability activation and highlighting
   if (prevProps.activePhaseIndex !== nextProps.activePhaseIndex) {
     return false
   }
-  if (prevProps.activeTurnPlayerId !== nextProps.activeTurnPlayerId) {
+  if (prevProps.activePlayerId !== nextProps.activePlayerId) {
     return false
   }
   if (prevProps.localPlayerId !== nextProps.localPlayerId) {
+    return false
+  }
+  if (prevProps.activeAbilitySourceCoords?.row !== nextProps.activeAbilitySourceCoords?.row ||
+      prevProps.activeAbilitySourceCoords?.col !== nextProps.activeAbilitySourceCoords?.col) {
+    return false
+  }
+  if (prevProps.boardCoords?.row !== nextProps.boardCoords?.row ||
+      prevProps.boardCoords?.col !== nextProps.boardCoords?.col) {
+    return false
+  }
+  // Check abilityCheckKey for rechecking ability readiness
+  if (prevProps.abilityCheckKey !== nextProps.abilityCheckKey) {
     return false
   }
 

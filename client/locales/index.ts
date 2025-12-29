@@ -21,6 +21,7 @@ const enUI = {
   phase: 'Phase',
   scoring: 'SCORING...',
   autoAbility: 'Auto-Ability',
+  autoDraw: 'Auto-Draw',
   newGame: 'New Game',
   exit: 'Exit',
   surrender: 'Surrender',
@@ -68,6 +69,7 @@ const enUI = {
   moveToBottom: 'Move to Bottom',
   selectCard: 'Select Card',
   deckView: 'Deck',
+  topDeckView: 'Top Deck',
   discardView: 'Discard Pile',
   selectFromDeck: 'Select Card from Deck',
   selectFromDiscard: 'Select Card from Discard',
@@ -119,6 +121,8 @@ const enUI = {
   scorePoints: 'points',
   toWinRound: 'to win round.',
   checkedAtFirstPlayer: 'Checked at First Player\'s Setup Phase.',
+  roundVictoryCondition: 'Round Victory Condition',
+  reach: 'Reach',
   ffa: 'FFA',
   team2v2: '2v2',
   team3v1: '3v1',
@@ -139,7 +143,7 @@ const enUI = {
   puzzles: 'Puzzles',
   changeColor: 'Change Color',
   firstPlayer: 'First Player',
-  activeTurn: 'Active Turn',
+  activePlayer: 'Active Player',
   clearSearch: 'Clear Search',
   resetPowerFilter: 'Reset Power Filter',
   clearTypes: 'Clear Types',
@@ -159,8 +163,28 @@ const enUI = {
   noTarget: 'No Target',
   confirmClearDeck: 'Are you sure you want to clear the current deck?',
   languageDisabled: 'Language selection is currently disabled.',
-  listModeTitle: 'List Mode Interface',
-  listModeDescription: 'Optimized layout for desktop.',
+  autoAbilitiesTooltip: 'Auto-Abilities: Enable automatic ability activation',
+  autoDrawTooltip: 'Auto-Draw: Enable automatic card drawing (6 card starting hand + draw at Setup phase)',
+  endedOnTurn: 'Ended on Turn',
+  nextRound: 'Next:',
+  victoryCondition: 'Victory Condition:',
+  win2RoundsMatch: '* Win 2 rounds to win the match. ',
+  max5RoundsInfo: 'Max 5 Rounds.',
+  matchComplete: 'Match Complete',
+  thankYouPlaying: 'Thank you for playing New Avalon: Skirmish.',
+  returnToMenu: 'Return to Menu',
+  continueGame: 'Continue Game',
+  startRound: 'Start Round',
+  youLabel: '(You)',
+  readyToStart: 'Ready to Start?',
+  gameWillBegin: 'The game will begin once all players are ready. You can still change your name and deck.',
+  dragCardsReorder: 'Drag cards to reorder. Drag outside to move card to another zone.',
+  dragOutsideAnotherZone: 'Drag outside to move card to another zone.',
+  ready: 'Ready',
+  dragOutsideToMove: 'Drag outside to move card to another zone.',
+  empty: 'Empty',
+  dragOutsideToPlaceToken: 'Drag outside to place token on the board.',
+  holdRightClickViewHints: 'Hold right click to view hints',
 }
 
 const enRules = {
@@ -213,11 +237,54 @@ Object.entries(countersDatabase).forEach(([key, def]) => {
   }
 })
 
+const enAbilityKeywords = {
+  deploy: 'Deploy',
+  setup: 'Setup',
+  commit: 'Commit',
+  support: 'Support',
+  threat: 'Threat',
+  pass: 'Pass',
+  aim: 'Aim',
+  exploit: 'Exploit',
+  stun: 'Stun',
+  shield: 'Shield',
+  gain: 'Gain',
+  point: 'Point',
+  points: 'Points',
+  reveal: 'Reveal',
+  move: 'Move',
+  draw: 'Draw',
+  push: 'Push',
+  sacrifice: 'Sacrifice',
+  discard: 'Discard',
+}
+
+const enCardTypes = {
+  unit: 'Unit',
+  command: 'Command',
+  hero: 'Hero',
+  rarity: 'Rarity',
+  structure: 'Structure',
+  gear: 'Gear',
+  event: 'Event',
+  attachment: 'Attachment',
+}
+
+const enDeckNames = {
+  SynchroTech: 'SynchroTech',
+  Hoods: 'Hoods',
+  Optimates: 'Optimates',
+  Fusion: 'Fusion',
+}
+
 const en: TranslationResource = {
+  abilityKeywords: enAbilityKeywords,
+  cardTypes: enCardTypes,
   ui: enUI,
   rules: enRules,
   cards: enCards,
   counters: enCounters,
+  deckNames: enDeckNames,
 }
 
 export const resources: Record<LanguageCode, TranslationResource> = {
@@ -244,5 +311,5 @@ export const LANGUAGE_NAMES: Record<LanguageCode, string> = {
   uk: 'Українська',
   be: 'Беларуская',
   tt: 'Татарча',
-  sr: 'Српски',
+  sr: 'Srpski',
 }

@@ -4,8 +4,9 @@ import { DeckType, GameMode as GameModeEnum } from '../types'
 import type { GameState, Player, Board, GridSize, Card, DragItem, DropTarget, PlayerColor, RevealRequest, CardIdentifier, CustomDeckFile, HighlightData, FloatingTextData } from '../types'
 import { shuffleDeck, PLAYER_COLOR_NAMES, TURN_PHASES, MAX_PLAYERS } from '../constants'
 import { decksData, countersDatabase, rawJsonData, getCardDefinitionByName, getCardDefinition, commandCardIds } from '../content'
-import { createInitialBoard, recalculateBoardStatuses } from '../utils/boardUtils'
+import { createInitialBoard, recalculateBoardStatuses } from '@server/utils/boardUtils'
 import { logger } from '../utils/logger'
+import { initializeReadyStatuses, removeAllReadyStatuses, resetPhaseReadyStatuses } from '../utils/autoAbilities'
 
 // Helper to determine the correct WebSocket URL
 const getWebSocketURL = () => {
@@ -96,6 +97,7 @@ export const useGameState = () => {
       isDummy,
       isReady: false,
       boardHistory: [],
+      autoDrawEnabled: true, // Auto-draw is enabled by default for all players
     }
     player.deck = createDeck(initialDeckType, id, player.name)
     return player
@@ -112,10 +114,13 @@ export const useGameState = () => {
     isPrivate: true,
     isReadyCheckActive: false,
     revealRequests: [],
-    activeTurnPlayerId: undefined,
+    activePlayerId: undefined,
     startingPlayerId: undefined,
     currentPhase: 0,
     isScoringStep: false,
+    preserveDeployAbilities: false,
+    autoAbilitiesEnabled: false,
+    autoDrawEnabled: false,
     currentRound: 1,
     turnNumber: 1,
     roundEndTriggered: false,
@@ -492,7 +497,7 @@ export const useGameState = () => {
         isGameStarted: false,
         isReadyCheckActive: false,
         revealRequests: [],
-        activeTurnPlayerId: undefined,
+        activePlayerId: undefined,
         startingPlayerId: undefined,
         currentPhase: 0,
         isScoringStep: false,
@@ -1047,15 +1052,22 @@ export const useGameState = () => {
     })
   }, [updateState])
 
-  const toggleActiveTurnPlayer = useCallback((playerId: number) => {
-    updateState(currentState => {
-      const newActiveId = currentState.activeTurnPlayerId === playerId ? undefined : playerId
-      return {
-        ...currentState,
-        activeTurnPlayerId: newActiveId,
-      }
-    })
-  }, [updateState])
+  const toggleActivePlayer = useCallback((playerId: number) => {
+    ws.current?.send(JSON.stringify({
+      type: 'TOGGLE_ACTIVE_PLAYER',
+      gameId: gameState.gameId,
+      playerId
+    }))
+  }, [gameState.gameId])
+
+  const toggleAutoDraw = useCallback((playerId: number, enabled: boolean) => {
+    ws.current?.send(JSON.stringify({
+      type: 'TOGGLE_AUTO_DRAW',
+      gameId: gameState.gameId,
+      playerId,
+      enabled
+    }))
+  }, [gameState.gameId])
 
   const setPhase = useCallback((phaseIndex: number) => {
     updateState(currentState => {
@@ -1078,7 +1090,7 @@ export const useGameState = () => {
 
       if (newState.isScoringStep) {
         newState.isScoringStep = false
-        const finishingPlayerId = currentState.activeTurnPlayerId
+        const finishingPlayerId = currentState.activePlayerId
         if (finishingPlayerId !== undefined) {
           newState.board.forEach(row => {
             row.forEach(cell => {
@@ -1105,7 +1117,46 @@ export const useGameState = () => {
         }
 
         newState.currentPhase = 0
-        newState.activeTurnPlayerId = nextPlayerId
+        newState.activePlayerId = nextPlayerId
+
+        // Auto-draw for the new active player
+        // For dummy players: check if host (Player 1) has auto-draw enabled
+        // For real players: check their own auto-draw setting
+        if (nextPlayerId !== undefined && nextPlayerId !== finishingPlayerId) {
+          const newActivePlayer = newState.players.find(p => p.id === nextPlayerId)
+          if (newActivePlayer && newActivePlayer.deck.length > 0) {
+            let shouldDraw = false
+
+            if (newActivePlayer.isDummy) {
+              // Dummy players draw if host (Player 1) has auto-draw enabled
+              const hostPlayer = newState.players.find(p => p.id === 1)
+              shouldDraw = hostPlayer?.autoDrawEnabled === true
+            } else {
+              // Real players draw if they have auto-draw enabled
+              shouldDraw = newActivePlayer.autoDrawEnabled === true
+            }
+
+            if (shouldDraw) {
+              // Draw 1 card from deck to hand
+              const drawnCard = newActivePlayer.deck[0]
+              newActivePlayer.deck.splice(0, 1)
+              newActivePlayer.hand.push(drawnCard)
+            }
+          }
+        }
+
+        // Reset phase-specific ready statuses for the new active player (readySetup, readyCommit)
+        // Only for abilities that the card actually has
+        if (nextPlayerId !== undefined) {
+          newState.board.forEach(row => {
+            row.forEach(cell => {
+              const card = cell.card
+              if (card && card.ownerId === nextPlayerId) {
+                resetPhaseReadyStatuses(card, nextPlayerId)
+              }
+            })
+          })
+        }
 
         if (newState.startingPlayerId !== undefined && nextPlayerId === newState.startingPlayerId) {
           const currentThreshold = (newState.currentRound * 10) + 10
@@ -1139,7 +1190,6 @@ export const useGameState = () => {
           row.forEach(cell => {
             if (cell.card) {
               delete cell.card.enteredThisTurn
-              delete cell.card.abilityUsedInPhase
             }
           })
         })
@@ -1167,13 +1217,17 @@ export const useGameState = () => {
       }
 
       const nextPhaseIndex = currentState.currentPhase + 1
-      newState.board.forEach(row => {
-        row.forEach(cell => {
-          if (cell.card) {
-            cell.card.deployAbilityConsumed = true
-          }
+      // Only consume deploy abilities if preserveDeployAbilities is false (new ready status system)
+      if (!currentState.preserveDeployAbilities) {
+        newState.board.forEach(row => {
+          row.forEach(cell => {
+            if (cell.card?.statuses) {
+              // Remove readyDeploy status from all cards
+              cell.card.statuses = cell.card.statuses.filter(s => s.type !== 'readyDeploy')
+            }
+          })
         })
-      })
+      }
 
       if (nextPhaseIndex >= TURN_PHASES.length) {
         newState.isScoringStep = true
@@ -1244,6 +1298,22 @@ export const useGameState = () => {
         }
       }
 
+      // Auto-phase transition: Setup -> Main when playing a unit from hand
+      // Only if auto-abilities is enabled (check localStorage for client-side setting)
+      let autoAbilitiesEnabled = false
+      try {
+        const saved = localStorage.getItem('auto_abilities_enabled')
+        autoAbilitiesEnabled = saved === null ? true : saved === 'true'
+      } catch {
+        autoAbilitiesEnabled = true
+      }
+
+      const shouldAutoTransitionToMain = autoAbilitiesEnabled &&
+        currentState.currentPhase === 0 && // Setup phase
+        item.source === 'hand' &&
+        target.target === 'board' &&
+        item.card.types?.includes('Unit')
+
       const newState: GameState = JSON.parse(JSON.stringify(currentState))
 
       if (item.source === 'board' && ['hand', 'deck', 'discard'].includes(target.target) && !item.bypassOwnershipCheck) {
@@ -1264,28 +1334,34 @@ export const useGameState = () => {
         }
       }
 
-      if (item.source === 'board' && target.target === 'board') {
-        const card = item.card
-        let currentCardState = card
-        if (item.boardCoords) {
-          const cell = currentState.board[item.boardCoords.row][item.boardCoords.col]
-          if (cell.card) {
-            currentCardState = cell.card
-          }
+      // Store the actual current card state for board-to-board moves
+      // This ensures we preserve all statuses (including ready statuses) when moving
+      let actualCardState: Card | null = null
+      if (item.source === 'board' && target.target === 'board' && item.boardCoords) {
+        // Get the actual card state from newState (after cloning)
+        // This must be done AFTER newState is created
+        const cell = newState.board[item.boardCoords.row][item.boardCoords.col]
+        if (cell.card) {
+          actualCardState = cell.card
         }
 
-        const isStunned = currentCardState.statuses?.some(s => s.type === 'Stun')
+        // Also check stun status from currentState for the early return
+        const currentCell = currentState.board[item.boardCoords.row][item.boardCoords.col]
+        const currentCardState = currentCell.card || actualCardState
+        if (currentCardState) {
+          const isStunned = currentCardState.statuses?.some(s => s.type === 'Stun')
 
-        if (isStunned) {
-          const moverId = localPlayerIdRef.current
-          const ownerId = currentCardState.ownerId
-          const moverPlayer = currentState.players.find(p => p.id === moverId)
-          const ownerPlayer = currentState.players.find(p => p.id === ownerId)
-          const isOwner = moverId === ownerId
-          const isTeammate = moverPlayer?.teamId !== undefined && ownerPlayer?.teamId !== undefined && moverPlayer.teamId === ownerPlayer.teamId
+          if (isStunned) {
+            const moverId = localPlayerIdRef.current
+            const ownerId = currentCardState.ownerId
+            const moverPlayer = currentState.players.find(p => p.id === moverId)
+            const ownerPlayer = currentState.players.find(p => p.id === ownerId)
+            const isOwner = moverId === ownerId
+            const isTeammate = moverPlayer?.teamId !== undefined && ownerPlayer?.teamId !== undefined && moverPlayer.teamId === ownerPlayer.teamId
 
-          if ((isOwner || isTeammate) && !item.isManual) {
-            return currentState
+            if ((isOwner || isTeammate) && !item.isManual) {
+              return currentState
+            }
           }
         }
       }
@@ -1331,7 +1407,7 @@ export const useGameState = () => {
           }
 
           const count = item.count || 1
-          const activePlayer = newState.players.find(p => p.id === newState.activeTurnPlayerId)
+          const activePlayer = newState.players.find(p => p.id === newState.activePlayerId)
           const effectiveActorId = (activePlayer?.isDummy) ? activePlayer.id : (localPlayerIdRef.current !== null ? localPlayerIdRef.current : 0)
           if (item.statusType === 'Power+') {
             if (targetCard.powerModifier === undefined) {
@@ -1366,7 +1442,7 @@ export const useGameState = () => {
         return currentState
       }
 
-      const cardToMove: Card = { ...item.card }
+      const cardToMove: Card = actualCardState ? { ...actualCardState } : { ...item.card }
 
       if (item.source === 'hand' && item.playerId !== undefined && item.cardIndex !== undefined) {
         const player = newState.players.find(p => p.id === item.playerId)
@@ -1396,14 +1472,13 @@ export const useGameState = () => {
 
       if (isReturningToStorage) {
         if (cardToMove.statuses) {
+          // Keep Revealed status, remove all others (including ready statuses)
           cardToMove.statuses = cardToMove.statuses.filter(status => status.type === 'Revealed')
         }
         cardToMove.isFaceDown = false
         delete cardToMove.powerModifier
         delete cardToMove.bonusPower // Clear passive buffs
         delete cardToMove.enteredThisTurn
-        delete cardToMove.abilityUsedInPhase
-        delete cardToMove.deployAbilityConsumed
       } else if (target.target === 'board') {
         if (!cardToMove.statuses) {
           cardToMove.statuses = []
@@ -1413,8 +1488,11 @@ export const useGameState = () => {
         }
         if (item.source !== 'board') {
           cardToMove.enteredThisTurn = true
-          delete cardToMove.deployAbilityConsumed
-          delete cardToMove.abilityUsedInPhase
+          // Note: Ready statuses are initialized below, no need to delete legacy flags
+
+          // Initialize ready statuses for the new card (only for abilities it actually has)
+          const ownerId = cardToMove.ownerId ?? localPlayerIdRef.current ?? 0
+          initializeReadyStatuses(cardToMove, ownerId)
 
           // Lucius, The Immortal: Bonus if entered from discard
           if (item.source === 'discard' && (cardToMove.baseId === 'luciusTheImmortal' || cardToMove.name.includes('Lucius'))) {
@@ -1430,6 +1508,8 @@ export const useGameState = () => {
         if (cardToMove.deck === DeckType.Tokens || cardToMove.deck === 'counter') {
           return newState
         }
+        // Remove ready statuses when card leaves the battlefield
+        removeAllReadyStatuses(cardToMove)
         const player = newState.players.find(p => p.id === target.playerId)
         if (player) {
           player.hand.push(cardToMove)
@@ -1465,6 +1545,8 @@ export const useGameState = () => {
         }
       } else if (target.target === 'discard' && target.playerId !== undefined) {
         if (cardToMove.deck === DeckType.Tokens || cardToMove.deck === 'counter') {} else {
+          // Remove ready statuses when card leaves the battlefield
+          removeAllReadyStatuses(cardToMove)
           const player = newState.players.find(p => p.id === target.playerId)
           if (player) {
             if (cardToMove.ownerId === undefined) {
@@ -1478,6 +1560,8 @@ export const useGameState = () => {
         if (cardToMove.deck === DeckType.Tokens || cardToMove.deck === 'counter') {
           return newState
         }
+        // Remove ready statuses when card leaves the battlefield
+        removeAllReadyStatuses(cardToMove)
         const player = newState.players.find(p => p.id === target.playerId)
         if (player) {
           if (cardToMove.ownerId === undefined) {
@@ -1498,10 +1582,8 @@ export const useGameState = () => {
               player.announcedCard.statuses = player.announcedCard.statuses.filter(s => s.type === 'Revealed')
             }
             delete player.announcedCard.enteredThisTurn
-            delete player.announcedCard.abilityUsedInPhase
             delete player.announcedCard.powerModifier
             delete player.announcedCard.bonusPower
-            delete player.announcedCard.deployAbilityConsumed
             player.hand.push(player.announcedCard)
           }
           player.announcedCard = cardToMove
@@ -1557,6 +1639,11 @@ export const useGameState = () => {
         newState.board = recalculateBoardStatuses(newState)
       }
 
+      // Apply auto-phase transition: Setup -> Main when playing a unit from hand
+      if (shouldAutoTransitionToMain) {
+        newState.currentPhase = 1 // Main phase
+      }
+
       return newState
     })
   }, [updateState])
@@ -1574,8 +1661,7 @@ export const useGameState = () => {
       if (player && player.discard.length > cardIndex) {
         const [card] = player.discard.splice(cardIndex, 1)
         card.enteredThisTurn = true
-        delete card.deployAbilityConsumed
-        delete card.abilityUsedInPhase
+        // Ready statuses will be initialized when card enters board
 
         // Lucius Bonus if resurrected
         if (card.baseId === 'luciusTheImmortal' || card.name.includes('Lucius')) {
@@ -1637,6 +1723,23 @@ export const useGameState = () => {
     })
   }, [updateState])
 
+  const reorderCards = useCallback((playerId: number, newCards: Card[], source: 'deck' | 'discard') => {
+    updateState(currentState => {
+      const newState: GameState = JSON.parse(JSON.stringify(currentState))
+      const player = newState.players.find(p => p.id === playerId)
+
+      if (player) {
+        if (source === 'deck') {
+          player.deck = newCards
+        } else if (source === 'discard') {
+          player.discard = newCards
+        }
+      }
+
+      return newState
+    })
+  }, [updateState])
+
   const triggerHighlight = useCallback((highlightData: Omit<HighlightData, 'timestamp'>) => {
     if (ws.current?.readyState === WebSocket.OPEN && gameStateRef.current.gameId) {
       const fullHighlightData: HighlightData = { ...highlightData, timestamp: Date.now() }
@@ -1658,17 +1761,22 @@ export const useGameState = () => {
   }, [])
 
   const triggerNoTarget = useCallback((coords: { row: number, col: number }) => {
+    const timestamp = Date.now()
+    // Immediately update local state so the acting player sees the effect without waiting for round-trip
+    setLatestNoTarget({ coords, timestamp })
+
+    // Also broadcast to other players via WebSocket
     if (ws.current?.readyState === WebSocket.OPEN && gameStateRef.current.gameId) {
       ws.current.send(JSON.stringify({
         type: 'TRIGGER_NO_TARGET',
         gameId: gameStateRef.current.gameId,
         coords,
-        timestamp: Date.now(),
+        timestamp,
       }))
     }
   }, [])
 
-  const markAbilityUsed = useCallback((boardCoords: { row: number, col: number }, isDeployAbility?: boolean) => {
+  const markAbilityUsed = useCallback((boardCoords: { row: number, col: number }, _isDeployAbility?: boolean, _setDeployAttempted?: boolean, readyStatusToRemove?: string) => {
     updateState(currentState => {
       if (!currentState.isGameStarted) {
         return currentState
@@ -1676,10 +1784,9 @@ export const useGameState = () => {
       const newState: GameState = JSON.parse(JSON.stringify(currentState))
       const card = newState.board[boardCoords.row][boardCoords.col].card
       if (card) {
-        if (isDeployAbility) {
-          card.deployAbilityConsumed = true
-        } else {
-          card.abilityUsedInPhase = newState.currentPhase
+        // Remove the ready status if specified (new ready status system)
+        if (readyStatusToRemove && card.statuses) {
+          card.statuses = card.statuses.filter(s => s.type !== readyStatusToRemove)
         }
       }
       return newState
@@ -1694,7 +1801,18 @@ export const useGameState = () => {
       const newState: GameState = JSON.parse(JSON.stringify(currentState))
       const card = newState.board[boardCoords.row][boardCoords.col].card
       if (card) {
-        delete card.deployAbilityConsumed
+        // New system: Add readyDeploy status back (for Command cards that restore deploy ability)
+        if (!card.statuses) {
+          card.statuses = []
+        }
+        const abilityText = card.ability || ''
+        // Only add if the card actually has a deploy: ability (case-insensitive)
+        if (abilityText.toLowerCase().includes('deploy:')) {
+          if (!card.statuses.some(s => s.type === 'readyDeploy')) {
+            const ownerId = card.ownerId || 0
+            card.statuses.push({ type: 'readyDeploy', addedByPlayerId: ownerId })
+          }
+        }
       }
       return newState
     })
@@ -1716,11 +1834,11 @@ export const useGameState = () => {
   }, [updateState])
 
   const applyGlobalEffect = useCallback((
-    sourceCoords: { row: number, col: number },
+    _sourceCoords: { row: number, col: number },
     targetCoords: { row: number, col: number }[],
     tokenType: string,
     addedByPlayerId: number,
-    isDeployAbility: boolean,
+    _isDeployAbility: boolean,
   ) => {
     updateState(currentState => {
       if (!currentState.isGameStarted) {
@@ -1753,14 +1871,7 @@ export const useGameState = () => {
           }
         }
       })
-      const sourceCard = newState.board[sourceCoords.row][sourceCoords.col].card
-      if (sourceCard) {
-        if (isDeployAbility) {
-          sourceCard.deployAbilityConsumed = true
-        } else {
-          sourceCard.abilityUsedInPhase = newState.currentPhase
-        }
-      }
+      // Note: Ready status is removed by markAbilityUsed before calling applyGlobalEffect
       return newState
     })
   }, [updateState])
@@ -1850,11 +1961,15 @@ export const useGameState = () => {
         return currentState
       }
       const newState: GameState = JSON.parse(JSON.stringify(currentState))
-      const tokenDefKey = Object.keys(rawJsonData.tokenDatabase).find(key => rawJsonData.tokenDatabase[key as keyof typeof rawJsonData.tokenDatabase].name === tokenName)
+      if (!rawJsonData) {
+        return currentState
+      }
+      const tokenDatabase = rawJsonData.tokenDatabase
+      const tokenDefKey = Object.keys(tokenDatabase).find(key => tokenDatabase[key as keyof typeof tokenDatabase].name === tokenName)
       if (!tokenDefKey) {
         return currentState
       }
-      const tokenDef = rawJsonData.tokenDatabase[tokenDefKey as keyof typeof rawJsonData.tokenDatabase]
+      const tokenDef = tokenDatabase[tokenDefKey as keyof typeof tokenDatabase]
       const owner = newState.players.find(p => p.id === ownerId)
       if (tokenDef && newState.board[coords.row][coords.col].card === null) {
         const tokenCard: Card = {
@@ -1871,7 +1986,10 @@ export const useGameState = () => {
           ownerId: ownerId,
           ownerName: owner?.name,
           enteredThisTurn: true,
+          statuses: [],
         }
+        // Initialize ready statuses based on token's actual abilities
+        initializeReadyStatuses(tokenCard, ownerId)
         newState.board[coords.row][coords.col].card = tokenCard
       }
       newState.board = recalculateBoardStatuses(newState)
@@ -2070,7 +2188,8 @@ export const useGameState = () => {
     syncGame,
     removeRevealedStatus,
     resetGame,
-    toggleActiveTurnPlayer,
+    toggleActivePlayer,
+    toggleAutoDraw,
     forceReconnect,
     triggerHighlight,
     triggerFloatingText,
@@ -2092,5 +2211,7 @@ export const useGameState = () => {
     scoreDiagonal,
     removeStatusByType,
     reorderTopDeck,
+    reorderCards,
+    updateState,
   }
 }

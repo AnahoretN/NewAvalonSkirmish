@@ -5,18 +5,11 @@
 import { gameRoutes } from './game.js';
 import { contentRoutes } from './content.js';
 import { healthRoutes } from './health.js';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 /**
  * Setup all API routes
  */
 export function setupRoutes(app: any) {
-  const isProduction = process.env.NODE_ENV === 'production' || __dirname.includes('dist-server');
-
   // Note: Static files are served in index.ts, not here
 
   // Health check routes

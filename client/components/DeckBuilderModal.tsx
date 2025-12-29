@@ -38,6 +38,7 @@ export const DeckBuilderModal: React.FC<DeckBuilderModalProps> = ({ isOpen, onCl
 
   const allCards = useMemo(() => {
     return getAllCards().filter(({ card }) => card.allowedPanels?.includes('DECK_BUILDER'))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getCardDatabaseMap().size])
 
   const selectableFactions = getSelectableDecks()
@@ -111,7 +112,7 @@ export const DeckBuilderModal: React.FC<DeckBuilderModalProps> = ({ isOpen, onCl
 
       return true
     })
-  }, [allCards, selectedFactionFilter, searchQuery, powerFilter, selectedTypes, getCardTranslation, commandCardIds])
+  }, [allCards, selectedFactionFilter, searchQuery, powerFilter, selectedTypes, getCardTranslation])
 
   const totalCards = useMemo(() => {
     let total = 0

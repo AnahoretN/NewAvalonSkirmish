@@ -5,12 +5,20 @@
 
 import { logger } from '../utils/logger.js';
 import { getGameState } from '../services/gameState.js';
+import type { WebSocket } from 'ws';
+
+interface ExtendedWebSocket extends WebSocket {
+  server?: any;
+  playerId?: number;
+  gameId?: string;
+  clientGameMap?: Map<any, string>;
+}
 
 /**
  * Handle TRIGGER_HIGHLIGHT message
  * Broadcasts a highlight effect to all clients in the game
  */
-export function handleTriggerHighlight(ws, data) {
+export function handleTriggerHighlight(ws: ExtendedWebSocket, data: any) {
   try {
     // Input validation
     if (!data || typeof data !== 'object') {
@@ -55,15 +63,23 @@ export function handleTriggerHighlight(ws, data) {
       highlightData
     });
 
-    gameState.players.forEach(player => {
-      if (player.ws && player.ws.readyState === 1) {
-        player.ws.send(highlightMessage);
-      }
-    });
+    // Use the same broadcasting approach as broadcastToGame
+    const wss = ws.server;
+    if (wss && wss.clients) {
+      wss.clients.forEach((client: ExtendedWebSocket) => {
+        if (client.readyState === 1 && wss.clientGameMap && wss.clientGameMap.get(client) === gameId) {
+          try {
+            client.send(highlightMessage);
+          } catch (err: any) {
+            logger.error('Error sending highlight to client:', err);
+          }
+        }
+      });
+    }
 
     logger.debug(`Highlight triggered in game ${gameId}`);
-  } catch (error) {
-    logger.error('Failed to trigger highlight:', error);
+  } catch (err: any) {
+    logger.error('Failed to trigger highlight:', err);
   }
 }
 
@@ -71,7 +87,7 @@ export function handleTriggerHighlight(ws, data) {
  * Handle TRIGGER_NO_TARGET message
  * Broadcasts a "no target" overlay to all clients in the game
  */
-export function handleTriggerNoTarget(ws, data) {
+export function handleTriggerNoTarget(ws: ExtendedWebSocket, data: any) {
   try {
     // Input validation
     if (!data || typeof data !== 'object') {
@@ -117,15 +133,23 @@ export function handleTriggerNoTarget(ws, data) {
       timestamp
     });
 
-    gameState.players.forEach(player => {
-      if (player.ws && player.ws.readyState === 1) {
-        player.ws.send(message);
-      }
-    });
+    // Use the same broadcasting approach as broadcastToGame
+    const wss = ws.server;
+    if (wss && wss.clients) {
+      wss.clients.forEach((client: ExtendedWebSocket) => {
+        if (client.readyState === 1 && wss.clientGameMap && wss.clientGameMap.get(client) === gameId) {
+          try {
+            client.send(message);
+          } catch (err: any) {
+            logger.error('Error sending no-target to client:', err);
+          }
+        }
+      });
+    }
 
     logger.debug(`No target overlay triggered in game ${gameId}`);
-  } catch (error) {
-    logger.error('Failed to trigger no target overlay:', error);
+  } catch (err: any) {
+    logger.error('Failed to trigger no target overlay:', err);
   }
 }
 
@@ -133,7 +157,7 @@ export function handleTriggerNoTarget(ws, data) {
  * Handle TRIGGER_FLOATING_TEXT message
  * Broadcasts a floating text effect to all clients in the game
  */
-export function handleTriggerFloatingText(ws, data) {
+export function handleTriggerFloatingText(ws: ExtendedWebSocket, data: any) {
   try {
     // Input validation
     if (!data || typeof data !== 'object') {
@@ -178,15 +202,22 @@ export function handleTriggerFloatingText(ws, data) {
       floatingTextData
     });
 
-    gameState.players.forEach(player => {
-      if (player.ws && player.ws.readyState === 1) {
-        player.ws.send(message);
-      }
-    });
+    const wss = ws.server;
+    if (wss && wss.clients) {
+      wss.clients.forEach((client: ExtendedWebSocket) => {
+        if (client.readyState === 1 && wss.clientGameMap && wss.clientGameMap.get(client) === gameId) {
+          try {
+            client.send(message);
+          } catch (err: any) {
+            logger.error('Error sending floating text to client:', err);
+          }
+        }
+      });
+    }
 
     logger.debug(`Floating text triggered in game ${gameId}`);
-  } catch (error) {
-    logger.error('Failed to trigger floating text:', error);
+  } catch (err: any) {
+    logger.error('Failed to trigger floating text:', err);
   }
 }
 
@@ -194,7 +225,7 @@ export function handleTriggerFloatingText(ws, data) {
  * Handle TRIGGER_FLOATING_TEXT_BATCH message
  * Broadcasts a batch of floating text effects to all clients in the game
  */
-export function handleTriggerFloatingTextBatch(ws, data) {
+export function handleTriggerFloatingTextBatch(ws: ExtendedWebSocket, data: any) {
   try {
     // Input validation
     if (!data || typeof data !== 'object') {
@@ -239,14 +270,21 @@ export function handleTriggerFloatingTextBatch(ws, data) {
       batch
     });
 
-    gameState.players.forEach(player => {
-      if (player.ws && player.ws.readyState === 1) {
-        player.ws.send(message);
-      }
-    });
+    const wss = ws.server;
+    if (wss && wss.clients) {
+      wss.clients.forEach((client: ExtendedWebSocket) => {
+        if (client.readyState === 1 && wss.clientGameMap && wss.clientGameMap.get(client) === gameId) {
+          try {
+            client.send(message);
+          } catch (err: any) {
+            logger.error('Error sending floating text batch to client:', err);
+          }
+        }
+      });
+    }
 
     logger.debug(`Floating text batch triggered in game ${gameId}`);
-  } catch (error) {
-    logger.error('Failed to trigger floating text batch:', error);
+  } catch (err: any) {
+    logger.error('Failed to trigger floating text batch:', err);
   }
 }

@@ -50,15 +50,19 @@ export function handleUpdateDeckData(ws, data) {
     if (deckData.cardDatabase && typeof deckData.cardDatabase === 'object') {
       for (const [cardId, card] of Object.entries(deckData.cardDatabase)) {
         const cardObj = card as any;
-        if (typeof card === 'object' && card && cardObj.id && cardObj.name) {
+        if (typeof card === 'object' && card && cardObj.name) {
+          // Card ID is the key, not a property
           sanitizedCardDatabase[cardId] = {
-            id: sanitizeString(String(cardObj.id)),
             name: sanitizeString(String(cardObj.name)),
-            ...(cardObj.cost !== undefined && { cost: Number(cardObj.cost) || 0 }),
-            ...(cardObj.attack !== undefined && { attack: Number(cardObj.attack) || 0 }),
-            ...(cardObj.health !== undefined && { health: Number(cardObj.health) || 0 }),
-            ...(cardObj.text && { text: sanitizeString(String(cardObj.text), 1000) }),
-            ...(cardObj.image && { image: sanitizeString(String(cardObj.image), 500) })
+            ...(cardObj.imageUrl && { imageUrl: sanitizeString(String(cardObj.imageUrl), 500) }),
+            ...(cardObj.fallbackImage && { fallbackImage: sanitizeString(String(cardObj.fallbackImage), 500) }),
+            ...(cardObj.power !== undefined && { power: Number(cardObj.power) || 0 }),
+            ...(cardObj.ability && { ability: sanitizeString(String(cardObj.ability), 2000) }),
+            ...(cardObj.flavorText && { flavorText: sanitizeString(String(cardObj.flavorText), 500) }),
+            ...(cardObj.color && { color: sanitizeString(String(cardObj.color), 50) }),
+            ...(cardObj.types && Array.isArray(cardObj.types) && { types: cardObj.types.map(t => sanitizeString(String(t), 50)) }),
+            ...(cardObj.faction && { faction: sanitizeString(String(cardObj.faction), 50) }),
+            ...(cardObj.allowedPanels && Array.isArray(cardObj.allowedPanels) && { allowedPanels: cardObj.allowedPanels.map(p => sanitizeString(String(p), 50)) }),
           };
         }
       }
@@ -88,17 +92,18 @@ export function handleUpdateDeckData(ws, data) {
     if (deckData.tokenDatabase && typeof deckData.tokenDatabase === 'object') {
       for (const [tokenId, token] of Object.entries(deckData.tokenDatabase)) {
         const tokenObj = token as any;
-        if (typeof token === 'object' && token && tokenObj.id && tokenObj.name) {
+        if (typeof token === 'object' && token && tokenObj.name) {
+          // Token ID is the key, not a property
           sanitizedTokenDatabase[tokenId] = {
-            id: sanitizeString(String(tokenObj.id)),
             name: sanitizeString(String(tokenObj.name)),
-            ...(tokenObj.cost !== undefined && { cost: Number(tokenObj.cost) || 0 }),
-            ...(tokenObj.attack !== undefined && { attack: Number(tokenObj.attack) || 0 }),
-            ...(tokenObj.health !== undefined && { health: Number(tokenObj.health) || 0 }),
+            ...(tokenObj.imageUrl && { imageUrl: sanitizeString(String(tokenObj.imageUrl), 500) }),
+            ...(tokenObj.fallbackImage && { fallbackImage: sanitizeString(String(tokenObj.fallbackImage), 500) }),
             ...(tokenObj.power !== undefined && { power: Number(tokenObj.power) || 0 }),
-            ...(tokenObj.text && { text: sanitizeString(String(tokenObj.text), 1000) }),
-            ...(tokenObj.image && { image: sanitizeString(String(tokenObj.image), 500) }),
-            ...(tokenObj.types && Array.isArray(tokenObj.types) && { types: tokenObj.types }),
+            ...(tokenObj.ability && { ability: sanitizeString(String(tokenObj.ability), 2000) }),
+            ...(tokenObj.flavorText && { flavorText: sanitizeString(String(tokenObj.flavorText), 500) }),
+            ...(tokenObj.color && { color: sanitizeString(String(tokenObj.color), 50) }),
+            ...(tokenObj.types && Array.isArray(tokenObj.types) && { types: tokenObj.types.map(t => sanitizeString(String(t), 50)) }),
+            ...(tokenObj.allowedPanels && Array.isArray(tokenObj.allowedPanels) && { allowedPanels: tokenObj.allowedPanels.map(p => sanitizeString(String(p), 50)) }),
           };
         }
       }

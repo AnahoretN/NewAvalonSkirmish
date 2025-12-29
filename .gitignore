@@ -25,3 +25,4 @@ dist-client
 *.sln
 *.sw?
 tsconfig.tsbuildinfo
+nul

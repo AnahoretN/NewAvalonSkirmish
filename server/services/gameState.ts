@@ -37,7 +37,7 @@ interface GameState {
   players: Player[];
   board: Board[][];
   isGameStarted: boolean;
-  activeTurnPlayerId: number | null;
+  activePlayerId: number | null;
   currentPhase: number;
   turnNumber: number;
   currentRound: number;
@@ -73,7 +73,7 @@ export function createGameState(gameId: string, options: GameOptions = {}): Game
     players: [],
     board: Array(8).fill(null).map(() => Array(8).fill(null)),
     isGameStarted: false,
-    activeTurnPlayerId: null,
+    activePlayerId: null,
     currentPhase: 0,
     turnNumber: 1,
     currentRound: 1,
@@ -83,6 +83,9 @@ export function createGameState(gameId: string, options: GameOptions = {}): Game
     isReadyCheckActive: false,
     created: Date.now(),
     lastActivity: Date.now(),
+    autoAbilitiesEnabled: true,
+    autoDrawEnabled: true,
+    preserveDeployAbilities: false,
     ...options
   };
 

@@ -81,18 +81,8 @@ export async function fetchContentDatabase(): Promise<void> {
     countersDatabase = _countersDatabase
     deckFiles = _deckFiles
 
-    // Update constants that depend on countersDatabase
-    const constantsModule = await import('./constants')
-    if (constantsModule.STATUS_ICONS) {
-      Object.assign(constantsModule.STATUS_ICONS, Object.fromEntries(
-        Object.entries(_countersDatabase).map(([key, def]) => [key, def.imageUrl]),
-      ))
-    }
-    if (constantsModule.STATUS_DESCRIPTIONS) {
-      Object.assign(constantsModule.STATUS_DESCRIPTIONS, Object.fromEntries(
-        Object.entries(_countersDatabase).map(([key, def]) => [key, def.description]),
-      ))
-    }
+    // Note: STATUS_ICONS and STATUS_DESCRIPTIONS in constants.ts are now Proxy objects
+    // that automatically fetch from countersDatabase, so no manual update needed
 
     // Build decks data
     _decksData = buildDecksData()

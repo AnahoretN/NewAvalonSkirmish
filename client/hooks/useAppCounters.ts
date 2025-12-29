@@ -1,12 +1,12 @@
 import React, { useRef, useEffect, useLayoutEffect } from 'react'
 import type { CursorStackState, GameState, AbilityAction, DragItem, DropTarget, CommandContext } from '@/types'
-import { validateTarget } from '@/utils/targeting'
+import { validateTarget } from '@server/utils/targeting'
 
 interface UseAppCountersProps {
     gameState: GameState;
     localPlayerId: number | null;
     handleDrop: (item: DragItem, target: DropTarget) => void;
-    markAbilityUsed: (coords: { row: number, col: number }, isDeployAbility?: boolean) => void;
+    markAbilityUsed: (coords: { row: number, col: number }, isDeployAbility?: boolean, setDeployAttempted?: boolean) => void;
     setAbilityMode: (mode: AbilityAction | null) => void;
     requestCardReveal: (data: any, playerId: number) => void;
     interactionLock: React.MutableRefObject<boolean>;
@@ -81,8 +81,8 @@ export const useAppCounters = ({
             effectiveActorId = sourceCard.ownerId || localPlayerId
           }
         }
-      } else if (gameState.activeTurnPlayerId) {
-        const activePlayer = gameState.players.find(p => p.id === gameState.activeTurnPlayerId)
+      } else if (gameState.activePlayerId) {
+        const activePlayer = gameState.players.find(p => p.id === gameState.activePlayerId)
         if (activePlayer?.isDummy) {
           effectiveActorId = activePlayer.id
         }

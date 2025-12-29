@@ -5,7 +5,13 @@
 
 import type { Card, PlayerColor } from './types'
 import { DeckType, DeckType as DeckTypeEnum } from './types'
-import { countersDatabase, getCountersDatabase } from './content'
+import { countersDatabase } from './content'
+
+/**
+ * The current version of the application.
+ * This should match the version in package.json
+ */
+export const APP_VERSION = '0.2.1'
 
 /**
  * The maximum number of players allowed in a game.
@@ -50,6 +56,20 @@ export const PLAYER_COLORS: { [key in PlayerColor]: { bg: string, border: string
 }
 
 /**
+ * RGB color values for player colors (used in gradients).
+ */
+export const PLAYER_COLOR_RGB: Record<PlayerColor, { r: number; g: number; b: number }> = {
+  blue: { r: 37, g: 99, b: 235 },
+  purple: { r: 147, g: 51, b: 234 },
+  red: { r: 220, g: 38, b: 38 },
+  green: { r: 22, g: 163, b: 74 },
+  yellow: { r: 234, g: 179, b: 8 },
+  orange: { r: 249, g: 115, b: 22 },
+  pink: { r: 236, g: 72, b: 153 },
+  brown: { r: 139, g: 69, b: 19 },
+}
+
+/**
  * Text styling classes for floating text effects based on player color.
  */
 export const FLOATING_TEXT_COLORS: Record<string, string> = {
@@ -88,11 +108,25 @@ export const getStatusIcons = (): Record<string, string> => {
 }
 
 /**
- * Backward compatible export - uses the function
+ * Reactive STATUS_ICONS - returns current state from counters database
+ * This is a getter that always returns fresh data from the database
  */
-export const STATUS_ICONS: Record<string, string> = {} as any
-// Initialize after content loads
-Object.assign(STATUS_ICONS, getStatusIcons())
+export const STATUS_ICONS: Record<string, string> = new Proxy({} as Record<string, string>, {
+  get(_target, prop) {
+    const icons = getStatusIcons()
+    return icons[prop as string]
+  },
+  ownKeys() {
+    return Object.keys(getStatusIcons())
+  },
+  has(_target, prop) {
+    return prop in getStatusIcons()
+  },
+  getOwnPropertyDescriptor(_target, prop) {
+    const value = getStatusIcons()[prop as string]
+    return value !== undefined ? { enumerable: true, configurable: true, value } : undefined
+  }
+})
 
 /**
  * Descriptions for various status effects and counters.
@@ -105,11 +139,24 @@ export const getStatusDescriptions = (): Record<string, string> => {
 }
 
 /**
- * Backward compatible export - uses the function
+ * Reactive STATUS_DESCRIPTIONS - returns current state from counters database
  */
-export const STATUS_DESCRIPTIONS: Record<string, string> = {} as any
-// Initialize after content loads
-Object.assign(STATUS_DESCRIPTIONS, getStatusDescriptions())
+export const STATUS_DESCRIPTIONS: Record<string, string> = new Proxy({} as Record<string, string>, {
+  get(_target, prop) {
+    const descriptions = getStatusDescriptions()
+    return descriptions[prop as string]
+  },
+  ownKeys() {
+    return Object.keys(getStatusDescriptions())
+  },
+  has(_target, prop) {
+    return prop in getStatusDescriptions()
+  },
+  getOwnPropertyDescriptor(_target, prop) {
+    const value = getStatusDescriptions()[prop as string]
+    return value !== undefined ? { enumerable: true, configurable: true, value } : undefined
+  }
+})
 
 /**
  * Available counters for the Counters Modal, sorted by sortOrder.
