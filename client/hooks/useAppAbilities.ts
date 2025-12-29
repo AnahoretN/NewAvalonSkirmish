@@ -93,30 +93,35 @@ export const useAppAbilities = ({
         let revealedCount = 0
         const finnOwnerId = action.sourceCard?.ownerId
 
-        if (finnOwnerId !== undefined) {
-          // Count Revealed cards in opponents' hands
-          gameState.players.forEach(p => {
-            if (p.id !== finnOwnerId) {
-              p.hand.forEach(c => {
-                if (c.statuses?.some(s => s.type === 'Revealed' && s.addedByPlayerId === finnOwnerId)) {
-                  revealedCount++
-                }
-              })
-            }
-          })
+        // Defensive check: if source card has no owner, this scoring is invalid
+        if (finnOwnerId === undefined) {
+          console.warn('[FINN_SCORING] Source card missing ownerId, skipping scoring')
+          markAbilityUsed(action.sourceCoords || sourceCoords, !!action.isDeployAbility)
+          return
+        }
 
-          // Count Revealed cards on the battlefield owned by opponents
-          gameState.board.forEach(row => {
-            row.forEach(cell => {
-              const card = cell.card
-              if (card && card.ownerId !== finnOwnerId) {
-                // Only count if revealed by Finn's owner
-                const revealedByFinn = card.statuses?.filter(s => s.type === 'Revealed' && s.addedByPlayerId === finnOwnerId).length || 0
-                revealedCount += revealedByFinn
+        // Count Revealed cards in opponents' hands
+        gameState.players.forEach(p => {
+          if (p.id !== finnOwnerId) {
+            p.hand.forEach(c => {
+              if (c.statuses?.some(s => s.type === 'Revealed' && s.addedByPlayerId === finnOwnerId)) {
+                revealedCount++
               }
             })
+          }
+        })
+
+        // Count Revealed cards on the battlefield owned by opponents
+        gameState.board.forEach(row => {
+          row.forEach(cell => {
+            const card = cell.card
+            if (card && card.ownerId !== finnOwnerId) {
+              // Only count if revealed by Finn's owner
+              const revealedByFinn = card.statuses?.filter(s => s.type === 'Revealed' && s.addedByPlayerId === finnOwnerId).length || 0
+              revealedCount += revealedByFinn
+            }
           })
-        }
+        })
 
         if (revealedCount > 0) {
           // Use action.sourceCoords for correct position of Finn card
@@ -125,9 +130,9 @@ export const useAppAbilities = ({
             row: coords.row,
             col: coords.col,
             text: `+${revealedCount}`,
-            playerId: finnOwnerId!,
+            playerId: finnOwnerId,
           })
-          updatePlayerScore(finnOwnerId!, revealedCount)
+          updatePlayerScore(finnOwnerId, revealedCount)
         }
         markAbilityUsed(action.sourceCoords || sourceCoords, !!action.isDeployAbility)
         return

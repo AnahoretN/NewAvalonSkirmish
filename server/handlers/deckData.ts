@@ -4,15 +4,70 @@
  */
 
 import { logger } from '../utils/logger.js';
-import { sanitizeString } from '../utils/security.js';
+import { sanitizeString, validateMessageSize } from '../utils/security.js';
 import { setCardDatabase, setTokenDatabase, setDeckFiles } from '../services/content.js';
+import { isRateLimited } from '../services/rateLimit.js';
+import type { WebSocket } from 'ws';
+
+interface UpdateDeckDataPayload {
+  deckData?: {
+    cardDatabase?: Record<string, unknown>;
+    tokenDatabase?: Record<string, unknown>;
+    deckFiles?: unknown[];
+  };
+}
+
+/**
+ * Shared sanitization helper for cards and tokens
+ * @param entityObj - The entity object to sanitize
+ * @returns Sanitized entity object or null if invalid
+ */
+function sanitizeEntity(entityObj: any): Record<string, any> | null {
+  if (typeof entityObj !== 'object' || !entityObj || !entityObj.name) {
+    return null;
+  }
+
+  return {
+    name: sanitizeString(String(entityObj.name)),
+    ...(entityObj.imageUrl && { imageUrl: sanitizeString(String(entityObj.imageUrl), 500) }),
+    ...(entityObj.fallbackImage && { fallbackImage: sanitizeString(String(entityObj.fallbackImage), 500) }),
+    ...(entityObj.power !== undefined && { power: Number(entityObj.power) || 0 }),
+    ...(entityObj.ability && { ability: sanitizeString(String(entityObj.ability), 2000) }),
+    ...(entityObj.flavorText && { flavorText: sanitizeString(String(entityObj.flavorText), 500) }),
+    ...(entityObj.color && { color: sanitizeString(String(entityObj.color), 50) }),
+    ...(entityObj.types && Array.isArray(entityObj.types) && {
+      types: entityObj.types.slice(0, 20).map((t: any) => sanitizeString(String(t), 50))
+    }),
+    ...(entityObj.allowedPanels && Array.isArray(entityObj.allowedPanels) && {
+      allowedPanels: entityObj.allowedPanels.slice(0, 10).map((p: any) => sanitizeString(String(p), 50))
+    }),
+  };
+}
 
 /**
  * Handle UPDATE_DECK_DATA message
  * Updates the card/token database from the host
  */
-export function handleUpdateDeckData(ws, data) {
+export function handleUpdateDeckData(ws: WebSocket & { playerId?: number }, data: UpdateDeckDataPayload): void {
   try {
+    // Security: Validate message size
+    if (!validateMessageSize(JSON.stringify(data))) {
+      ws.send(JSON.stringify({
+        type: 'ERROR',
+        message: 'Message size exceeds limit'
+      }));
+      return;
+    }
+
+    // Rate limit check
+    if (isRateLimited(ws)) {
+      ws.send(JSON.stringify({
+        type: 'ERROR',
+        message: 'Rate limited'
+      }));
+      return;
+    }
+
     // SECURITY: Only allow host (player 1) to update deck data
     if (ws.playerId !== 1) {
       ws.send(JSON.stringify({
@@ -49,20 +104,13 @@ export function handleUpdateDeckData(ws, data) {
     const sanitizedCardDatabase: Record<string, any> = {};
     if (deckData.cardDatabase && typeof deckData.cardDatabase === 'object') {
       for (const [cardId, card] of Object.entries(deckData.cardDatabase)) {
-        const cardObj = card as any;
-        if (typeof card === 'object' && card && cardObj.name) {
-          // Card ID is the key, not a property
+        const sanitized = sanitizeEntity(card);
+        if (sanitized) {
+          // Add card-specific fields
+          const cardObj = card as any;
           sanitizedCardDatabase[cardId] = {
-            name: sanitizeString(String(cardObj.name)),
-            ...(cardObj.imageUrl && { imageUrl: sanitizeString(String(cardObj.imageUrl), 500) }),
-            ...(cardObj.fallbackImage && { fallbackImage: sanitizeString(String(cardObj.fallbackImage), 500) }),
-            ...(cardObj.power !== undefined && { power: Number(cardObj.power) || 0 }),
-            ...(cardObj.ability && { ability: sanitizeString(String(cardObj.ability), 2000) }),
-            ...(cardObj.flavorText && { flavorText: sanitizeString(String(cardObj.flavorText), 500) }),
-            ...(cardObj.color && { color: sanitizeString(String(cardObj.color), 50) }),
-            ...(cardObj.types && Array.isArray(cardObj.types) && { types: cardObj.types.map(t => sanitizeString(String(t), 50)) }),
+            ...sanitized,
             ...(cardObj.faction && { faction: sanitizeString(String(cardObj.faction), 50) }),
-            ...(cardObj.allowedPanels && Array.isArray(cardObj.allowedPanels) && { allowedPanels: cardObj.allowedPanels.map(p => sanitizeString(String(p), 50)) }),
           };
         }
       }
@@ -106,20 +154,9 @@ export function handleUpdateDeckData(ws, data) {
     const sanitizedTokenDatabase: Record<string, any> = {};
     if (deckData.tokenDatabase && typeof deckData.tokenDatabase === 'object') {
       for (const [tokenId, token] of Object.entries(deckData.tokenDatabase)) {
-        const tokenObj = token as any;
-        if (typeof token === 'object' && token && tokenObj.name) {
-          // Token ID is the key, not a property
-          sanitizedTokenDatabase[tokenId] = {
-            name: sanitizeString(String(tokenObj.name)),
-            ...(tokenObj.imageUrl && { imageUrl: sanitizeString(String(tokenObj.imageUrl), 500) }),
-            ...(tokenObj.fallbackImage && { fallbackImage: sanitizeString(String(tokenObj.fallbackImage), 500) }),
-            ...(tokenObj.power !== undefined && { power: Number(tokenObj.power) || 0 }),
-            ...(tokenObj.ability && { ability: sanitizeString(String(tokenObj.ability), 2000) }),
-            ...(tokenObj.flavorText && { flavorText: sanitizeString(String(tokenObj.flavorText), 500) }),
-            ...(tokenObj.color && { color: sanitizeString(String(tokenObj.color), 50) }),
-            ...(tokenObj.types && Array.isArray(tokenObj.types) && { types: tokenObj.types.map(t => sanitizeString(String(t), 50)) }),
-            ...(tokenObj.allowedPanels && Array.isArray(tokenObj.allowedPanels) && { allowedPanels: tokenObj.allowedPanels.map(p => sanitizeString(String(p), 50)) }),
-          };
+        const sanitized = sanitizeEntity(token);
+        if (sanitized) {
+          sanitizedTokenDatabase[tokenId] = sanitized;
         }
       }
     }

@@ -981,7 +981,7 @@ const App = memo(function App() {
         } else if (actionToProcess.payload?.resourceChange) {
           const { draw, score } = actionToProcess.payload.resourceChange
           const activePlayerId = actionToProcess.sourceCard?.ownerId || gameState.activePlayerId
-          if (activePlayerId !== undefined) {
+          if (activePlayerId !== undefined && activePlayerId !== null) {
             if (draw) {
               const count = typeof draw === 'number' ? draw : 1
               for (let i = 0; i < count; i++) {

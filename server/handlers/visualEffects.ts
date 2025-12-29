@@ -5,6 +5,7 @@
 
 import { logger } from '../utils/logger.js';
 import { getGameState } from '../services/gameState.js';
+import { sanitizeString, validateMessageSize } from '../utils/security.js';
 import type { WebSocket } from 'ws';
 
 interface ExtendedWebSocket extends WebSocket {
@@ -15,11 +16,53 @@ interface ExtendedWebSocket extends WebSocket {
 }
 
 /**
+ * Helper function to broadcast visual effects to all clients in a game
+ * @param ws - WebSocket connection
+ * @param gameId - Game ID (should be sanitized before calling)
+ * @param messageType - Type of message to broadcast
+ * @param payload - Message payload
+ */
+function broadcastVisualEffect(
+  ws: ExtendedWebSocket,
+  gameId: string,
+  messageType: string,
+  payload: Record<string, unknown>
+): void {
+  const message = JSON.stringify({
+    type: messageType,
+    ...payload
+  });
+
+  const wss = ws.server;
+  if (wss && wss.clients) {
+    wss.clients.forEach((client: ExtendedWebSocket) => {
+      // Send to all clients in the game EXCEPT the sender (who already shows the effect locally)
+      if (client !== ws && client.readyState === 1 && wss.clientGameMap && wss.clientGameMap.get(client) === gameId) {
+        try {
+          client.send(message);
+        } catch (err: any) {
+          logger.error(`Error sending ${messageType} to client:`, err);
+        }
+      }
+    });
+  }
+}
+
+/**
  * Handle TRIGGER_HIGHLIGHT message
  * Broadcasts a highlight effect to all clients in the game
  */
 export function handleTriggerHighlight(ws: ExtendedWebSocket, data: any) {
   try {
+    // Security: Validate message size
+    if (!validateMessageSize(JSON.stringify(data))) {
+      ws.send(JSON.stringify({
+        type: 'ERROR',
+        message: 'Message size exceeds limit'
+      }));
+      return;
+    }
+
     // Input validation
     if (!data || typeof data !== 'object') {
       ws.send(JSON.stringify({
@@ -47,7 +90,10 @@ export function handleTriggerHighlight(ws: ExtendedWebSocket, data: any) {
       return;
     }
 
-    const gameState = getGameState(gameId);
+    // Security: Sanitize gameId
+    const sanitizedGameId = sanitizeString(gameId);
+
+    const gameState = getGameState(sanitizedGameId);
 
     if (!gameState) {
       ws.send(JSON.stringify({
@@ -58,27 +104,9 @@ export function handleTriggerHighlight(ws: ExtendedWebSocket, data: any) {
     }
 
     // Broadcast the highlight event to all OTHER clients in the game (exclude sender)
-    const highlightMessage = JSON.stringify({
-      type: 'HIGHLIGHT_TRIGGERED',
-      highlightData
-    });
+    broadcastVisualEffect(ws, sanitizedGameId, 'HIGHLIGHT_TRIGGERED', { highlightData });
 
-    // Use the same broadcasting approach as broadcastToGame
-    const wss = ws.server;
-    if (wss && wss.clients) {
-      wss.clients.forEach((client: ExtendedWebSocket) => {
-        // Send to all clients in the game EXCEPT the sender (who already shows the effect locally)
-        if (client !== ws && client.readyState === 1 && wss.clientGameMap && wss.clientGameMap.get(client) === gameId) {
-          try {
-            client.send(highlightMessage);
-          } catch (err: any) {
-            logger.error('Error sending highlight to client:', err);
-          }
-        }
-      });
-    }
-
-    logger.debug(`Highlight triggered in game ${gameId}`);
+    logger.debug(`Highlight triggered in game ${sanitizedGameId}`);
   } catch (err: any) {
     logger.error('Failed to trigger highlight:', err);
   }
@@ -90,6 +118,15 @@ export function handleTriggerHighlight(ws: ExtendedWebSocket, data: any) {
  */
 export function handleTriggerNoTarget(ws: ExtendedWebSocket, data: any) {
   try {
+    // Security: Validate message size
+    if (!validateMessageSize(JSON.stringify(data))) {
+      ws.send(JSON.stringify({
+        type: 'ERROR',
+        message: 'Message size exceeds limit'
+      }));
+      return;
+    }
+
     // Input validation
     if (!data || typeof data !== 'object') {
       ws.send(JSON.stringify({
@@ -117,7 +154,10 @@ export function handleTriggerNoTarget(ws: ExtendedWebSocket, data: any) {
       return;
     }
 
-    const gameState = getGameState(gameId);
+    // Security: Sanitize gameId
+    const sanitizedGameId = sanitizeString(gameId);
+
+    const gameState = getGameState(sanitizedGameId);
 
     if (!gameState) {
       ws.send(JSON.stringify({
@@ -128,28 +168,9 @@ export function handleTriggerNoTarget(ws: ExtendedWebSocket, data: any) {
     }
 
     // Broadcast the no-target event to all OTHER clients in the game (exclude sender)
-    const message = JSON.stringify({
-      type: 'NO_TARGET_TRIGGERED',
-      coords,
-      timestamp
-    });
+    broadcastVisualEffect(ws, sanitizedGameId, 'NO_TARGET_TRIGGERED', { coords, timestamp });
 
-    // Use the same broadcasting approach as broadcastToGame
-    const wss = ws.server;
-    if (wss && wss.clients) {
-      wss.clients.forEach((client: ExtendedWebSocket) => {
-        // Send to all clients in the game EXCEPT the sender (who already shows the effect locally)
-        if (client !== ws && client.readyState === 1 && wss.clientGameMap && wss.clientGameMap.get(client) === gameId) {
-          try {
-            client.send(message);
-          } catch (err: any) {
-            logger.error('Error sending no-target to client:', err);
-          }
-        }
-      });
-    }
-
-    logger.debug(`No target overlay triggered in game ${gameId}`);
+    logger.debug(`No target overlay triggered in game ${sanitizedGameId}`);
   } catch (err: any) {
     logger.error('Failed to trigger no target overlay:', err);
   }
@@ -161,6 +182,15 @@ export function handleTriggerNoTarget(ws: ExtendedWebSocket, data: any) {
  */
 export function handleTriggerFloatingText(ws: ExtendedWebSocket, data: any) {
   try {
+    // Security: Validate message size
+    if (!validateMessageSize(JSON.stringify(data))) {
+      ws.send(JSON.stringify({
+        type: 'ERROR',
+        message: 'Message size exceeds limit'
+      }));
+      return;
+    }
+
     // Input validation
     if (!data || typeof data !== 'object') {
       ws.send(JSON.stringify({
@@ -188,7 +218,10 @@ export function handleTriggerFloatingText(ws: ExtendedWebSocket, data: any) {
       return;
     }
 
-    const gameState = getGameState(gameId);
+    // Security: Sanitize gameId
+    const sanitizedGameId = sanitizeString(gameId);
+
+    const gameState = getGameState(sanitizedGameId);
 
     if (!gameState) {
       ws.send(JSON.stringify({
@@ -199,26 +232,9 @@ export function handleTriggerFloatingText(ws: ExtendedWebSocket, data: any) {
     }
 
     // Broadcast the floating text event to all OTHER clients in the game (exclude sender)
-    const message = JSON.stringify({
-      type: 'FLOATING_TEXT_TRIGGERED',
-      floatingTextData
-    });
+    broadcastVisualEffect(ws, sanitizedGameId, 'FLOATING_TEXT_TRIGGERED', { floatingTextData });
 
-    const wss = ws.server;
-    if (wss && wss.clients) {
-      wss.clients.forEach((client: ExtendedWebSocket) => {
-        // Send to all clients in the game EXCEPT the sender (who already shows the effect locally)
-        if (client !== ws && client.readyState === 1 && wss.clientGameMap && wss.clientGameMap.get(client) === gameId) {
-          try {
-            client.send(message);
-          } catch (err: any) {
-            logger.error('Error sending floating text to client:', err);
-          }
-        }
-      });
-    }
-
-    logger.debug(`Floating text triggered in game ${gameId}`);
+    logger.debug(`Floating text triggered in game ${sanitizedGameId}`);
   } catch (err: any) {
     logger.error('Failed to trigger floating text:', err);
   }
@@ -230,6 +246,15 @@ export function handleTriggerFloatingText(ws: ExtendedWebSocket, data: any) {
  */
 export function handleTriggerFloatingTextBatch(ws: ExtendedWebSocket, data: any) {
   try {
+    // Security: Validate message size
+    if (!validateMessageSize(JSON.stringify(data))) {
+      ws.send(JSON.stringify({
+        type: 'ERROR',
+        message: 'Message size exceeds limit'
+      }));
+      return;
+    }
+
     // Input validation
     if (!data || typeof data !== 'object') {
       ws.send(JSON.stringify({
@@ -257,7 +282,10 @@ export function handleTriggerFloatingTextBatch(ws: ExtendedWebSocket, data: any)
       return;
     }
 
-    const gameState = getGameState(gameId);
+    // Security: Sanitize gameId
+    const sanitizedGameId = sanitizeString(gameId);
+
+    const gameState = getGameState(sanitizedGameId);
 
     if (!gameState) {
       ws.send(JSON.stringify({
@@ -268,26 +296,9 @@ export function handleTriggerFloatingTextBatch(ws: ExtendedWebSocket, data: any)
     }
 
     // Broadcast the floating text batch event to all OTHER clients in the game (exclude sender)
-    const message = JSON.stringify({
-      type: 'FLOATING_TEXT_BATCH_TRIGGERED',
-      batch
-    });
+    broadcastVisualEffect(ws, sanitizedGameId, 'FLOATING_TEXT_BATCH_TRIGGERED', { batch });
 
-    const wss = ws.server;
-    if (wss && wss.clients) {
-      wss.clients.forEach((client: ExtendedWebSocket) => {
-        // Send to all clients in the game EXCEPT the sender (who already shows the effect locally)
-        if (client !== ws && client.readyState === 1 && wss.clientGameMap && wss.clientGameMap.get(client) === gameId) {
-          try {
-            client.send(message);
-          } catch (err: any) {
-            logger.error('Error sending floating text batch to client:', err);
-          }
-        }
-      });
-    }
-
-    logger.debug(`Floating text batch triggered in game ${gameId}`);
+    logger.debug(`Floating text batch triggered in game ${sanitizedGameId}`);
   } catch (err: any) {
     logger.error('Failed to trigger floating text batch:', err);
   }

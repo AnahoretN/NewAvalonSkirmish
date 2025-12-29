@@ -87,7 +87,7 @@ export const getReadyStatusForPhase = (card: Card, phaseIndex: number): string |
 export const hasReadyAbilityInCurrentPhase = (
   card: Card,
   phaseOrGameState: GameState | number,
-  activePlayerId?: number
+  activePlayerId?: number | null
 ): boolean => {
   // Handle both call styles:
   // - hasReadyAbilityInCurrentPhase(card, gameState)
@@ -96,7 +96,7 @@ export const hasReadyAbilityInCurrentPhase = (
   let gameState: GameState | undefined
   if (typeof phaseOrGameState === 'object') {
     phaseIndex = phaseOrGameState.currentPhase
-    activePlayerId = phaseOrGameState.activePlayerId
+    activePlayerId = phaseOrGameState.activePlayerId ?? undefined
     gameState = phaseOrGameState
   } else {
     phaseIndex = phaseOrGameState
@@ -107,7 +107,7 @@ export const hasReadyAbilityInCurrentPhase = (
   // - Stun status check
   // - Support requirement check
   // - Phase-appropriate ready status check
-  return serverCanActivateAbility(card, phaseIndex, activePlayerId, gameState)
+  return serverCanActivateAbility(card, phaseIndex, activePlayerId ?? undefined, gameState)
 }
 
 /**

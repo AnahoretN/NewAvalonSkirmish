@@ -182,8 +182,8 @@ export interface GameState {
   isPrivate: boolean;
   isReadyCheckActive: boolean;
   revealRequests: RevealRequest[];
-  activePlayerId?: number;
-  startingPlayerId?: number; // The ID of the player who started the game (Turn 1 Player 1)
+  activePlayerId: number | null; // Aligned with server and client: null when no active player
+  startingPlayerId: number | null; // The ID of the player who started the game (Turn 1 Player 1)
   currentPhase: number; // 0 to 4 representing the index in TURN_PHASES
   isScoringStep: boolean; // True when waiting for the active player to score a line after Commit phase
 

@@ -114,13 +114,13 @@ export const useGameState = () => {
     isPrivate: true,
     isReadyCheckActive: false,
     revealRequests: [],
-    activePlayerId: undefined,
-    startingPlayerId: undefined,
+    activePlayerId: null, // Aligned with server default (null)
+    startingPlayerId: null, // Aligned with server default (null)
     currentPhase: 0,
     isScoringStep: false,
     preserveDeployAbilities: false,
-    autoAbilitiesEnabled: false,
-    autoDrawEnabled: false,
+    autoAbilitiesEnabled: true, // Match server default
+    autoDrawEnabled: true, // Match server default
     currentRound: 1,
     turnNumber: 1,
     roundEndTriggered: false,
@@ -152,6 +152,15 @@ export const useGameState = () => {
     localPlayerIdRef.current = localPlayerId
   }, [localPlayerId])
 
+  /**
+   * updateState - Low-level API to update game state and synchronize with server
+   *
+   * This is a low-level API that should only be used from orchestrating components.
+   * It sends the updated state to the server via WebSocket for all clients to sync.
+   * Avoid using this for purely local UI state mutations to avoid unnecessary server spam.
+   *
+   * @param newStateOrFn - New state object or function deriving new state from previous state
+   */
   const updateState = useCallback((newStateOrFn: GameState | ((prevState: GameState) => GameState)) => {
     setGameState((prevState) => {
       // Compute the new state once, using prevState from React for consistency
@@ -497,8 +506,8 @@ export const useGameState = () => {
         isGameStarted: false,
         isReadyCheckActive: false,
         revealRequests: [],
-        activePlayerId: undefined,
-        startingPlayerId: undefined,
+        activePlayerId: null, // Aligned with server default (null)
+        startingPlayerId: null, // Aligned with server default (null)
         currentPhase: 0,
         isScoringStep: false,
         currentRound: 1,
@@ -1289,6 +1298,18 @@ export const useGameState = () => {
     })
   }, [updateState])
 
+  /**
+   * moveItem - Move a dragged item to a target location
+   *
+   * Ready-Status Lifecycle:
+   * - Reads auto_abilities_enabled from localStorage to drive auto-transition to Main phase
+   * - Preserves card state for board-to-board moves via actualCardState (deep copy)
+   * - Blocks moving stunned allied/teammate cards unless item.isManual is true
+   * - Initializes ready statuses (readyDeploy/readySetup/readyCommit) on cards entering the board
+   * - Cleans up ready statuses with removeAllReadyStatuses when cards leave the board
+   *
+   * These behaviors ensure proper auto-ability tracking while respecting game rules.
+   */
   const moveItem = useCallback((item: DragItem, target: DropTarget) => {
     updateState(currentState => {
       if (!currentState.isGameStarted) {
@@ -1745,6 +1766,16 @@ export const useGameState = () => {
     })
   }, [updateState])
 
+  /**
+   * reorderCards - Low-level API to reorder cards in a player's deck or discard pile
+   *
+   * This is a low-level API that should only be used from orchestrating components.
+   * Use this when you need to change the order of cards in a deck or discard pile.
+   *
+   * @param playerId - The ID of the player whose cards are being reordered
+   * @param newCards - The new ordered array of cards
+   * @param source - Either 'deck' or 'discard' indicating which pile to reorder
+   */
   const reorderCards = useCallback((playerId: number, newCards: Card[], source: 'deck' | 'discard') => {
     updateState(currentState => {
       const newState: GameState = JSON.parse(JSON.stringify(currentState))
@@ -1841,7 +1872,12 @@ export const useGameState = () => {
         // Only add if the card actually has a deploy: ability (case-insensitive)
         if (abilityText.toLowerCase().includes('deploy:')) {
           if (!card.statuses.some(s => s.type === 'readyDeploy')) {
-            const ownerId = card.ownerId || 0
+            // Require valid ownerId (player IDs start at 1, so 0 is invalid)
+            const ownerId = card.ownerId
+            if (ownerId === undefined || ownerId === null || ownerId === 0) {
+              console.warn('[resetDeployStatus] Card missing or invalid ownerId:', card.id)
+              return currentState
+            }
             card.statuses.push({ type: 'readyDeploy', addedByPlayerId: ownerId })
           }
         }

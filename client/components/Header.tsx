@@ -229,6 +229,7 @@ const Header = memo<HeaderProps>(({
                   : 'bg-gray-700 hover:bg-gray-600 text-gray-400 border-2 border-gray-600'
               }`}
               title={t('autoAbilitiesTooltip')}
+              aria-label={t('autoAbility')}
             >
               AA
             </button>
@@ -241,6 +242,7 @@ const Header = memo<HeaderProps>(({
                   : 'bg-gray-700 hover:bg-gray-600 text-gray-400 border-2 border-gray-600'
               }`}
               title={t('autoDrawTooltip')}
+              aria-label={t('autoDraw')}
             >
               AD
             </button>

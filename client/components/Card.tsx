@@ -22,7 +22,7 @@ interface CardInteractionProps {
   localPlayerId?: number | null;
   disableTooltip?: boolean;
   activePhaseIndex?: number;
-  activePlayerId?: number;
+  activePlayerId?: number | null; // Aligned with GameState type (null when no active player)
   disableActiveHighlights?: boolean;
   preserveDeployAbilities?: boolean;
   activeAbilitySourceCoords?: { row: number, col: number } | null; // Source of currently active ability
@@ -208,6 +208,8 @@ const CardCore: React.FC<CardCoreProps & CardInteractionProps> = memo(({
 
   // Aggregate statuses by TYPE and PLAYER ID to allow separate icons for different players.
   // Filter out readiness statuses (readyDeploy, readySetup, readyCommit) - they are invisible to players
+  // DEV NOTE: ready* statuses are internal-only and intentionally hidden from the UI.
+  // They control ability availability and are managed by the auto-abilities system.
   const statusGroups = useMemo(() => {
     const hiddenStatusTypes = ['readyDeploy', 'readySetup', 'readyCommit']
     return (card.statuses ?? []).reduce((acc, status) => {
@@ -378,7 +380,8 @@ const CardCore: React.FC<CardCoreProps & CardInteractionProps> = memo(({
 
           // Inner glow effect with owner's color when ready
           const ownerColorName = card.ownerId ? playerColorMap.get(card.ownerId) : null
-          const colorRgb = ownerColorName ? PLAYER_COLOR_RGB[ownerColorName] : null
+          // Fallback to white/blue glow if color is missing from PLAYER_COLOR_RGB
+          const colorRgb = ownerColorName ? (PLAYER_COLOR_RGB[ownerColorName] || { r: 255, g: 255, b: 255 }) : null
           const innerGlowStyle = shouldHighlight && colorRgb ? {
             background: `radial-gradient(circle at center, transparent 20%, rgba(${colorRgb.r}, ${colorRgb.g}, ${colorRgb.b}, 0.7) 100%)`,
             boxShadow: `inset 0 0 20px rgba(${colorRgb.r}, ${colorRgb.g}, ${colorRgb.b}, 0.6)`,

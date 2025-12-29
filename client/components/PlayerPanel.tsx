@@ -33,7 +33,7 @@ interface PlayerPanelProps {
   playerColorMap: Map<number, PlayerColor>;
   allPlayers: Player[];
   localPlayerTeamId?: number;
-  activePlayerId?: number;
+  activePlayerId?: number | null; // Aligned with GameState type (null when no active player)
   onToggleActivePlayer: (playerId: number) => void;
   imageRefreshVersion: number;
   layoutMode: 'list-local' | 'list-remote';
@@ -44,7 +44,7 @@ interface PlayerPanelProps {
   disableActiveHighlights?: boolean;
   preserveDeployAbilities?: boolean;
   roundWinners?: Record<number, number[]>;
-  startingPlayerId?: number;
+  startingPlayerId?: number | null; // Aligned with GameState type (null when not set)
   onDeckClick?: (playerId: number) => void;
   isDeckSelectable?: boolean;
 }

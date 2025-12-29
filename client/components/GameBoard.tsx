@@ -21,7 +21,7 @@ interface GameBoardProps {
   imageRefreshVersion?: number;
   cursorStack: { type: string; count: number } | null;
   currentPhase?: number;
-  activePlayerId?: number;
+  activePlayerId?: number | null; // Aligned with GameState type (null when no active player)
   onCardClick?: (card: CardType, boardCoords: { row: number; col: number }) => void;
   onEmptyCellClick?: (boardCoords: { row: number; col: number }) => void;
   validTargets?: {row: number, col: number}[];
@@ -51,7 +51,7 @@ const GridCell = memo<{
   imageRefreshVersion?: number;
   cursorStack: GameBoardProps['cursorStack'];
   currentPhase?: number;
-  activePlayerId?: number;
+  activePlayerId?: number | null; // Aligned with GameState type (null when no active player)
   onCardClick?: (card: CardType, boardCoords: { row: number; col: number }) => void;
   onEmptyCellClick?: (boardCoords: { row: number; col: number }) => void;
   isValidTarget?: boolean;

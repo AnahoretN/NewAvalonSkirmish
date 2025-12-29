@@ -81,6 +81,11 @@ export function createGameState(gameId: string, options: GameOptions = {}): Game
     isReadyCheckActive: false,
     created: Date.now(),
     lastActivity: Date.now(),
+    // Game-level auto flags: authoritative server flags for auto-transitions
+    // These control server-side behavior, while client-side localStorage stores UI preferences
+    // autoAbilitiesEnabled: if true, server triggers auto-transitions between phases
+    // autoDrawEnabled: if true, server auto-draws cards for players on their turn
+    // preserveDeployAbilities: if true, deploy abilities remain available after Setup→Main transition
     autoAbilitiesEnabled: true,
     autoDrawEnabled: true,
     preserveDeployAbilities: false,
@@ -275,6 +280,15 @@ export function getAllGameLogs(): Map<string, string[]> {
 
 /**
  * Clear game timers
+ *
+ * NOTE: This function relies on shared mutable Map imports from gameLifecycle.js:
+ * - gameTerminationTimers: Maps gameId → termination timer
+ * - gameInactivityTimers: Maps gameId → inactivity timer
+ * - playerDisconnectTimers: Maps "gameId-playerId" → disconnect timer
+ *
+ * These are singleton Maps shared across the lifecycle module. If gameLifecycle.js
+ * is refactored to expose copies or proxies, timer clearing here will silently fail.
+ * Timer handles are of type NodeJS.Timeout | number | undefined.
  */
 export function clearGameTimers(gameId: string): void {
   const timers = [
