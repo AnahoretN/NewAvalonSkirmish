@@ -472,6 +472,7 @@
   },
   "tokenDatabase": {
     "reconDrone": {
+      "baseId": "reconDrone",
       "name": "Recon Drone",
       "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253333/TKN_RECON_DRONE_esfknf.png",
       "fallbackImage": "/images/cards/TKN_RECON_DRONE.png",
@@ -483,6 +484,7 @@
       "allowedPanels": ["TOKEN_PANEL"]
     },
     "walkingTurret": {
+      "baseId": "walkingTurret",
       "name": "Walking Turret",
       "imageUrl": "https://res.cloudinary.com/dxxh6meej/image/upload/v1763253307/TKN_WALKING_TURRET_uq6owm.png",
       "fallbackImage": "/images/cards/TKN_WALKING_TURRET.png",

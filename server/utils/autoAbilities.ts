@@ -980,10 +980,28 @@ export const removeAllReadyStatuses = (card: Card): void => {
 
 /**
  * Determines if a specific card can be activated in the current state.
+ * If gameState is provided, allows any player to control dummy player's cards
+ * (when the dummy is the active player).
  */
-export const canActivateAbility = (card: Card, phaseIndex: number, activePlayerId: number | undefined): boolean => {
+export const canActivateAbility = (
+  card: Card,
+  phaseIndex: number,
+  activePlayerId: number | undefined,
+  gameState?: GameState
+): boolean => {
+  // Ownership check: active player must own the card
+  // Exception: if card belongs to dummy player and that dummy is active, allow activation
   if (activePlayerId !== card.ownerId) {
     return false
+  }
+
+  // If the card belongs to a dummy player, verify the dummy is the active player
+  if (gameState && card.ownerId !== undefined) {
+    const cardOwner = gameState.players.find(p => p.id === card.ownerId)
+    if (cardOwner?.isDummy && gameState.activePlayerId !== card.ownerId) {
+      // Dummy player's card can only be activated when it's the dummy's turn
+      return false
+    }
   }
   if (card.statuses?.some(s => s.type === 'Stun')) {
     return false

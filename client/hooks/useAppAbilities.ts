@@ -690,7 +690,7 @@ export const useAppAbilities = ({
       return
     }
 
-    if (!canActivateAbility(card, gameState.currentPhase, gameState.activePlayerId)) {
+    if (!canActivateAbility(card, gameState.currentPhase, gameState.activePlayerId, gameState)) {
       return
     }
 
@@ -1371,7 +1371,9 @@ export const useAppAbilities = ({
     if (mode === 'SPAWN_TOKEN' && sourceCoords && payload.tokenName && sourceCoords.row >= 0) {
       const isAdj = Math.abs(boardCoords.row - sourceCoords.row) + Math.abs(boardCoords.col - sourceCoords.col) === 1
       if (isAdj) {
-        spawnToken(boardCoords, payload.tokenName, actorId!)
+        // Token owner is the source card's owner (could be dummy)
+        const tokenOwnerId = sourceCard?.ownerId ?? actorId!
+        spawnToken(boardCoords, payload.tokenName, tokenOwnerId)
         markAbilityUsed(sourceCoords, isDeployAbility)
         setTimeout(() => setAbilityMode(null), 100)
       }
@@ -1691,7 +1693,7 @@ export const useAppAbilities = ({
     if (gameState.activePlayerId !== player.id) {
       return
     }
-    if (!canActivateAbility(card, gameState.currentPhase, gameState.activePlayerId)) {
+    if (!canActivateAbility(card, gameState.currentPhase, gameState.activePlayerId, gameState)) {
       return
     }
     activateAbility(card, { row: -1, col: -1 })

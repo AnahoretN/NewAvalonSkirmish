@@ -1491,7 +1491,22 @@ export const useGameState = () => {
           // Note: Ready statuses are initialized below, no need to delete legacy flags
 
           // Initialize ready statuses for the new card (only for abilities it actually has)
-          const ownerId = cardToMove.ownerId ?? localPlayerIdRef.current ?? 0
+          // Ready statuses belong to the card owner (even if it's a dummy player)
+          // Token ownership rules:
+          // - Tokens from token_panel: owned by active player (even if it's a dummy)
+          // - Tokens from abilities (spawnToken): already have ownerId set correctly
+          // - Other cards: owned by local player who played them
+          let ownerId = cardToMove.ownerId
+          if (ownerId === undefined) {
+            if (item.source === 'token_panel') {
+              // Token from token panel gets active player as owner
+              ownerId = newState.activePlayerId ?? localPlayerIdRef.current ?? 0
+            } else {
+              // Other cards get local player as owner
+              ownerId = localPlayerIdRef.current ?? 0
+            }
+            cardToMove.ownerId = ownerId
+          }
           initializeReadyStatuses(cardToMove, ownerId)
 
           // Lucius, The Immortal: Bonus if entered from discard
@@ -1999,6 +2014,8 @@ export const useGameState = () => {
           statuses: [],
         }
         // Initialize ready statuses based on token's actual abilities
+        // Ready statuses belong to the token owner (even if it's a dummy player)
+        // Control is handled by canActivateAbility checking dummy ownership
         initializeReadyStatuses(tokenCard, ownerId)
         newState.board[coords.row][coords.col].card = tokenCard
       }

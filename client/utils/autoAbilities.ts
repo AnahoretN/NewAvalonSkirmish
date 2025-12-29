@@ -93,9 +93,11 @@ export const hasReadyAbilityInCurrentPhase = (
   // - hasReadyAbilityInCurrentPhase(card, gameState)
   // - hasReadyAbilityInCurrentPhase(card, phaseIndex, activePlayerId)
   let phaseIndex: number
+  let gameState: GameState | undefined
   if (typeof phaseOrGameState === 'object') {
     phaseIndex = phaseOrGameState.currentPhase
     activePlayerId = phaseOrGameState.activePlayerId
+    gameState = phaseOrGameState
   } else {
     phaseIndex = phaseOrGameState
   }
@@ -105,7 +107,7 @@ export const hasReadyAbilityInCurrentPhase = (
   // - Stun status check
   // - Support requirement check
   // - Phase-appropriate ready status check
-  return serverCanActivateAbility(card, phaseIndex, activePlayerId)
+  return serverCanActivateAbility(card, phaseIndex, activePlayerId, gameState)
 }
 
 /**

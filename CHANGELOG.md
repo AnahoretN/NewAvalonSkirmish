@@ -27,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - New ability mode: `ZIUS_LINE_SELECT` - single-click line selection anchored at target card position
 - Special case handling in `checkActionHasTargets` for hand-only actions requiring discard
+- Token ownership system: tokens from token panel are owned by active player, tokens from abilities owned by card owner
+- Any player can now control dummy player's cards/tokens when dummy is the active player
 
 
 ## [0.2.1] - 2025-12-26
