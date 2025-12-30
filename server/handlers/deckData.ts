@@ -32,8 +32,10 @@ function sanitizeEntity(entityObj: any): Record<string, any> | null {
     ...(entityObj.imageUrl && { imageUrl: sanitizeString(String(entityObj.imageUrl), 500) }),
     ...(entityObj.fallbackImage && { fallbackImage: sanitizeString(String(entityObj.fallbackImage), 500) }),
     ...(entityObj.power !== undefined && { power: Number(entityObj.power) || 0 }),
-    ...(entityObj.ability && { ability: sanitizeString(String(entityObj.ability), 2000) }),
-    ...(entityObj.flavorText && { flavorText: sanitizeString(String(entityObj.flavorText), 500) }),
+    // ability and flavorText are from trusted source (contentDatabase.json), not user input
+    // Only limit length, don't sanitize - preserve newlines for formatting
+    ...(entityObj.ability && { ability: String(entityObj.ability).substring(0, 2000) }),
+    ...(entityObj.flavorText && { flavorText: String(entityObj.flavorText).substring(0, 500) }),
     ...(entityObj.color && { color: sanitizeString(String(entityObj.color), 50) }),
     ...(entityObj.types && Array.isArray(entityObj.types) && {
       types: entityObj.types.slice(0, 20).map((t: any) => sanitizeString(String(t), 50))
