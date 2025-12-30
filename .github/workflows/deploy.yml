@@ -1,0 +1,23 @@
+name: Deploy to Production
+
+on:
+  workflow_run:
+    workflows: ["Build and Push Docker Image"]
+    branches: [master]
+    types:
+      - completed
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Deploy notification
+        run: |
+          echo "Docker image built successfully!"
+          echo "Image: ghcr.io/${{ github.repository }}/newavalonskirmish:latest"
+          echo ""
+          echo "To deploy on server, run:"
+          echo "  ssh your-server 'docker pull ghcr.io/${{ github.repository }}/newavalonskirmish:latest && docker-compose up -d'"
