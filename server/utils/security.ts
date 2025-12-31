@@ -7,6 +7,7 @@ import crypto from 'crypto';
 
 /**
  * Sanitize string input
+ * Removes HTML special characters and control characters
  */
 export function sanitizeString(input, maxLength = CONFIG.MAX_STRING_LENGTH) {
   if (typeof input !== 'string') return '';

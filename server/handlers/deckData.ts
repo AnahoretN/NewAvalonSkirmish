@@ -32,8 +32,10 @@ function sanitizeEntity(entityObj: any): Record<string, any> | null {
     ...(entityObj.imageUrl && { imageUrl: sanitizeString(String(entityObj.imageUrl), 500) }),
     ...(entityObj.fallbackImage && { fallbackImage: sanitizeString(String(entityObj.fallbackImage), 500) }),
     ...(entityObj.power !== undefined && { power: Number(entityObj.power) || 0 }),
-    ...(entityObj.ability && { ability: sanitizeString(String(entityObj.ability), 2000) }),
-    ...(entityObj.flavorText && { flavorText: sanitizeString(String(entityObj.flavorText), 500) }),
+    // ability and flavorText are from trusted source (contentDatabase.json), not user input
+    // Only limit length, don't sanitize - preserve newlines for formatting
+    ...(entityObj.ability && { ability: String(entityObj.ability).substring(0, 2000) }),
+    ...(entityObj.flavorText && { flavorText: String(entityObj.flavorText).substring(0, 500) }),
     ...(entityObj.color && { color: sanitizeString(String(entityObj.color), 50) }),
     ...(entityObj.types && Array.isArray(entityObj.types) && {
       types: entityObj.types.slice(0, 20).map((t: any) => sanitizeString(String(t), 50))
@@ -131,13 +133,16 @@ export function handleUpdateDeckData(ws: WebSocket & { playerId?: number }, data
           };
 
           // Validate and sanitize cards array if present
+          // Support both cardId/quantity (from JSON) and id/count (legacy) formats
           if (deckObj.cards && Array.isArray(deckObj.cards)) {
             const sanitizedCards = deckObj.cards
-              .filter((card: any) => card && typeof card === 'object' && typeof card.id === 'string')
-              .map((card: any) => ({
-                id: sanitizeString(String(card.id), 50),
-                count: Math.max(0, Math.min(99, Number(card.count) || 1))
-              }));
+              .filter((card: any) => card && typeof card === 'object')
+              .map((card: any) => {
+                const cardId = String(card.cardId || card.id || '');
+                const quantity = Math.max(0, Math.min(99, Number(card.quantity || card.count || 1)));
+                return { cardId, quantity };
+              })
+              .filter((card: any) => card.cardId !== '');
 
             if (sanitizedCards.length > 0) {
               sanitizedDeck.cards = sanitizedCards;
